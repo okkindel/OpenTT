@@ -1,0 +1,24 @@
+[package]
+name = "tt-import"
+description = "Builds the game's asset directory from a Think Tanks install plus our own files"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[[bin]]
+name = "tt-import"
+path = "src/main.rs"
+
+# The mission pictures are rendered by the game (`Options::pictures`, a
+# callback): the game uses this crate, so this crate cannot use the game.
+
+[dependencies]
+tt-assets = { path = "../tt-assets" }
+tt-game = { path = "../tt-game" }
+serde = { version = "1", features = ["derive"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+# Decoding the game's sounds for the built-in mixer (no ffmpeg).
+lewton = "0.10"

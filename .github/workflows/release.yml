@@ -1,0 +1,129 @@
+name: Release
+
+# A tag v<version> (the workspace version of Cargo.toml) builds the
+# packages on Linux, Windows and macOS and publishes them as a GitHub
+# release. The scripts are in packaging/ (packaging/README.md).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version:
+    name: Check the version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        shell: bash
+        run: |
+          VERSION="$(sed -n '/^\[workspace.package\]/,/^\[/ s/^version *= *"\(.*\)"/\1/p' Cargo.toml | head -n1)"
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$VERSION" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match the version $VERSION of Cargo.toml"
+            exit 1
+          fi
+          echo "version=$VERSION" >>"$GITHUB_OUTPUT"
+
+  linux:
+    name: Linux packages
+    needs: version
+    # The oldest supported runner: the binaries need its glibc or newer.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: System libraries
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends pkg-config libasound2-dev desktop-file-utils
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo-deb
+        run: cargo install cargo-deb --version 3.8.0 --locked
+      - name: appimagetool
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSL -o "$RUNNER_TEMP/bin/appimagetool" https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x "$RUNNER_TEMP/bin/appimagetool"
+          echo "APPIMAGETOOL=$RUNNER_TEMP/bin/appimagetool" >>"$GITHUB_ENV"
+      - run: desktop-file-validate packaging/linux/*.desktop
+      - run: packaging/package-linux.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            target/dist/*.tar.gz
+            target/dist/*.deb
+            target/dist/*.AppImage
+          if-no-files-found: error
+
+  windows:
+    name: Windows package
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - shell: bash
+        run: packaging/package-windows.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: target/dist/*.zip
+          if-no-files-found: error
+
+  macos:
+    name: macOS package
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+      - run: packaging/package-macos.sh --universal
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: target/dist/*.dmg
+          if-no-files-found: error
+
+  publish:
+    name: GitHub release
+    needs: [version, linux, windows, macos]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - run: ls -l dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: OpenTT ${{ needs.version.outputs.version }}
+          draft: true
+          files: dist/*
+          body: |
+            OpenTT ${{ needs.version.outputs.version }}.
+
+            OpenTT does not include the game's content: on the first start it
+            asks for the folder of your own copy of Think Tanks and imports it.
+
+            * Linux: `.deb` (Debian, Ubuntu), `.AppImage` (any distribution:
+              `chmod +x` and run) or the portable `.tar.gz`.
+            * Windows: unpack the `.zip` and run the executable.
+            * macOS: open the `.dmg` and drag OpenTT to Applications. The app
+              is not signed: the first time, open it from Finder with
+              right-click → Open (or System Settings → Privacy & Security →
+              Open Anyway).

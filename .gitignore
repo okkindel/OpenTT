@@ -1,0 +1,10 @@
+/target
+# The game data that tt-import builds from your own install: never commit
+# it. assets/ holds OpenTT's own files only (tracked).
+/gamedata/
+/gamedata.tmp/
+/gamedata.old/
+# Your own mods (the example mods that ship with the game are tracked).
+/mods/*
+!/mods/carpet-bombing/
+!/mods/desert-camo/

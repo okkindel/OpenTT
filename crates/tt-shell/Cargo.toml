@@ -1,0 +1,16 @@
+[package]
+name = "tt-shell"
+description = "Shell logic: players, high scores, solo campaign, settings; RON saves with a one-time import of older saves"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+tt-game = { path = "../tt-game" }
+tt-assets = { path = "../tt-assets" }
+serde = { version = "1", features = ["derive"] }
+ron = "0.12"
+

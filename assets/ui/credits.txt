@@ -1,0 +1,13 @@
+{product}
+
+by okkindel
+
+Inspired by Think Tanks (BraveTree Productions, 2003)
+and the Torque Game Engine (GarageGames)
+
+Original art, sound and music: BraveTree Productions
+Joe Maruschak, Mike Jahnke, Clark Fagot, Tim Clarke, Pascal Bos
+
+Announcer voice: Piper TTS (en_US-norman)
+Font: Chakra Petch by Cadson Demak (SIL Open Font License)
+Built with Rust, wgpu and egui

@@ -1,0 +1,70 @@
+// The default key bindings, in binding order.
+//
+// A player's own bindings go into `binds.ron` in the data directory, in
+// this format: each map listed there replaces the map here. A key
+// configuration of an earlier installation found there is imported into
+// it once.
+//
+// `device`: Keyboard or Mouse. `key`: the key with its modifiers ("w",
+// "ctrl q", "numpad8", "button0", "xaxis").
+// `when`: Debug = developer builds only, DebugOrDemo, Mac / NotMac.
+// Axis bindings may have `scale: 0.5` and `invert: true`.
+(
+    maps: [
+        (
+            name: "MoveMap",
+            binds: [
+                (device: Keyboard, key: "escape", action: EscapeFromGame),
+                (device: Keyboard, key: "a", action: MoveLeft),
+                (device: Keyboard, key: "d", action: MoveRight),
+                (device: Keyboard, key: "w", action: MoveForward),
+                (device: Keyboard, key: "s", action: MoveBackward),
+                (device: Mouse, key: "xaxis", action: Yaw),
+                (device: Mouse, key: "yaxis", action: Pitch),
+                (device: Keyboard, key: "numpad4", action: MoveLeft),
+                (device: Keyboard, key: "numpad6", action: MoveRight),
+                (device: Keyboard, key: "numpad8", action: MoveForward),
+                (device: Keyboard, key: "numpad5", action: MoveBackward),
+                (device: Keyboard, key: "numpad2", action: MoveBackward),
+                (device: Keyboard, key: "left", action: MoveLeft),
+                (device: Keyboard, key: "right", action: MoveRight),
+                (device: Keyboard, key: "up", action: MoveForward),
+                (device: Keyboard, key: "down", action: MoveBackward),
+                (device: Mouse, key: "button0", action: Fire),
+                (device: Mouse, key: "button1", action: AltFire),
+                (device: Keyboard, key: "z", action: ToggleFreeLook, when: Debug),
+                (device: Keyboard, key: "tab", action: ToggleFirstPerson, when: Debug),
+                (device: Keyboard, key: "alt c", action: ToggleCamera, when: Debug),
+                (device: Keyboard, key: "u", action: Chat),
+                (device: Keyboard, key: "backslash", action: Chat),
+                (device: Keyboard, key: "slash", action: Chat),
+                (device: Keyboard, key: "return", action: Chat),
+                (device: Keyboard, key: "pageUp", action: PageMessagesUp),
+                (device: Keyboard, key: "pageDown", action: PageMessagesDown),
+                (device: Keyboard, key: "F3", action: StartDemoRecording),
+                (device: Keyboard, key: "F4", action: StopDemoRecording),
+                (device: Keyboard, key: "F8", action: DropCameraAtPlayer, when: Debug),
+                (device: Keyboard, key: "F7", action: DropPlayerAtCamera, when: Debug),
+                (device: Keyboard, key: "space", action: Spawn),
+            ],
+        ),
+        (
+            name: "GlobalActionMap",
+            binds: [
+                (device: Keyboard, key: "ctrl p", action: Screenshot),
+                (device: Keyboard, key: "F9", action: CycleDebugRenderMode, when: Debug),
+                (device: Keyboard, key: "tilde", action: ToggleConsole),
+                (device: Keyboard, key: "alt enter", action: ToggleFullScreen),
+                (device: Keyboard, key: "F1", action: ToggleHelp),
+                (device: Keyboard, key: "ctrl F1", action: ToggleLogMode),
+                (device: Keyboard, key: "ctrl F2", action: ToggleScriptTrace),
+                (device: Keyboard, key: "ctrl F3", action: DoProfile, when: Debug),
+                (device: Keyboard, key: "ctrl F4", action: CycleRenderMode, when: Debug),
+                (device: Keyboard, key: "ctrl F5", action: CycleTank, when: Debug),
+                (device: Keyboard, key: "ctrl F6", action: TogglePlayerAi, when: DebugOrDemo),
+                (device: Keyboard, key: "alt q", action: Quit, when: Mac),
+                (device: Keyboard, key: "ctrl q", action: Quit, when: NotMac),
+            ],
+        ),
+    ],
+)

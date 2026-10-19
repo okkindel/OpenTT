@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=OpenTT
+GenericName=Tank battle game
+Comment=Tank battles with brains in jars
+Exec=opentt
+Icon=io.github.okkindel.OpenTT
+StartupWMClass=io.github.okkindel.OpenTT
+Terminal=false
+Categories=Game;ActionGame;
+Keywords=tank;arena;think tanks;multiplayer;

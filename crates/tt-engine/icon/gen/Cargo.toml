@@ -1,0 +1,12 @@
+[package]
+name = "icon-gen"
+description = "Scales the application icon (../opentt-source.png) to the PNG sizes and the Windows .ico"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# A one-off tool outside the game's workspace.
+[workspace]
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }

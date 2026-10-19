@@ -1,0 +1,112 @@
+[package]
+name = "tt-engine"
+# Also the summary line of the Debian package.
+description = "Engine for the tank arena game Think Tanks: the game executable"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[[bin]]
+name = "opentt"
+path = "src/main.rs"
+
+[features]
+default = ["dev"]
+# Developer tooling compiled into the game (on by default for now): the
+# executable's `--headless`/`--screenshot`/`--bench`/`--keys`/`--cmd`/
+# `--frame-stats` (src/devtools.rs), frame statistics and the golden-trace
+# harness (`gameplay::golden`, needed by tests/golden.rs).
+dev = []
+# `setSimulatedNetParams` / `simLag` on real connections in release builds
+# (debug builds always have it; docs/netcode.md §5.12).
+net-sim = []
+
+[[test]]
+name = "golden"
+required-features = ["dev"]
+
+[dependencies]
+tt-master = { path = "../tt-master" }
+tt-render = { path = "../tt-render" }
+tt-assets = { path = "../tt-assets" }
+tt-audio = { path = "../tt-audio" }
+tt-gui = { path = "../tt-gui" }
+tt-game = { path = "../tt-game" }
+tt-net = { path = "../tt-net" }
+tt-gameplay = { path = "../tt-gameplay" }
+wgpu = "24"
+winit = "0.30"
+glam = "0.30"
+image = { version = "0.25", default-features = false, features = ["png"] }
+pollster = "0.4"
+bytemuck = { version = "1", features = ["derive"] }
+tt-menu = { path = "../tt-menu" }
+tt-shell = { path = "../tt-shell" }
+# The game's own import of the game data (first-run screen, Settings → Game data).
+tt-import = { path = "../tt-import" }
+# The system's folder dialog (XDG desktop portal via libdbus loaded at run
+# time, zenity fallback; native on Windows and macOS).
+rfd = { version = "0.17", default-features = false, features = ["xdg-portal"] }
+egui = "0.31"
+egui-wgpu = "0.31"
+egui-winit = { version = "0.31", default-features = false, features = ["clipboard", "wayland", "x11"] }
+
+# The application icon and version information of the Windows executable
+# (build.rs, `icon/`); used only when the target is Windows (also in a
+# cross build from Linux, with mingw-w64's windres).
+[build-dependencies]
+winresource = { version = "0.1", default-features = false }
+
+# The Debian package (`cargo deb -p tt-engine`, run by
+# packaging/package-linux.sh; packaging/README.md). Paths are relative to
+# this crate.
+[package.metadata.deb]
+name = "opentt"
+maintainer = "okkindel <okkindel@users.noreply.github.com>"
+copyright = "2026, okkindel"
+section = "games"
+priority = "optional"
+extended-description = """\
+OpenTT is an open-source engine for Think Tanks, the 2003 tank arena game: \
+solo campaign, bot matches and network games with modern rendering and menus. \
+It does not include the game's content: on the first start it imports it from \
+a copy of Think Tanks that you own."""
+depends = "$auto, libxkbcommon0, libxkbcommon-x11-0, libx11-6, libx11-xcb1, libxcursor1, libxi6, libxrandr2, libwayland-client0, libwayland-cursor0, libvulkan1 | libegl1"
+recommends = "mesa-vulkan-drivers | vulkan-icd, libdbus-1-3"
+suggests = "zenity"
+assets = [
+    ["target/release/opentt", "usr/bin/opentt", "755"],
+    ["../../packaging/linux/io.github.okkindel.OpenTT.desktop", "usr/share/applications/", "644"],
+    ["../../packaging/linux/io.github.okkindel.OpenTT.metainfo.xml", "usr/share/metainfo/", "644"],
+    ["icon/opentt-16.png", "usr/share/icons/hicolor/16x16/apps/io.github.okkindel.OpenTT.png", "644"],
+    ["icon/opentt-32.png", "usr/share/icons/hicolor/32x32/apps/io.github.okkindel.OpenTT.png", "644"],
+    ["icon/opentt-48.png", "usr/share/icons/hicolor/48x48/apps/io.github.okkindel.OpenTT.png", "644"],
+    ["icon/opentt-64.png", "usr/share/icons/hicolor/64x64/apps/io.github.okkindel.OpenTT.png", "644"],
+    ["icon/opentt-128.png", "usr/share/icons/hicolor/128x128/apps/io.github.okkindel.OpenTT.png", "644"],
+    ["icon/opentt-256.png", "usr/share/icons/hicolor/256x256/apps/io.github.okkindel.OpenTT.png", "644"],
+    ["../../LICENSE", "usr/share/doc/opentt/LICENSE", "644"],
+    ["../../NOTICE", "usr/share/doc/opentt/NOTICE", "644"],
+    ["../../README.md", "usr/share/doc/opentt/README.md", "644"],
+    ["../tt-gui/assets/fonts/chakra-petch/OFL.txt", "usr/share/doc/opentt/fonts/chakra-petch/OFL.txt", "644"],
+    ["../tt-gui/assets/fonts/russo-one/OFL.txt", "usr/share/doc/opentt/fonts/russo-one/OFL.txt", "644"],
+    # The example mods (docs/modding.md § Example mods), where the game
+    # looks for an install's mods (tt_assets::layout::installed_mod_dirs).
+    ["../../mods/carpet-bombing/data/weapons.ron", "usr/share/opentt/mods/carpet-bombing/data/weapons.ron", "644"],
+    ["../../mods/carpet-bombing/mod.ron", "usr/share/opentt/mods/carpet-bombing/mod.ron", "644"],
+    ["../../mods/carpet-bombing/README.md", "usr/share/opentt/mods/carpet-bombing/README.md", "644"],
+    ["../../mods/carpet-bombing/SOURCES.md", "usr/share/opentt/mods/carpet-bombing/SOURCES.md", "644"],
+    ["../../mods/desert-camo/models/tanks/tank01.png", "usr/share/opentt/mods/desert-camo/models/tanks/tank01.png", "644"],
+    ["../../mods/desert-camo/models/tanks/tank02.png", "usr/share/opentt/mods/desert-camo/models/tanks/tank02.png", "644"],
+    ["../../mods/desert-camo/models/tanks/tank03.png", "usr/share/opentt/mods/desert-camo/models/tanks/tank03.png", "644"],
+    ["../../mods/desert-camo/models/tanks/tank04.png", "usr/share/opentt/mods/desert-camo/models/tanks/tank04.png", "644"],
+    ["../../mods/desert-camo/models/tanks/tank01.normal.png", "usr/share/opentt/mods/desert-camo/models/tanks/tank01.normal.png", "644"],
+    ["../../mods/desert-camo/models/tanks/tank02.normal.png", "usr/share/opentt/mods/desert-camo/models/tanks/tank02.normal.png", "644"],
+    ["../../mods/desert-camo/models/tanks/tank03.normal.png", "usr/share/opentt/mods/desert-camo/models/tanks/tank03.normal.png", "644"],
+    ["../../mods/desert-camo/models/tanks/tank04.normal.png", "usr/share/opentt/mods/desert-camo/models/tanks/tank04.normal.png", "644"],
+    ["../../mods/desert-camo/mod.ron", "usr/share/opentt/mods/desert-camo/mod.ron", "644"],
+    ["../../mods/desert-camo/README.md", "usr/share/opentt/mods/desert-camo/README.md", "644"],
+    ["../../mods/desert-camo/SOURCES.md", "usr/share/opentt/mods/desert-camo/SOURCES.md", "644"],
+]

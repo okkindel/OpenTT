@@ -1,0 +1,7 @@
+(
+  name: "Carpet Bombing (example)",
+  version: "1.0",
+  author: "OpenTT",
+  description: "An example gameplay mod, made of data only: one pull of the trigger with the Mortar fires three quick volleys of nine shells, which carpet a patch of ground some 50 m wide. It changes the data file data/weapons.ron, so in a network game every player needs it. Copy its folder to your mods folder to make your own (see README.md).",
+  example: true,
+)

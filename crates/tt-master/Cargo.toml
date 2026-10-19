@@ -1,0 +1,16 @@
+[package]
+name = "tt-master"
+description = "Master (lobby) server: game servers register by heartbeat, browsers fetch the list, NAT introductions for UDP hole punching (docs/netcode.md §5.11)"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[[bin]]
+name = "tt-master"
+path = "src/main.rs"
+
+[dependencies]
+tt-net = { path = "../tt-net" }

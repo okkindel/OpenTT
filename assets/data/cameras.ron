@@ -1,0 +1,22 @@
+// The cameras: the observer's and the tanks' chase camera.
+// See tt_assets::data::defs for the fields.
+#![enable(implicit_some)]
+#![enable(unwrap_variant_newtypes)]
+[
+  CameraDef(
+    name: "Observer",
+    mode: "Observer",
+  ),
+  TankCameraDef(
+    name: "DefaultTankCamera",
+    cam_focus_dist: 10.1,
+    cam_focus_up_dist: 0.9,
+    cam_backup_dist: 6.2,
+    cam_float_height: 6.22,
+    cam_smooth: 0.33,
+    cam_smooth_turn: 0.77,
+    cam_smooth_up: 0.75,
+    cam_fov: 90,
+    cam_near: 0.5,
+  ),
+]

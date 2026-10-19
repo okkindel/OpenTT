@@ -1,0 +1,53 @@
+OpenTT
+Copyright (C) okkindel and the OpenTT contributors
+
+OpenTT's code is licensed under the GNU General Public License version 3
+(see LICENSE). The components below are third-party works or were made
+with third-party tools, and keep their own terms.
+
+Chakra Petch (UI font)
+  Files:     crates/tt-gui/assets/fonts/chakra-petch/ChakraPetch-Medium.ttf,
+             crates/tt-gui/assets/fonts/chakra-petch/ChakraPetch-Bold.ttf
+  Source:    Google Fonts, https://github.com/google/fonts (ofl/chakrapetch),
+             unchanged
+  Copyright: Copyright 2018 The Chakra Petch Project Authors
+             (https://github.com/m4rc1e/Chakra-Petch)
+  License:   SIL Open Font License, Version 1.1
+             (crates/tt-gui/assets/fonts/chakra-petch/OFL.txt)
+
+Russo One (display font: menu headings, tab and button labels)
+  Files:     crates/tt-gui/assets/fonts/russo-one/RussoOne-Regular.ttf
+  Source:    Google Fonts, https://github.com/google/fonts (ofl/russoone),
+             unchanged
+  Copyright: Copyright (c) 2011-2012, Jovanny Lemonad (jovanny.ru), with
+             Reserved Font Name "Russo"
+  License:   SIL Open Font License, Version 1.1
+             (crates/tt-gui/assets/fonts/russo-one/OFL.txt)
+
+Announcer lines of the power-ups
+  Files:     assets/sound/voice/vocarea.ogg, vocbounce.ogg, vochealth.ogg,
+             vocmortar.ogg, vocreload.ogg, vocscatter.ogg, vocspeedy.ogg
+  Made with: Piper text-to-speech (https://github.com/rhasspy/piper, MIT
+             License), voice model en_US-norman-medium
+             (https://huggingface.co/rhasspy/piper-voices,
+             en/en_US/norman/medium), then light overdrive, compression and
+             loudness matching.
+  Voice:     The model card states the voice was trained from scratch on
+             about 15.5 hours of LibriVox recordings (LibriVox licence:
+             public domain). The model card names no licence of its own
+             for the model; the piper-voices repository is published
+             under the MIT License.
+  License:   The generated recordings are distributed under the same terms
+             as OpenTT (GPL-3.0).
+
+Mortar rocket model and textures, Scatter shot pellet, the maps tt1_5,
+tt2_5, tt3_5 and poweruptest, credits text
+  Made for OpenTT (procedural generators in crates/tt-assets/examples and
+  hand-written mission files); GPL-3.0 like the code. The missions name
+  textures, skies and shapes of the game by path; those files are not
+  included and come from the user's own install via tt-import.
+
+Think Tanks
+  OpenTT is not affiliated with the authors or publishers of Think Tanks.
+  Think Tanks and related names and trademarks belong to their respective
+  owners. None of the game's content is part of this repository.

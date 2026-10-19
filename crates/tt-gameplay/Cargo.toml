@@ -1,0 +1,21 @@
+[package]
+name = "tt-gameplay"
+description = "Think Tanks game logic without the engine: the server rules, the game data, typed server/client messages and the client state (docs/rust-native-plan.md §2)"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+# Bit packing and the wire primitives of game messages only (tt_net::bits, tt_net::msg).
+tt-net = { path = "../tt-net" }
+# World ids and events (the entity table, stage 3a).
+tt-game = { path = "../tt-game" }
+# The declarations the typed game data is built from.
+tt-assets = { path = "../tt-assets" }
+# Typed client data (key bindings, RON).
+serde = { version = "1", features = ["derive"] }
+ron = "0.12"
+

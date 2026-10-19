@@ -1,0 +1,2428 @@
+// The importer's mapping (crates/tt-import, docs/import.md): every asset file made
+// from the game install (game path -> asset path, how) and our own
+// files. Generated from assets/*/SOURCES.md by `tt-import mapping --assets assets`.
+#![enable(implicit_some)]
+#![enable(unwrap_variant_newtypes)]
+(
+  files: [
+    (
+      asset: "missions/bluebrain.png",
+      how: Picture(
+        mission: "bluebrain",
+        camera: (-58.147, -34.17, 130.887, 153.274, -6.134, 66.721),
+        game_file: "game/client/ui/Missions/BlueBrain.jpg",
+      ),
+    ),
+    (
+      asset: "missions/bluebrain.ron",
+      how: Mission("game/data/missions/BlueBrain.mis"),
+    ),
+    (
+      asset: "missions/greenbrain.png",
+      how: Picture(
+        mission: "greenbrain",
+        camera: (-28.37, 68.9, 140.137, 97.411, -1.937, 49.345),
+        game_file: "game/client/ui/Missions/GreenBrain.jpg",
+      ),
+    ),
+    (
+      asset: "missions/greenbrain.ron",
+      how: Mission("game/data/missions/GreenBrain.mis"),
+    ),
+    (
+      asset: "missions/poweruptest.png",
+      how: Picture(
+        mission: "poweruptest",
+        camera: (0.0, -125.0, 116.0, 0.0, -8.0, 64.0),
+        game_file: None,
+      ),
+    ),
+    (
+      asset: "missions/redbrain.png",
+      how: Picture(
+        mission: "redbrain",
+        camera: (157.556, -281.65, 140.598, 318.981, -3.064, 50.581),
+        game_file: "game/client/ui/Missions/RedBrain.jpg",
+      ),
+    ),
+    (
+      asset: "missions/redbrain.ron",
+      how: Mission("game/data/missions/RedBrain.mis"),
+    ),
+    (
+      asset: "missions/target.ron",
+      how: Mission("game/data/missions/target.mis"),
+    ),
+    (
+      asset: "missions/tt1_1.png",
+      how: Picture(
+        mission: "tt1_1",
+        camera: (-28.37, 68.9, 140.137, 97.411, -1.937, 49.345),
+        game_file: "game/client/ui/Missions/TT1_1.jpg",
+      ),
+    ),
+    (
+      asset: "missions/tt1_1.ron",
+      how: Mission("game/data/missions/TT1_1.mis"),
+    ),
+    (
+      asset: "missions/tt1_1.ter",
+      how: Terrain("game/data/missions/TT1_1.ter"),
+    ),
+    (
+      asset: "missions/tt1_2.png",
+      how: Picture(
+        mission: "tt1_2",
+        camera: (169.0, 0.0, 143.5, 250.2, -2.5, 53.0),
+        game_file: "game/client/ui/Missions/TT1_2.jpg",
+      ),
+    ),
+    (
+      asset: "missions/tt1_2.ron",
+      how: Mission("game/data/missions/TT1_2.mis"),
+    ),
+    (
+      asset: "missions/tt1_2.ter",
+      how: Terrain("game/data/missions/TT1_2.ter"),
+    ),
+    (
+      asset: "missions/tt1_3.png",
+      how: Picture(
+        mission: "tt1_3",
+        camera: (1.835, -47.336, 111.831, 25.465, -14.686, 58.93),
+        game_file: "game/client/ui/Missions/TT1_3.jpg",
+      ),
+    ),
+    (
+      asset: "missions/tt1_3.ron",
+      how: Mission("game/data/missions/TT1_3.mis"),
+    ),
+    (
+      asset: "missions/tt1_3.ter",
+      how: Terrain("game/data/missions/TT1_3.ter"),
+    ),
+    (
+      asset: "missions/tt1_4.png",
+      how: Picture(
+        mission: "tt1_4",
+        camera: (-78.086, 163.701, 89.616, 192.932, -1.958, 55.406),
+        game_file: "game/client/ui/Missions/TT1_4.jpg",
+      ),
+    ),
+    (
+      asset: "missions/tt1_4.ron",
+      how: Mission("game/data/missions/TT1_4.mis"),
+    ),
+    (
+      asset: "missions/tt1_4.ter",
+      how: Terrain("game/data/missions/TT1_4.ter"),
+    ),
+    (
+      asset: "missions/tt1_5.png",
+      how: Picture(
+        mission: "tt1_5",
+        camera: (-10.0, -110.0, 142.0, 6.0, -10.0, 58.0),
+        game_file: None,
+      ),
+    ),
+    (
+      asset: "missions/tt2_1.png",
+      how: Picture(
+        mission: "tt2_1",
+        camera: (121.0, -25.0, 111.0, 178.0, 9.0, 56.0),
+        game_file: "game/client/ui/Missions/TT2_1.jpg",
+      ),
+    ),
+    (
+      asset: "missions/tt2_1.ron",
+      how: Mission("game/data/missions/TT2_1.mis"),
+    ),
+    (
+      asset: "missions/tt2_1.ter",
+      how: Terrain("game/data/missions/TT2_1.ter"),
+    ),
+    (
+      asset: "missions/tt2_2.png",
+      how: Picture(
+        mission: "tt2_2",
+        camera: (-58.147, -34.17, 130.887, 153.274, -6.134, 66.721),
+        game_file: "game/client/ui/Missions/TT2_2.jpg",
+      ),
+    ),
+    (
+      asset: "missions/tt2_2.ron",
+      how: Mission("game/data/missions/TT2_2.mis"),
+    ),
+    (
+      asset: "missions/tt2_2.ter",
+      how: Terrain("game/data/missions/TT2_2.ter"),
+    ),
+    (
+      asset: "missions/tt2_3.png",
+      how: Picture(
+        mission: "tt2_3",
+        camera: (92.257, 20.093, 152.527, 238.176, -19.267, 90.487),
+        game_file: "game/client/ui/Missions/TT2_3.jpg",
+      ),
+    ),
+    (
+      asset: "missions/tt2_3.ron",
+      how: Mission("game/data/missions/TT2_3.mis"),
+    ),
+    (
+      asset: "missions/tt2_3.ter",
+      how: Terrain("game/data/missions/TT2_3.ter"),
+    ),
+    (
+      asset: "missions/tt2_4.png",
+      how: Picture(
+        mission: "tt2_4",
+        camera: (12.367, -53.115, 101.4, 335.802, 5.861, 60.345),
+        game_file: "game/client/ui/Missions/TT2_4.jpg",
+      ),
+    ),
+    (
+      asset: "missions/tt2_4.ron",
+      how: Mission("game/data/missions/TT2_4.mis"),
+    ),
+    (
+      asset: "missions/tt2_4.ter",
+      how: Terrain("game/data/missions/TT2_4.ter"),
+    ),
+    (
+      asset: "missions/tt2_5.png",
+      how: Picture(
+        mission: "tt2_5",
+        camera: (-10.0, -92.0, 132.0, 5.0, -4.0, 55.0),
+        game_file: None,
+      ),
+    ),
+    (
+      asset: "missions/tt3_1.png",
+      how: Picture(
+        mission: "tt3_1",
+        camera: (26.121, 246.159, 204.692, 164.51, -14.083, 65.424),
+        game_file: "game/client/ui/Missions/TT3_1.jpg",
+      ),
+    ),
+    (
+      asset: "missions/tt3_1.ron",
+      how: Mission("game/data/missions/TT3_1.mis"),
+    ),
+    (
+      asset: "missions/tt3_1.ter",
+      how: Terrain("game/data/missions/TT3_1.ter"),
+    ),
+    (
+      asset: "missions/tt3_2.png",
+      how: Picture(
+        mission: "tt3_2",
+        camera: (-163.887, 109.735, 136.877, 139.612, -2.715, 55.915),
+        game_file: "game/client/ui/Missions/TT3_2.jpg",
+      ),
+    ),
+    (
+      asset: "missions/tt3_2.ron",
+      how: Mission("game/data/missions/TT3_2.mis"),
+    ),
+    (
+      asset: "missions/tt3_2.ter",
+      how: Terrain("game/data/missions/TT3_2.ter"),
+    ),
+    (
+      asset: "missions/tt3_3.png",
+      how: Picture(
+        mission: "tt3_3",
+        camera: (157.556, -281.65, 140.598, 318.981, -3.064, 50.581),
+        game_file: "game/client/ui/Missions/TT3_3.jpg",
+      ),
+    ),
+    (
+      asset: "missions/tt3_3.ron",
+      how: Mission("game/data/missions/TT3_3.mis"),
+    ),
+    (
+      asset: "missions/tt3_3.ter",
+      how: Terrain("game/data/missions/TT3_3.ter"),
+    ),
+    (
+      asset: "missions/tt3_4.png",
+      how: Picture(
+        mission: "tt3_4",
+        camera: (-24.218, -157.918, 138.092, 25.044, -1.901, 59.078),
+        game_file: "game/client/ui/Missions/TT3_4.jpg",
+      ),
+    ),
+    (
+      asset: "missions/tt3_4.ron",
+      how: Mission("game/data/missions/TT3_4.mis"),
+    ),
+    (
+      asset: "missions/tt3_4.ter",
+      how: Terrain("game/data/missions/TT3_4.ter"),
+    ),
+    (
+      asset: "missions/tt3_5.png",
+      how: Picture(
+        mission: "tt3_5",
+        camera: (15.0, -165.0, 135.0, 355.0, -6.0, 55.0),
+        game_file: None,
+      ),
+    ),
+    (
+      asset: "models/effects/areaexplosion.dts",
+      how: Copy("game/data/shapes/tanks/AreaExplosion.dts"),
+    ),
+    (
+      asset: "models/effects/areaexplosion.normal.png",
+      how: NormalMap("models/effects/areaexplosion.png"),
+    ),
+    (
+      asset: "models/effects/areaexplosion.png",
+      how: Image(
+        from: "game/data/shapes/tanks/AreaExplosion.jpg",
+        alpha: "game/data/shapes/tanks/AreaExplosion.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/effects/bouncebump.normal.png",
+      how: NormalMap("models/effects/bouncebump.png"),
+    ),
+    (
+      asset: "models/effects/bouncebump.png",
+      how: Image(
+        from: "game/data/shapes/tanks/BounceBump.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/effects/bounceexplosion.dts",
+      how: Copy("game/data/shapes/tanks/bounceexplosion.dts"),
+    ),
+    (
+      asset: "models/effects/bounceexplosion01.normal.png",
+      how: NormalMap("models/effects/bounceexplosion01.png"),
+    ),
+    (
+      asset: "models/effects/bounceexplosion01.png",
+      how: Image(
+        from: "game/data/shapes/tanks/BounceExplosion01.jpg",
+        alpha: "game/data/shapes/tanks/BounceExplosion01.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/effects/defaultexplosion.dts",
+      how: Copy("game/data/shapes/tanks/defaultexplosion.dts"),
+    ),
+    (
+      asset: "models/effects/smoke.normal.png",
+      how: NormalMap("models/effects/smoke.png"),
+    ),
+    (
+      asset: "models/effects/smoke.png",
+      how: Image(
+        from: "game/data/shapes/tanks/smoke.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/effects/tankexplosion.ifl",
+      how: Ifl("game/data/shapes/tanks/TankExplosion.ifl"),
+    ),
+    (
+      asset: "models/effects/tankexplosion01.normal.png",
+      how: NormalMap("models/effects/tankexplosion01.png"),
+    ),
+    (
+      asset: "models/effects/tankexplosion01.png",
+      how: Image(
+        from: "game/data/shapes/tanks/TankExplosion01.jpg",
+        alpha: "game/data/shapes/tanks/TankExplosion01.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/effects/tankexplosion02.normal.png",
+      how: NormalMap("models/effects/tankexplosion02.png"),
+    ),
+    (
+      asset: "models/effects/tankexplosion02.png",
+      how: Image(
+        from: "game/data/shapes/tanks/TankExplosion02.jpg",
+        alpha: "game/data/shapes/tanks/TankExplosion02.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/effects/tankexplosion03.normal.png",
+      how: NormalMap("models/effects/tankexplosion03.png"),
+    ),
+    (
+      asset: "models/effects/tankexplosion03.png",
+      how: Image(
+        from: "game/data/shapes/tanks/TankExplosion03.jpg",
+        alpha: "game/data/shapes/tanks/TankExplosion03.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/effects/tankexplosion04.normal.png",
+      how: NormalMap("models/effects/tankexplosion04.png"),
+    ),
+    (
+      asset: "models/effects/tankexplosion04.png",
+      how: Image(
+        from: "game/data/shapes/tanks/TankExplosion04.jpg",
+        alpha: "game/data/shapes/tanks/TankExplosion04.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/effects/tankexplosion05.normal.png",
+      how: NormalMap("models/effects/tankexplosion05.png"),
+    ),
+    (
+      asset: "models/effects/tankexplosion05.png",
+      how: Image(
+        from: "game/data/shapes/tanks/TankExplosion05.jpg",
+        alpha: "game/data/shapes/tanks/TankExplosion05.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/effects/tankexplosion06.normal.png",
+      how: NormalMap("models/effects/tankexplosion06.png"),
+    ),
+    (
+      asset: "models/effects/tankexplosion06.png",
+      how: Image(
+        from: "game/data/shapes/tanks/TankExplosion06.jpg",
+        alpha: "game/data/shapes/tanks/TankExplosion06.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/boostarrow.ifl",
+      how: Ifl("game/data/shapes/Common/boostarrow.ifl"),
+    ),
+    (
+      asset: "models/items/boostarrow01.normal.png",
+      how: NormalMap("models/items/boostarrow01.png"),
+    ),
+    (
+      asset: "models/items/boostarrow01.png",
+      how: Image(
+        from: "game/data/shapes/Common/boostarrow01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/boostarrow02.normal.png",
+      how: NormalMap("models/items/boostarrow02.png"),
+    ),
+    (
+      asset: "models/items/boostarrow02.png",
+      how: Image(
+        from: "game/data/shapes/Common/boostarrow02.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/boostarrow03.normal.png",
+      how: NormalMap("models/items/boostarrow03.png"),
+    ),
+    (
+      asset: "models/items/boostarrow03.png",
+      how: Image(
+        from: "game/data/shapes/Common/boostarrow03.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/boostarrow04.normal.png",
+      how: NormalMap("models/items/boostarrow04.png"),
+    ),
+    (
+      asset: "models/items/boostarrow04.png",
+      how: Image(
+        from: "game/data/shapes/Common/boostarrow04.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/boostpad.dts",
+      how: Copy("game/data/shapes/Common/boostpad.dts"),
+    ),
+    (
+      asset: "models/items/boostpad.normal.png",
+      how: NormalMap("models/items/boostpad.png"),
+    ),
+    (
+      asset: "models/items/boostpad.png",
+      how: Image(
+        from: "game/data/shapes/Common/boostpad.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/electro.ifl",
+      how: Ifl("game/data/shapes/Common/electro.ifl"),
+    ),
+    (
+      asset: "models/items/electro01.normal.png",
+      how: NormalMap("models/items/electro01.png"),
+    ),
+    (
+      asset: "models/items/electro01.png",
+      how: Image(
+        from: "game/data/shapes/Common/electro01.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/electro02.normal.png",
+      how: NormalMap("models/items/electro02.png"),
+    ),
+    (
+      asset: "models/items/electro02.png",
+      how: Image(
+        from: "game/data/shapes/Common/electro02.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/electro03.normal.png",
+      how: NormalMap("models/items/electro03.png"),
+    ),
+    (
+      asset: "models/items/electro03.png",
+      how: Image(
+        from: "game/data/shapes/Common/electro03.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/electroball.normal.png",
+      how: NormalMap("models/items/electroball.png"),
+    ),
+    (
+      asset: "models/items/electroball.png",
+      how: Image(
+        from: "game/data/shapes/Common/electroball.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/health.dts",
+      how: Copy("game/data/shapes/Common/health.dts"),
+    ),
+    (
+      asset: "models/items/health.ifl",
+      how: Ifl("game/data/shapes/Common/health.ifl"),
+    ),
+    (
+      asset: "models/items/health.normal.png",
+      how: NormalMap("models/items/health.png"),
+    ),
+    (
+      asset: "models/items/health.png",
+      how: Image(
+        from: "game/data/shapes/Common/health.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/healthflash.normal.png",
+      how: NormalMap("models/items/healthflash.png"),
+    ),
+    (
+      asset: "models/items/healthflash.png",
+      how: Image(
+        from: "game/data/shapes/Common/healthflash.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/healthlight01.normal.png",
+      how: NormalMap("models/items/healthlight01.png"),
+    ),
+    (
+      asset: "models/items/healthlight01.png",
+      how: Image(
+        from: "game/data/shapes/Common/healthLight01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/healthlight02.normal.png",
+      how: NormalMap("models/items/healthlight02.png"),
+    ),
+    (
+      asset: "models/items/healthlight02.png",
+      how: Image(
+        from: "game/data/shapes/Common/healthLight02.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/healthlight03.normal.png",
+      how: NormalMap("models/items/healthlight03.png"),
+    ),
+    (
+      asset: "models/items/healthlight03.png",
+      how: Image(
+        from: "game/data/shapes/Common/healthLight03.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/healthlight04.normal.png",
+      how: NormalMap("models/items/healthlight04.png"),
+    ),
+    (
+      asset: "models/items/healthlight04.png",
+      how: Image(
+        from: "game/data/shapes/Common/healthLight04.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/healthlight05.normal.png",
+      how: NormalMap("models/items/healthlight05.png"),
+    ),
+    (
+      asset: "models/items/healthlight05.png",
+      how: Image(
+        from: "game/data/shapes/Common/healthLight05.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/healthlight06.normal.png",
+      how: NormalMap("models/items/healthlight06.png"),
+    ),
+    (
+      asset: "models/items/healthlight06.png",
+      how: Image(
+        from: "game/data/shapes/Common/healthLight06.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/healthlight07.normal.png",
+      how: NormalMap("models/items/healthlight07.png"),
+    ),
+    (
+      asset: "models/items/healthlight07.png",
+      how: Image(
+        from: "game/data/shapes/Common/healthLight07.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/jet.normal.png",
+      how: NormalMap("models/items/jet.png"),
+    ),
+    (
+      asset: "models/items/jet.png",
+      how: Image(
+        from: "game/data/shapes/Common/jet.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/jumppad.dts",
+      how: Copy("game/data/shapes/Common/jumppad.dts"),
+    ),
+    (
+      asset: "models/items/powerup.dts",
+      how: Copy("game/data/shapes/Common/powerup.dts"),
+    ),
+    (
+      asset: "models/items/powerup.ifl",
+      how: Ifl("game/data/shapes/Common/powerup.ifl"),
+    ),
+    (
+      asset: "models/items/powerup.normal.png",
+      how: NormalMap("models/items/powerup.png"),
+    ),
+    (
+      asset: "models/items/powerup.png",
+      how: Image(
+        from: "game/data/shapes/Common/powerup.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/powerupflash.normal.png",
+      how: NormalMap("models/items/powerupflash.png"),
+    ),
+    (
+      asset: "models/items/powerupflash.png",
+      how: Image(
+        from: "game/data/shapes/Common/powerupflash.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/powerupglass.normal.png",
+      how: NormalMap("models/items/powerupglass.png"),
+    ),
+    (
+      asset: "models/items/powerupglass.png",
+      how: Image(
+        from: "game/data/shapes/Common/powerupGlass.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/powerupglassspec.normal.png",
+      how: NormalMap("models/items/powerupglassspec.png"),
+    ),
+    (
+      asset: "models/items/powerupglassspec.png",
+      how: Image(
+        from: "game/data/shapes/Common/powerupGlassSpec.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/poweruplight01.normal.png",
+      how: NormalMap("models/items/poweruplight01.png"),
+    ),
+    (
+      asset: "models/items/poweruplight01.png",
+      how: Image(
+        from: "game/data/shapes/Common/powerupLight01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/poweruplight02.normal.png",
+      how: NormalMap("models/items/poweruplight02.png"),
+    ),
+    (
+      asset: "models/items/poweruplight02.png",
+      how: Image(
+        from: "game/data/shapes/Common/powerupLight02.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/poweruplight03.normal.png",
+      how: NormalMap("models/items/poweruplight03.png"),
+    ),
+    (
+      asset: "models/items/poweruplight03.png",
+      how: Image(
+        from: "game/data/shapes/Common/powerupLight03.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/poweruplight04.normal.png",
+      how: NormalMap("models/items/poweruplight04.png"),
+    ),
+    (
+      asset: "models/items/poweruplight04.png",
+      how: Image(
+        from: "game/data/shapes/Common/powerupLight04.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/poweruplight05.normal.png",
+      how: NormalMap("models/items/poweruplight05.png"),
+    ),
+    (
+      asset: "models/items/poweruplight05.png",
+      how: Image(
+        from: "game/data/shapes/Common/powerupLight05.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/poweruplight06.normal.png",
+      how: NormalMap("models/items/poweruplight06.png"),
+    ),
+    (
+      asset: "models/items/poweruplight06.png",
+      how: Image(
+        from: "game/data/shapes/Common/powerupLight06.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/poweruplight07.normal.png",
+      how: NormalMap("models/items/poweruplight07.png"),
+    ),
+    (
+      asset: "models/items/poweruplight07.png",
+      how: Image(
+        from: "game/data/shapes/Common/powerupLight07.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/rechageglass.normal.png",
+      how: NormalMap("models/items/rechageglass.png"),
+    ),
+    (
+      asset: "models/items/rechageglass.png",
+      how: Image(
+        from: "game/data/shapes/Common/rechageglass.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/recharge.dts",
+      how: Copy("game/data/shapes/Common/recharge.dts"),
+    ),
+    (
+      asset: "models/items/rechargelight.ifl",
+      how: Ifl("game/data/shapes/Common/rechargelight.ifl"),
+    ),
+    (
+      asset: "models/items/rechargelight01.normal.png",
+      how: NormalMap("models/items/rechargelight01.png"),
+    ),
+    (
+      asset: "models/items/rechargelight01.png",
+      how: Image(
+        from: "game/data/shapes/Common/rechargelight01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/rechargelight02.normal.png",
+      how: NormalMap("models/items/rechargelight02.png"),
+    ),
+    (
+      asset: "models/items/rechargelight02.png",
+      how: Image(
+        from: "game/data/shapes/Common/rechargelight02.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/rechargelight03.normal.png",
+      how: NormalMap("models/items/rechargelight03.png"),
+    ),
+    (
+      asset: "models/items/rechargelight03.png",
+      how: Image(
+        from: "game/data/shapes/Common/rechargelight03.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/rechargelight04.normal.png",
+      how: NormalMap("models/items/rechargelight04.png"),
+    ),
+    (
+      asset: "models/items/rechargelight04.png",
+      how: Image(
+        from: "game/data/shapes/Common/rechargelight04.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/rechargelight05.normal.png",
+      how: NormalMap("models/items/rechargelight05.png"),
+    ),
+    (
+      asset: "models/items/rechargelight05.png",
+      how: Image(
+        from: "game/data/shapes/Common/rechargelight05.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/rechargelight06.normal.png",
+      how: NormalMap("models/items/rechargelight06.png"),
+    ),
+    (
+      asset: "models/items/rechargelight06.png",
+      how: Image(
+        from: "game/data/shapes/Common/rechargelight06.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/rechargemap.normal.png",
+      how: NormalMap("models/items/rechargemap.png"),
+    ),
+    (
+      asset: "models/items/rechargemap.png",
+      how: Image(
+        from: "game/data/shapes/Common/rechargemap.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/scrumball.dts",
+      how: Copy("game/data/shapes/Common/scrumball.dts"),
+    ),
+    (
+      asset: "models/items/scrumball.ifl",
+      how: Ifl("game/data/shapes/Common/scrumball.ifl"),
+    ),
+    (
+      asset: "models/items/scrumball.normal.png",
+      how: NormalMap("models/items/scrumball.png"),
+    ),
+    (
+      asset: "models/items/scrumball.png",
+      how: Image(
+        from: "game/data/shapes/Common/scrumball.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/scrumgoal.dts",
+      how: Copy("game/data/shapes/Common/scrumgoal.dts"),
+    ),
+    (
+      asset: "models/items/scrumgoal.ifl",
+      how: Ifl("game/data/shapes/Common/scrumgoal.ifl"),
+    ),
+    (
+      asset: "models/items/scrumgoal01.normal.png",
+      how: NormalMap("models/items/scrumgoal01.png"),
+    ),
+    (
+      asset: "models/items/scrumgoal01.png",
+      how: Image(
+        from: "game/data/shapes/Common/scrumgoal01.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/scrumgoal02.normal.png",
+      how: NormalMap("models/items/scrumgoal02.png"),
+    ),
+    (
+      asset: "models/items/scrumgoal02.png",
+      how: Image(
+        from: "game/data/shapes/Common/scrumgoal02.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/scrumgoal03.normal.png",
+      how: NormalMap("models/items/scrumgoal03.png"),
+    ),
+    (
+      asset: "models/items/scrumgoal03.png",
+      how: Image(
+        from: "game/data/shapes/Common/scrumgoal03.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/scrumgoal04.normal.png",
+      how: NormalMap("models/items/scrumgoal04.png"),
+    ),
+    (
+      asset: "models/items/scrumgoal04.png",
+      how: Image(
+        from: "game/data/shapes/Common/scrumgoal04.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/scrumgoal05.normal.png",
+      how: NormalMap("models/items/scrumgoal05.png"),
+    ),
+    (
+      asset: "models/items/scrumgoal05.png",
+      how: Image(
+        from: "game/data/shapes/Common/scrumgoal05.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/scrumgoal06.normal.png",
+      how: NormalMap("models/items/scrumgoal06.png"),
+    ),
+    (
+      asset: "models/items/scrumgoal06.png",
+      how: Image(
+        from: "game/data/shapes/Common/scrumgoal06.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/scrumgoal07.normal.png",
+      how: NormalMap("models/items/scrumgoal07.png"),
+    ),
+    (
+      asset: "models/items/scrumgoal07.png",
+      how: Image(
+        from: "game/data/shapes/Common/scrumgoal07.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/items/scrumgoal08.normal.png",
+      how: NormalMap("models/items/scrumgoal08.png"),
+    ),
+    (
+      asset: "models/items/scrumgoal08.png",
+      how: Image(
+        from: "game/data/shapes/Common/scrumgoal08.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/markers/octahedron.dts",
+      how: Copy("game/data/shapes/markers/octahedron.dts"),
+    ),
+    (
+      asset: "models/projectiles/areaprojectile.normal.png",
+      how: NormalMap("models/projectiles/areaprojectile.png"),
+    ),
+    (
+      asset: "models/projectiles/areaprojectile.png",
+      how: Image(
+        from: "game/data/shapes/tanks/AreaProjectile.jpg",
+        alpha: "game/data/shapes/tanks/AreaProjectile.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/projectiles/bounceprojectile.normal.png",
+      how: NormalMap("models/projectiles/bounceprojectile.png"),
+    ),
+    (
+      asset: "models/projectiles/bounceprojectile.png",
+      how: Image(
+        from: "game/data/shapes/tanks/BounceProjectile.jpg",
+        alpha: "game/data/shapes/tanks/BounceProjectile.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/projectiles/defaultprojectile.normal.png",
+      how: NormalMap("models/projectiles/defaultprojectile.png"),
+    ),
+    (
+      asset: "models/projectiles/defaultprojectile.png",
+      how: Image(
+        from: "game/data/shapes/tanks/DefaultProjectile.jpg",
+        alpha: "game/data/shapes/tanks/DefaultProjectile.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/projectiles/mortarprojectile.png",
+      how: Recolour(
+        from: "models/projectiles/areaprojectile.png",
+        hue: 22.0,
+        min_saturation: 0.75,
+        value: 0.9,
+        thicken: 0,
+        at_width: 0,
+      ),
+    ),
+    (
+      asset: "models/projectiles/speedyprojectile.normal.png",
+      how: NormalMap("models/projectiles/speedyprojectile.png"),
+    ),
+    (
+      asset: "models/projectiles/speedyprojectile.png",
+      how: Image(
+        from: "game/data/shapes/tanks/SpeedyProjectile.jpg",
+        alpha: "game/data/shapes/tanks/SpeedyProjectile.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/props/blue/bones.dts",
+      how: Copy("game/data/shapes/Blue/Bones.dts"),
+    ),
+    (
+      asset: "models/props/blue/dragonbone.normal.png",
+      how: NormalMap("models/props/blue/dragonbone.png"),
+    ),
+    (
+      asset: "models/props/blue/dragonbone.png",
+      how: Image(
+        from: "game/data/shapes/Blue/dragonbone.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/props/blue/fishbone.normal.png",
+      how: NormalMap("models/props/blue/fishbone.png"),
+    ),
+    (
+      asset: "models/props/blue/fishbone.png",
+      how: Image(
+        from: "game/data/shapes/Blue/fishbone.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/props/blue/fishbones.dts",
+      how: Copy("game/data/shapes/Blue/fishbones.dts"),
+    ),
+    (
+      asset: "models/props/blue/rockblue01.dts",
+      how: Copy("game/data/shapes/Blue/rockblue01.dts"),
+    ),
+    (
+      asset: "models/props/blue/rockblue01.normal.png",
+      how: NormalMap("models/props/blue/rockblue01.png"),
+    ),
+    (
+      asset: "models/props/blue/rockblue01.png",
+      how: Image(
+        from: "game/data/shapes/Blue/RockBlue01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/props/blue/rockblue02.dts",
+      how: Copy("game/data/shapes/Blue/rockblue02.dts"),
+    ),
+    (
+      asset: "models/props/blue/rockblue03.dts",
+      how: Copy("game/data/shapes/Blue/rockblue03.dts"),
+    ),
+    (
+      asset: "models/props/blue/treeblue01.dts",
+      how: Copy("game/data/shapes/Blue/treeblue01.dts"),
+    ),
+    (
+      asset: "models/props/blue/treeblue01bark.normal.png",
+      how: NormalMap("models/props/blue/treeblue01bark.png"),
+    ),
+    (
+      asset: "models/props/blue/treeblue01bark.png",
+      how: Image(
+        from: "game/data/shapes/Blue/TreeBlue01Bark.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/props/blue/treeblue02.dts",
+      how: Copy("game/data/shapes/Blue/treeblue02.dts"),
+    ),
+    (
+      asset: "models/props/blue/treeblue03.dts",
+      how: Copy("game/data/shapes/Blue/treeblue03.dts"),
+    ),
+    (
+      asset: "models/props/blue/treeblue04.dts",
+      how: Copy("game/data/shapes/Blue/treeBlue04.dts"),
+    ),
+    (
+      asset: "models/props/blue/treeblue05.dts",
+      how: Copy("game/data/shapes/Blue/treeBlue05.dts"),
+    ),
+    (
+      asset: "models/props/blue/treeblue06.dts",
+      how: Copy("game/data/shapes/Blue/treeBlue06.dts"),
+    ),
+    (
+      asset: "models/props/green/rockgreen01.dts",
+      how: Copy("game/data/shapes/Green/rockgreen01.dts"),
+    ),
+    (
+      asset: "models/props/green/rockgreen01.normal.png",
+      how: NormalMap("models/props/green/rockgreen01.png"),
+    ),
+    (
+      asset: "models/props/green/rockgreen01.png",
+      how: Image(
+        from: "game/data/shapes/Green/RockGreen01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/props/green/rockgreen02.dts",
+      how: Copy("game/data/shapes/Green/rockgreen02.dts"),
+    ),
+    (
+      asset: "models/props/green/rockgreen03.dts",
+      how: Copy("game/data/shapes/Green/rockgreen03.dts"),
+    ),
+    (
+      asset: "models/props/green/rockgreen04.dts",
+      how: Copy("game/data/shapes/Green/rockgreen04.dts"),
+    ),
+    (
+      asset: "models/props/green/rockgreen05.dts",
+      how: Copy("game/data/shapes/Green/rockgreen05.dts"),
+    ),
+    (
+      asset: "models/props/green/treegreen01.dts",
+      how: Copy("game/data/shapes/Green/treegreen01.dts"),
+    ),
+    (
+      asset: "models/props/green/treegreen01bark.normal.png",
+      how: NormalMap("models/props/green/treegreen01bark.png"),
+    ),
+    (
+      asset: "models/props/green/treegreen01bark.png",
+      how: Image(
+        from: "game/data/shapes/Green/TreeGreen01Bark.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/props/green/treegreen01branch.normal.png",
+      how: NormalMap("models/props/green/treegreen01branch.png"),
+    ),
+    (
+      asset: "models/props/green/treegreen01branch.png",
+      how: Image(
+        from: "game/data/shapes/Green/TreeGreen01Branch.jpg",
+        alpha: "game/data/shapes/Green/TreeGreen01Branch.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/props/green/treegreen02.dts",
+      how: Copy("game/data/shapes/Green/treegreen02.dts"),
+    ),
+    (
+      asset: "models/props/green/treegreen03.dts",
+      how: Copy("game/data/shapes/Green/treegreen03.dts"),
+    ),
+    (
+      asset: "models/props/red/obsidian.normal.png",
+      how: NormalMap("models/props/red/obsidian.png"),
+    ),
+    (
+      asset: "models/props/red/obsidian.png",
+      how: Image(
+        from: "game/data/shapes/Red/Obsidian.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/props/red/rockred01.dts",
+      how: Copy("game/data/shapes/Red/rockred01.dts"),
+    ),
+    (
+      asset: "models/props/red/rockred02.dts",
+      how: Copy("game/data/shapes/Red/rockred02.dts"),
+    ),
+    (
+      asset: "models/props/red/rockred03.dts",
+      how: Copy("game/data/shapes/Red/rockred03.dts"),
+    ),
+    (
+      asset: "models/reticles/bouncereticle.normal.png",
+      how: NormalMap("models/reticles/bouncereticle.png"),
+    ),
+    (
+      asset: "models/reticles/bouncereticle.png",
+      how: Image(
+        from: "game/data/shapes/tanks/BounceReticle.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/reticles/mortarreticle.png",
+      how: Recolour(
+        from: "models/reticles/splashreticle.png",
+        hue: 26.0,
+        min_saturation: 0.85,
+        value: 1.0,
+        thicken: 7,
+        at_width: 128,
+      ),
+    ),
+    (
+      asset: "models/reticles/reticle.normal.png",
+      how: NormalMap("models/reticles/reticle.png"),
+    ),
+    (
+      asset: "models/reticles/reticle.png",
+      how: Image(
+        from: "game/data/shapes/tanks/reticle.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/reticles/reticlespot.normal.png",
+      how: NormalMap("models/reticles/reticlespot.png"),
+    ),
+    (
+      asset: "models/reticles/reticlespot.png",
+      how: Image(
+        from: "game/data/shapes/tanks/reticleSpot.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/reticles/speedyreticle.normal.png",
+      how: NormalMap("models/reticles/speedyreticle.png"),
+    ),
+    (
+      asset: "models/reticles/speedyreticle.png",
+      how: Image(
+        from: "game/data/shapes/tanks/SpeedyReticle.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/reticles/splashreticle.normal.png",
+      how: NormalMap("models/reticles/splashreticle.png"),
+    ),
+    (
+      asset: "models/reticles/splashreticle.png",
+      how: Image(
+        from: "game/data/shapes/tanks/SplashReticle.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/bossglass.normal.png",
+      how: NormalMap("models/tanks/bossglass.png"),
+    ),
+    (
+      asset: "models/tanks/bossglass.png",
+      how: Image(
+        from: "game/data/shapes/tanks/bossglass.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/bossglassspec.normal.png",
+      how: NormalMap("models/tanks/bossglassspec.png"),
+    ),
+    (
+      asset: "models/tanks/bossglassspec.png",
+      how: Image(
+        from: "game/data/shapes/tanks/BossGlassSpec.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/bot01.dts",
+      how: Copy("game/data/shapes/tanks/bot01.dts"),
+    ),
+    (
+      asset: "models/tanks/bot01.normal.png",
+      how: NormalMap("models/tanks/bot01.png"),
+    ),
+    (
+      asset: "models/tanks/bot01.png",
+      how: Image(
+        from: "game/data/shapes/tanks/bot01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/bot02.dts",
+      how: Copy("game/data/shapes/tanks/bot02.dts"),
+    ),
+    (
+      asset: "models/tanks/bot02.normal.png",
+      how: NormalMap("models/tanks/bot02.png"),
+    ),
+    (
+      asset: "models/tanks/bot02.png",
+      how: Image(
+        from: "game/data/shapes/tanks/bot02.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/bot03.dts",
+      how: Copy("game/data/shapes/tanks/bot03.dts"),
+    ),
+    (
+      asset: "models/tanks/bot03.normal.png",
+      how: NormalMap("models/tanks/bot03.png"),
+    ),
+    (
+      asset: "models/tanks/bot03.png",
+      how: Image(
+        from: "game/data/shapes/tanks/bot03.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/brain.dts",
+      how: Copy("game/data/shapes/tanks/brain.dts"),
+    ),
+    (
+      asset: "models/tanks/brain.normal.png",
+      how: NormalMap("models/tanks/brain.png"),
+    ),
+    (
+      asset: "models/tanks/brain.png",
+      how: Image(
+        from: "game/data/shapes/tanks/brain.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/brainglass.normal.png",
+      how: NormalMap("models/tanks/brainglass.png"),
+    ),
+    (
+      asset: "models/tanks/brainglass.png",
+      how: Image(
+        from: "game/data/shapes/tanks/Brainglass.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/brainjar01.dts",
+      how: Copy("game/data/shapes/tanks/brainjar01.dts"),
+    ),
+    (
+      asset: "models/tanks/brainjar01.normal.png",
+      how: NormalMap("models/tanks/brainjar01.png"),
+    ),
+    (
+      asset: "models/tanks/brainjar01.png",
+      how: Image(
+        from: "game/data/shapes/tanks/Brainjar01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/brainjar02.dts",
+      how: Copy("game/data/shapes/tanks/brainjar02.dts"),
+    ),
+    (
+      asset: "models/tanks/brainjar02.normal.png",
+      how: NormalMap("models/tanks/brainjar02.png"),
+    ),
+    (
+      asset: "models/tanks/brainjar02.png",
+      how: Image(
+        from: "game/data/shapes/tanks/Brainjar02.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/brainjar03.dts",
+      how: Copy("game/data/shapes/tanks/brainjar03.dts"),
+    ),
+    (
+      asset: "models/tanks/brainjar03.normal.png",
+      how: NormalMap("models/tanks/brainjar03.png"),
+    ),
+    (
+      asset: "models/tanks/brainjar03.png",
+      how: Image(
+        from: "game/data/shapes/tanks/Brainjar03.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/brainjar04.dts",
+      how: Copy("game/data/shapes/tanks/brainjar04.dts"),
+    ),
+    (
+      asset: "models/tanks/brainjar04.normal.png",
+      how: NormalMap("models/tanks/brainjar04.png"),
+    ),
+    (
+      asset: "models/tanks/brainjar04.png",
+      how: Image(
+        from: "game/data/shapes/tanks/Brainjar04.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/ltread.ifl",
+      how: Ifl("game/data/shapes/tanks/LTread.ifl"),
+    ),
+    (
+      asset: "models/tanks/muzzleflash.normal.png",
+      how: NormalMap("models/tanks/muzzleflash.png"),
+    ),
+    (
+      asset: "models/tanks/muzzleflash.png",
+      how: Image(
+        from: "game/data/shapes/tanks/Muzzleflash.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/rtread.ifl",
+      how: Ifl("game/data/shapes/tanks/Rtread.ifl"),
+    ),
+    (
+      asset: "models/tanks/tank01.dts",
+      how: Copy("game/data/shapes/tanks/tank01.dts"),
+    ),
+    (
+      asset: "models/tanks/tank01.normal.png",
+      how: NormalMap("models/tanks/tank01.png"),
+    ),
+    (
+      asset: "models/tanks/tank01.png",
+      how: Image(
+        from: "game/data/shapes/tanks/Tank01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/tank02.dts",
+      how: Copy("game/data/shapes/tanks/tank02.dts"),
+    ),
+    (
+      asset: "models/tanks/tank02.normal.png",
+      how: NormalMap("models/tanks/tank02.png"),
+    ),
+    (
+      asset: "models/tanks/tank02.png",
+      how: Image(
+        from: "game/data/shapes/tanks/Tank02.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/tank03.dts",
+      how: Copy("game/data/shapes/tanks/tank03.dts"),
+    ),
+    (
+      asset: "models/tanks/tank03.normal.png",
+      how: NormalMap("models/tanks/tank03.png"),
+    ),
+    (
+      asset: "models/tanks/tank03.png",
+      how: Image(
+        from: "game/data/shapes/tanks/tank03.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/tank04.dts",
+      how: Copy("game/data/shapes/tanks/tank04.dts"),
+    ),
+    (
+      asset: "models/tanks/tank04.normal.png",
+      how: NormalMap("models/tanks/tank04.png"),
+    ),
+    (
+      asset: "models/tanks/tank04.png",
+      how: Image(
+        from: "game/data/shapes/tanks/tank04.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/tank05.dts",
+      how: Copy("game/data/shapes/tanks/tank05.dts"),
+    ),
+    (
+      asset: "models/tanks/tanktread01.normal.png",
+      how: NormalMap("models/tanks/tanktread01.png"),
+    ),
+    (
+      asset: "models/tanks/tanktread01.png",
+      how: Image(
+        from: "game/data/shapes/tanks/tanktread01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/tanktread02.normal.png",
+      how: NormalMap("models/tanks/tanktread02.png"),
+    ),
+    (
+      asset: "models/tanks/tanktread02.png",
+      how: Image(
+        from: "game/data/shapes/tanks/tanktread02.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/tanktread03.normal.png",
+      how: NormalMap("models/tanks/tanktread03.png"),
+    ),
+    (
+      asset: "models/tanks/tanktread03.png",
+      how: Image(
+        from: "game/data/shapes/tanks/tanktread03.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/tanktread04.normal.png",
+      how: NormalMap("models/tanks/tanktread04.png"),
+    ),
+    (
+      asset: "models/tanks/tanktread04.png",
+      how: Image(
+        from: "game/data/shapes/tanks/tanktread04.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/tanktread05.normal.png",
+      how: NormalMap("models/tanks/tanktread05.png"),
+    ),
+    (
+      asset: "models/tanks/tanktread05.png",
+      how: Image(
+        from: "game/data/shapes/tanks/tanktread05.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/tanktread06.normal.png",
+      how: NormalMap("models/tanks/tanktread06.png"),
+    ),
+    (
+      asset: "models/tanks/tanktread06.png",
+      how: Image(
+        from: "game/data/shapes/tanks/tanktread06.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/tanks/tanktread07.normal.png",
+      how: NormalMap("models/tanks/tanktread07.png"),
+    ),
+    (
+      asset: "models/tanks/tanktread07.png",
+      how: Image(
+        from: "game/data/shapes/tanks/tanktread07.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/volcano/volcano.dts",
+      how: Copy("game/data/shapes/Common/volcano.dts"),
+    ),
+    (
+      asset: "models/volcano/volcano.normal.png",
+      how: NormalMap("models/volcano/volcano.png"),
+    ),
+    (
+      asset: "models/volcano/volcano.png",
+      how: Image(
+        from: "game/data/shapes/Common/Volcano.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/volcano/volcanobump.normal.png",
+      how: NormalMap("models/volcano/volcanobump.png"),
+    ),
+    (
+      asset: "models/volcano/volcanobump.png",
+      how: Image(
+        from: "game/data/shapes/Common/Volcanobump.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/volcano/volcanoexplosion.normal.png",
+      how: NormalMap("models/volcano/volcanoexplosion.png"),
+    ),
+    (
+      asset: "models/volcano/volcanoexplosion.png",
+      how: Image(
+        from: "game/data/shapes/Common/VolcanoExplosion.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/volcano/volcanorock.normal.png",
+      how: NormalMap("models/volcano/volcanorock.png"),
+    ),
+    (
+      asset: "models/volcano/volcanorock.png",
+      how: Image(
+        from: "game/data/shapes/Common/VolcanoRock.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "models/volcano/volcanorock01.dts",
+      how: Copy("game/data/shapes/Common/volcanorock01.dts"),
+    ),
+    (
+      asset: "sky/day_0001.png",
+      how: Image(
+        from: "game/data/skies/day_0001.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sky/day_0002.png",
+      how: Image(
+        from: "game/data/skies/day_0002.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sky/day_0003.png",
+      how: Image(
+        from: "game/data/skies/day_0003.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sky/day_0004.png",
+      how: Image(
+        from: "game/data/skies/day_0004.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sky/day_0005.png",
+      how: Image(
+        from: "game/data/skies/day_0005.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sky/sky_day.dml",
+      how: Dml(
+        from: "game/data/skies/sky_day.dml",
+        keep: 5,
+      ),
+    ),
+    (
+      asset: "sky/skyblue.dml",
+      how: Dml(
+        from: "game/data/skies/SkyBlue.dml",
+        keep: 5,
+      ),
+    ),
+    (
+      asset: "sky/skyblue01.png",
+      how: Image(
+        from: "game/data/skies/SkyBlue01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sky/skyblue02.png",
+      how: Image(
+        from: "game/data/skies/SkyBlue02.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sky/skyblue03.png",
+      how: Image(
+        from: "game/data/skies/SkyBlue03.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sky/skyblue04.png",
+      how: Image(
+        from: "game/data/skies/SkyBlue04.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sky/skyblue05.png",
+      how: Image(
+        from: "game/data/skies/SkyBlue05.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sky/skyred.dml",
+      how: Dml(
+        from: "game/data/skies/SkyRed.dml",
+        keep: 5,
+      ),
+    ),
+    (
+      asset: "sky/skyred01.png",
+      how: Image(
+        from: "game/data/skies/SkyRed01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sky/skyred02.png",
+      how: Image(
+        from: "game/data/skies/SkyRed02.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sky/skyred03.png",
+      how: Image(
+        from: "game/data/skies/SkyRed03.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sky/skyred04.png",
+      how: Image(
+        from: "game/data/skies/SkyRed04.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sky/skyred05.png",
+      how: Image(
+        from: "game/data/skies/SkyRed05.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "sound/music/b1.ogg",
+      how: Copy("game/data/sound/b1.ogg"),
+    ),
+    (
+      asset: "sound/music/b3.ogg",
+      how: Copy("game/data/sound/b3.ogg"),
+    ),
+    (
+      asset: "sound/music/g1.ogg",
+      how: Copy("game/data/sound/g1.ogg"),
+    ),
+    (
+      asset: "sound/music/g2.ogg",
+      how: Copy("game/data/sound/g2.ogg"),
+    ),
+    (
+      asset: "sound/music/g3.ogg",
+      how: Copy("game/data/sound/g3.ogg"),
+    ),
+    (
+      asset: "sound/music/r1.ogg",
+      how: Copy("game/data/sound/r1.ogg"),
+    ),
+    (
+      asset: "sound/music/r3.ogg",
+      how: Copy("game/data/sound/r3.ogg"),
+    ),
+    (
+      asset: "sound/sfx/activatepup.ogg",
+      how: Copy("game/data/sound/activatePup.ogg"),
+    ),
+    (
+      asset: "sound/sfx/bouncebounce.ogg",
+      how: Copy("game/data/sound/bounceBounce.ogg"),
+    ),
+    (
+      asset: "sound/sfx/bouncevolcano.ogg",
+      how: Copy("game/data/sound/bounceVolcano.ogg"),
+    ),
+    (
+      asset: "sound/sfx/dryfire.wav",
+      how: Copy("game/data/sound/dryFire.wav"),
+    ),
+    (
+      asset: "sound/sfx/eject.ogg",
+      how: Copy("game/data/sound/eject.ogg"),
+    ),
+    (
+      asset: "sound/sfx/erupt.ogg",
+      how: Copy("game/data/sound/erupt.ogg"),
+    ),
+    (
+      asset: "sound/sfx/explode.ogg",
+      how: Copy("game/data/sound/explode.ogg"),
+    ),
+    (
+      asset: "sound/sfx/explodearea.ogg",
+      how: Copy("game/data/sound/explodeArea.ogg"),
+    ),
+    (
+      asset: "sound/sfx/explodehit.ogg",
+      how: Copy("game/data/sound/explodeHit.ogg"),
+    ),
+    (
+      asset: "sound/sfx/explodehityou.ogg",
+      how: Copy("game/data/sound/explodeHitYou.ogg"),
+    ),
+    (
+      asset: "sound/sfx/explodemortar.ogg",
+      how: Sound(
+        from: [
+          "sound/sfx/explodevolcano.ogg",
+          "sound/sfx/explodearea.ogg",
+        ],
+        filter: "[0:a]asetrate=37485,aresample=44100[v];[1:a]asetrate=33075,aresample=44100,volume=0.8[a];[v][a]amix=inputs=2:duration=longest:normalize=0,bass=g=4:f=90,afade=t=out:st=2.0:d=0.8[out]",
+        level: Lufs(-11.4),
+      ),
+    ),
+    (
+      asset: "sound/sfx/explodescatter.ogg",
+      how: Sound(
+        from: [
+          "sound/sfx/explode.ogg",
+        ],
+        filter: "[0:a]atrim=0:0.3,asetpts=PTS-STARTPTS,asetrate=70560,aresample=44100,highpass=f=450,afade=t=out:st=0.08:d=0.14[out]",
+        level: Peak(-6.0),
+      ),
+    ),
+    (
+      asset: "sound/sfx/explodevolcano.ogg",
+      how: Copy("game/data/sound/explodeVolcano.ogg"),
+    ),
+    (
+      asset: "sound/sfx/fireproj.ogg",
+      how: Copy("game/data/sound/fireProj.ogg"),
+    ),
+    (
+      asset: "sound/sfx/groundcoll.ogg",
+      how: Copy("game/data/sound/groundColl.ogg"),
+    ),
+    (
+      asset: "sound/sfx/mortarfire.ogg",
+      how: Sound(
+        from: [
+          "sound/sfx/fireproj.ogg",
+          "sound/sfx/explode.ogg",
+        ],
+        filter: "[0:a]asetrate=27342,aresample=44100,bass=g=6:f=110[f];[1:a]atrim=0:0.45,asetpts=PTS-STARTPTS,asetrate=22050,aresample=44100,lowpass=f=380,volume=0.7[e];[f][e]amix=inputs=2:duration=longest:normalize=0[out]",
+        level: Lufs(-13.0),
+      ),
+    ),
+    (
+      asset: "sound/sfx/pickuppup.ogg",
+      how: Copy("game/data/sound/pickupPup.ogg"),
+    ),
+    (
+      asset: "sound/sfx/scatterfire.ogg",
+      how: Sound(
+        from: [
+          "sound/sfx/fireproj.ogg",
+        ],
+        filter: "[0:a]atrim=0:0.5,asetpts=PTS-STARTPTS,asplit=4[a][b][c][d];[a]asetrate=52038,aresample=44100[a1];[b]asetrate=58212,aresample=44100,adelay=17,volume=0.8[b1];[c]asetrate=55125,aresample=44100,adelay=36,volume=0.75[c1];[d]asetrate=62622,aresample=44100,adelay=58,volume=0.6[d1];[a1][b1][c1][d1]amix=inputs=4:duration=longest:normalize=0,highpass=f=280[out]",
+        level: Lufs(-13.7),
+      ),
+    ),
+    (
+      asset: "sound/sfx/softcoll.ogg",
+      how: Copy("game/data/sound/softColl.ogg"),
+    ),
+    (
+      asset: "sound/sfx/staticcoll.ogg",
+      how: Copy("game/data/sound/staticColl.ogg"),
+    ),
+    (
+      asset: "sound/sfx/tankcoll.ogg",
+      how: Copy("game/data/sound/tankColl.ogg"),
+    ),
+    (
+      asset: "sound/sfx/tankdamage.ogg",
+      how: Copy("game/data/sound/tankDamage.ogg"),
+    ),
+    (
+      asset: "sound/sfx/tankengine.ogg",
+      how: Copy("game/data/sound/tankEngine.ogg"),
+    ),
+    (
+      asset: "sound/sfx/tankidle.ogg",
+      how: Copy("game/data/sound/tankIdle.ogg"),
+    ),
+    (
+      asset: "sound/sfx/ufo.ogg",
+      how: Copy("game/data/sound/UFO.ogg"),
+    ),
+    (
+      asset: "sound/sfx/vent.ogg",
+      how: Copy("game/data/sound/vent.ogg"),
+    ),
+    (
+      asset: "sound/sfx/zap.ogg",
+      how: Copy("game/data/sound/zap.ogg"),
+    ),
+    (
+      asset: "sound/ui/mousedown.wav",
+      how: Copy("game/data/sound/mouseDown.wav"),
+    ),
+    (
+      asset: "sound/ui/mouseover.wav",
+      how: Copy("game/data/sound/mouseOver.wav"),
+    ),
+    (
+      asset: "sound/ui/spbonus.ogg",
+      how: Copy("game/data/sound/spBonus.ogg"),
+    ),
+    (
+      asset: "sound/ui/spcount1.ogg",
+      how: Copy("game/data/sound/spCount1.ogg"),
+    ),
+    (
+      asset: "sound/ui/spcount2.wav",
+      how: Copy("game/data/sound/spCount2.wav"),
+    ),
+    (
+      asset: "sound/ui/spextra.ogg",
+      how: Copy("game/data/sound/spExtra.ogg"),
+    ),
+    (
+      asset: "sound/ui/spquick.ogg",
+      how: Copy("game/data/sound/spQuick.ogg"),
+    ),
+    (
+      asset: "sound/ui/spsurvival.ogg",
+      how: Copy("game/data/sound/spSurvival.ogg"),
+    ),
+    (
+      asset: "sound/ui/ticktoc.wav",
+      how: Copy("game/data/sound/ticktoc.wav"),
+    ),
+    (
+      asset: "sound/voice/voczoom.ogg",
+      how: Copy("game/data/sound/vocZoom.ogg"),
+    ),
+    (
+      asset: "terrain/blue/blueterrain01.normal.png",
+      how: NormalMap("terrain/blue/blueterrain01.png"),
+    ),
+    (
+      asset: "terrain/blue/blueterrain01.png",
+      how: Image(
+        from: "game/data/terrains/BlueTerrain/BlueTerrain01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "terrain/blue/blueterrain02.normal.png",
+      how: NormalMap("terrain/blue/blueterrain02.png"),
+    ),
+    (
+      asset: "terrain/blue/blueterrain02.png",
+      how: Image(
+        from: "game/data/terrains/BlueTerrain/BlueTerrain02.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "terrain/blue/blueterrain03.normal.png",
+      how: NormalMap("terrain/blue/blueterrain03.png"),
+    ),
+    (
+      asset: "terrain/blue/blueterrain03.png",
+      how: Image(
+        from: "game/data/terrains/BlueTerrain/BlueTerrain03.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "terrain/blue/blueterrain04.normal.png",
+      how: NormalMap("terrain/blue/blueterrain04.png"),
+    ),
+    (
+      asset: "terrain/blue/blueterrain04.png",
+      how: Image(
+        from: "game/data/terrains/BlueTerrain/BlueTerrain04.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "terrain/detail/detail1.png",
+      how: Image(
+        from: "game/data/terrains/details/detail1.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "terrain/green/fterrain01.normal.png",
+      how: NormalMap("terrain/green/fterrain01.png"),
+    ),
+    (
+      asset: "terrain/green/fterrain01.png",
+      how: Image(
+        from: "game/data/terrains/FTerrain/FTerrain01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "terrain/green/fterrain02.normal.png",
+      how: NormalMap("terrain/green/fterrain02.png"),
+    ),
+    (
+      asset: "terrain/green/fterrain02.png",
+      how: Image(
+        from: "game/data/terrains/FTerrain/FTerrain02.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "terrain/green/fterrain03.normal.png",
+      how: NormalMap("terrain/green/fterrain03.png"),
+    ),
+    (
+      asset: "terrain/green/fterrain03.png",
+      how: Image(
+        from: "game/data/terrains/FTerrain/FTerrain03.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "terrain/green/fterrain04.normal.png",
+      how: NormalMap("terrain/green/fterrain04.png"),
+    ),
+    (
+      asset: "terrain/green/fterrain04.png",
+      how: Image(
+        from: "game/data/terrains/FTerrain/FTerrain04.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "terrain/red/redterrain01.normal.png",
+      how: NormalMap("terrain/red/redterrain01.png"),
+    ),
+    (
+      asset: "terrain/red/redterrain01.png",
+      how: Image(
+        from: "game/data/terrains/RedTerrain/RedTerrain01.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "terrain/red/redterrain02.normal.png",
+      how: NormalMap("terrain/red/redterrain02.png"),
+    ),
+    (
+      asset: "terrain/red/redterrain02.png",
+      how: Image(
+        from: "game/data/terrains/RedTerrain/RedTerrain02.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "terrain/red/redterrain03.normal.png",
+      how: NormalMap("terrain/red/redterrain03.png"),
+    ),
+    (
+      asset: "terrain/red/redterrain03.png",
+      how: Image(
+        from: "game/data/terrains/RedTerrain/RedTerrain03.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "terrain/red/redterrain04.normal.png",
+      how: NormalMap("terrain/red/redterrain04.png"),
+    ),
+    (
+      asset: "terrain/red/redterrain04.png",
+      how: Image(
+        from: "game/data/terrains/RedTerrain/RedTerrain04.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/backgrounds/marquee1.png",
+      how: Image(
+        from: "game/client/ui/backgrounds/Marquee1.jpg",
+        alpha: "game/client/ui/backgrounds/Marquee1.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/backgrounds/marquee2.png",
+      how: Image(
+        from: "game/client/ui/backgrounds/Marquee2.jpg",
+        alpha: "game/client/ui/backgrounds/Marquee2.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/backgrounds/marquee3.png",
+      how: Image(
+        from: "game/client/ui/backgrounds/Marquee3.jpg",
+        alpha: "game/client/ui/backgrounds/Marquee3.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/backgrounds/marquee4.png",
+      how: Image(
+        from: "game/client/ui/backgrounds/Marquee4.jpg",
+        alpha: "game/client/ui/backgrounds/Marquee4.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/backgrounds/marquee5.png",
+      how: Image(
+        from: "game/client/ui/backgrounds/Marquee5.jpg",
+        alpha: "game/client/ui/backgrounds/Marquee5.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/backgrounds/marquee6.png",
+      how: Image(
+        from: "game/client/ui/backgrounds/Marquee6.jpg",
+        alpha: "game/client/ui/backgrounds/Marquee6.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/backgrounds/marquee7.png",
+      how: Image(
+        from: "game/client/ui/backgrounds/Marquee7.jpg",
+        alpha: "game/client/ui/backgrounds/Marquee7.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/backgrounds/marquee8.png",
+      how: Image(
+        from: "game/client/ui/backgrounds/Marquee8.jpg",
+        alpha: "game/client/ui/backgrounds/Marquee8.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/backgrounds/marqueebackground.png",
+      how: Image(
+        from: "game/client/ui/backgrounds/MarqueeBackground.jpg",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/hud/lagicon.png",
+      how: Image(
+        from: "game/client/ui/lagIcon.png",
+        alpha: None,
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/hud/radar_base.png",
+      how: Image(
+        from: "game/client/ui/radar_base.jpg",
+        alpha: "game/client/ui/radar_base.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/icons/bluedot.png",
+      how: Image(
+        from: "game/client/ui/bitmaps/BlueDot.jpg",
+        alpha: "game/client/ui/bitmaps/BlueDot.alpha.jpg",
+        upscaled: false,
+      ),
+    ),
+    (
+      asset: "ui/icons/brainicon.png",
+      how: Image(
+        from: "game/client/ui/bitmaps/BrainIcon.jpg",
+        alpha: "game/client/ui/bitmaps/BrainIcon.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/icons/bronzebothead.png",
+      how: Image(
+        from: "game/client/ui/bitmaps/BronzeBotHead.jpg",
+        alpha: "game/client/ui/bitmaps/BronzeBotHead.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/icons/goldbothead.png",
+      how: Image(
+        from: "game/client/ui/bitmaps/GoldBotHead.jpg",
+        alpha: "game/client/ui/bitmaps/GoldBotHead.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/icons/greendot.png",
+      how: Image(
+        from: "game/client/ui/bitmaps/GreenDot.jpg",
+        alpha: "game/client/ui/bitmaps/GreenDot.alpha.jpg",
+        upscaled: false,
+      ),
+    ),
+    (
+      asset: "ui/icons/lives.png",
+      how: Image(
+        from: "game/client/ui/bitmaps/Lives.jpg",
+        alpha: "game/client/ui/bitmaps/Lives.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+    (
+      asset: "ui/icons/reddot.png",
+      how: Image(
+        from: "game/client/ui/bitmaps/RedDot.jpg",
+        alpha: "game/client/ui/bitmaps/RedDot.alpha.jpg",
+        upscaled: false,
+      ),
+    ),
+    (
+      asset: "ui/icons/silverbothead.png",
+      how: Image(
+        from: "game/client/ui/bitmaps/SilverBotHead.jpg",
+        alpha: "game/client/ui/bitmaps/SilverBotHead.alpha.jpg",
+        upscaled: true,
+      ),
+    ),
+  ],
+  ours: [
+    "data/ai.ron",
+    "data/binds.ron",
+    "data/cameras.ron",
+    "data/campaign.ron",
+    "data/effects.ron",
+    "data/map_objects.ron",
+    "data/markers.ron",
+    "data/pickups.ron",
+    "data/sounds.ron",
+    "data/tanks.ron",
+    "data/weapons.ron",
+    "missions/catalog.ron",
+    "missions/poweruptest.ron",
+    "missions/poweruptest.ter",
+    "missions/tt1_5.ron",
+    "missions/tt1_5.ter",
+    "missions/tt2_5.ron",
+    "missions/tt2_5.ter",
+    "missions/tt3_5.ron",
+    "missions/tt3_5.ter",
+    "models/projectiles/mortarrocket.dts",
+    "models/projectiles/mortarrocket.png",
+    "models/projectiles/mortarrockethot.png",
+    "models/projectiles/scatterprojectile.png",
+    "models/reticles/scatterreticle.png",
+    "sound/voice/vocarea.ogg",
+    "sound/voice/vocbounce.ogg",
+    "sound/voice/vochealth.ogg",
+    "sound/voice/vocmortar.ogg",
+    "sound/voice/vocreload.ogg",
+    "sound/voice/vocscatter.ogg",
+    "sound/voice/vocspeedy.ogg",
+    "ui/credits.txt",
+  ],
+  replaced: [
+    ("game/data/sound/vocArea.ogg", "sound/voice/vocarea.ogg"),
+    ("game/data/sound/vocBounce.ogg", "sound/voice/vocbounce.ogg"),
+    ("game/data/sound/vocHealth.ogg", "sound/voice/vochealth.ogg"),
+    ("game/data/sound/vocReload.ogg", "sound/voice/vocreload.ogg"),
+    ("game/data/sound/vocSpeedy.ogg", "sound/voice/vocspeedy.ogg"),
+  ],
+)

@@ -1,0 +1,18 @@
+[package]
+name = "tt-viewer"
+description = "Mission viewer for Think Tanks data"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+tt-render = { path = "../tt-render" }
+tt-assets = { path = "../tt-assets" }
+wgpu = "24"
+winit = "0.30"
+glam = "0.30"
+image = { version = "0.25", default-features = false, features = ["png"] }
+pollster = "0.4"

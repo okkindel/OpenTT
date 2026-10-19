@@ -1,0 +1,4 @@
+[env]
+# The product name shown to the player (tt_assets::product).
+TT_PRODUCT_NAME = "OpenTT"
+TT_PRODUCT_DATA_DIR = "opentt"

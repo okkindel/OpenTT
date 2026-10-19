@@ -1,0 +1,102 @@
+// The power-ups, and the power-up weapons a weapon pick-up rolls: per
+// weapon its projectile and the sound played when it is picked up;
+// `weight` (default 1): how many slots of the roll the weapon fills,
+// i.e. its share of the random pick.
+// See tt_assets::data::defs for the fields.
+#![enable(implicit_some)]
+#![enable(unwrap_variant_newtypes)]
+(
+  pickups: [
+    PowerUpDef(
+      name: "BrainData",
+      category: "PowerUp",
+      shape: "models/tanks/brain.dts",
+      kind: "brain",
+      shadow: 1,
+      shadow_animation: 1,
+      starts_on: 1,
+      min_off_ms: 120000,
+      max_off_ms: 120000,
+      sound: "PupOnSound",
+      sound_off: "PupOffSound",
+    ),
+    PowerUpDef(
+      name: "TestPowerup",
+      category: "PowerUp",
+      shape: "models/items/powerup.dts",
+      kind: "weapon",
+      shadow: 1,
+      shadow_animation: 1,
+      starts_on: 0,
+      min_off_ms: 60000,
+      max_off_ms: 90000,
+      sound: "PupOnSound",
+      sound_off: "PupOffSound",
+      ai_pickup: 1,
+    ),
+    PowerUpDef(
+      name: "Heal",
+      category: "PowerUp",
+      shape: "models/items/health.dts",
+      kind: "health",
+      shadow: 1,
+      shadow_animation: 1,
+      starts_on: 0,
+      min_off_ms: 90000,
+      max_off_ms: 120000,
+      sound: "PupOnSound",
+      sound_off: "PupOffSound",
+      ai_pickup: 1,
+    ),
+    PowerUpDef(
+      name: "Reload",
+      category: "PowerUp",
+      shape: "models/items/recharge.dts",
+      kind: "ammo",
+      shadow: 1,
+      sound_off: "ReloadSound",
+      activate_sequence: "activate",
+      static_shadow: 1,
+    ),
+    PowerUpDef(
+      name: "DefaultGoal",
+      category: "Goal",
+      shape: "models/items/scrumgoal.dts",
+      kind: "goal",
+      shadow: 0,
+      shadow_animation: 0,
+      starts_on: 1,
+      min_off_ms: 0,
+      max_off_ms: 0,
+      sound: "PupOnSound",
+      sound_off: "",
+    ),
+  ],
+  weapons: [
+    (
+      projectile: "SpeedyProjectile",
+      sound: "ActivateSpeedy",
+      weight: 2,
+    ),
+    (
+      projectile: "BounceProjectile",
+      sound: "ActivateBounce",
+      weight: 2,
+    ),
+    (
+      projectile: "SplashProjectile",
+      sound: "ActivateSplash",
+      weight: 2,
+    ),
+    (
+      projectile: "ScatterProjectile",
+      sound: "ActivateScatter",
+      weight: 2,
+    ),
+    (
+      projectile: "MortarProjectile",
+      sound: "ActivateMortar",
+      weight: 1,
+    ),
+  ],
+)

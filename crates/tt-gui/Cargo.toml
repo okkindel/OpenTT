@@ -1,0 +1,13 @@
+[package]
+name = "tt-gui"
+description = "UI font (glyph atlas) and the HUD controls' layout formulas"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+ab_glyph = "0.2"
+image = { version = "0.25", default-features = false }

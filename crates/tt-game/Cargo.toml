@@ -1,0 +1,17 @@
+[package]
+name = "tt-game"
+description = "Deterministic Think Tanks gameplay simulation: tanks, projectiles, pads, power-ups"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+tt-assets = { path = "../tt-assets" }
+glam = "0.30"
+
+[dev-dependencies]
+# tests/pads.rs: the arrow direction the renderer draws (tt_render::pose).
+tt-render = { path = "../tt-render" }

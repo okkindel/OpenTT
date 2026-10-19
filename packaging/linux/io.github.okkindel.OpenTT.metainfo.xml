@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.okkindel.OpenTT</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <name>OpenTT</name>
+  <summary>Engine for the tank arena game Think Tanks</summary>
+  <developer id="io.github.okkindel">
+    <name>okkindel</name>
+  </developer>
+  <description>
+    <p>
+      OpenTT is an open-source engine for Think Tanks, the 2003 tank arena
+      game, written in Rust. It plays the solo campaign, bot matches and
+      network games on the local network or over the internet, with modern
+      rendering and menus.
+    </p>
+    <p>
+      OpenTT does not include the game's content. It needs the files of a
+      copy of Think Tanks that you own: on the first start it asks for the
+      Think Tanks folder and imports the models, textures, sounds and
+      missions from it. Nothing is downloaded.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.okkindel.OpenTT.desktop</launchable>
+  <provides>
+    <binary>opentt</binary>
+  </provides>
+  <url type="homepage">https://github.com/okkindel/OpenTT</url>
+  <url type="bugtracker">https://github.com/okkindel/OpenTT/issues</url>  <categories>
+    <category>Game</category>
+    <category>ActionGame</category>
+  </categories>
+  <keywords>
+    <keyword>tank</keyword>
+    <keyword>arena</keyword>
+    <keyword>multiplayer</keyword>
+  </keywords>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+  <content_rating type="oars-1.1">
+    <content_attribute id="violence-cartoon">moderate</content_attribute>
+    <content_attribute id="social-chat">intense</content_attribute>
+  </content_rating>
+  <releases>
+    <release version="0.1.0" date="2026-10-18"/>
+  </releases>
+</component>

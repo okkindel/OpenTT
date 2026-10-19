@@ -1,0 +1,26 @@
+[package]
+name = "tt-audio"
+description = "Audio: Ogg/WAV decoding, sound and sound description defs, an OpenAL-like software mixer (alx* API) and the MusicPlayer"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[features]
+default = ["output"]
+# Real-time playback through the system audio device (cpal). The mixer core,
+# offline rendering and all tests work without it.
+output = ["dep:cpal"]
+
+[dependencies]
+tt-assets = { path = "../tt-assets" }
+lewton = "0.10"
+hound = "3.5"
+cpal = { version = "0.15", optional = true }
+
+[[bin]]
+name = "tt-audio-play"
+path = "src/bin/tt-audio-play.rs"
+required-features = ["output"]

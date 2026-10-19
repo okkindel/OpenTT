@@ -1,0 +1,21 @@
+[package]
+name = "tt-menu"
+description = "The game's shell menus (egui), driven through a MenuBackend that calls the game"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+egui = "0.31"
+tt-gui = { path = "../tt-gui" }
+# Loading the artwork (png/jpg + .alpha masks) from the asset directory.
+tt-assets = { path = "../tt-assets" }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+
+[dev-dependencies]
+egui-wgpu = "0.31"
+wgpu = "24"
+pollster = "0.4"

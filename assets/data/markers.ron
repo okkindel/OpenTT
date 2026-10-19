@@ -1,0 +1,16 @@
+// The mission editor's markers.
+// See tt_assets::data::defs for the fields.
+#![enable(implicit_some)]
+#![enable(unwrap_variant_newtypes)]
+[
+  MarkerDef(
+    name: "WayPointMarker",
+    category: "Misc",
+    shape: "models/markers/octahedron.dts",
+  ),
+  MarkerDef(
+    name: "SpawnSphereMarker",
+    category: "Misc",
+    shape: "models/markers/octahedron.dts",
+  ),
+]

@@ -1,0 +1,7 @@
+(
+  name: "Desert Camo (example)",
+  version: "1.0",
+  author: "OpenTT",
+  description: "An example texture mod: sand, olive and rust desert camouflage for the tanks. Cosmetic only. Copy its folder to your mods folder to make your own (see README.md).",
+  example: true,
+)

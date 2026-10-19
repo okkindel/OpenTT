@@ -178,6 +178,7 @@ old one is left untouched (logged; `tt_engine::userdata`, not with `--data`).
 | `progress.ron` | The level select's highest level per player . | `tt_shell::Progress` |
 | `banlist.ron` | The server's bans (GUID, IP, end in Unix seconds). | `tt_shell::banlist::BanList` |
 | `logs/console.log` | The console log of the last session (rewritten each start). | text |
+| `logs/crash.log` | The panics and the fatal error of the last run that had one (`tt_engine::crash`; rewritten by the next). | text |
 | `screenshots/` | `doScreenShot` (Ctrl+P): `screenshot_00001.png`, ... (never overwritten: the next free number). | PNG |
 | `mods/` | The player's mods: one folder each (`docs/modding.md`). Also looked for in `mods/` of the source checkout (development, the example mods) and where an install keeps the mods it ships (next to the executable, `share/<data dir>/mods`, the `.app`'s `Resources/mods`). Never touched by an import. | the asset tree |
 | `gamedata/` | The game's own import, when the executable's directory cannot hold it (above). | the asset tree |

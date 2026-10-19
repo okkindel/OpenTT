@@ -329,11 +329,16 @@ fn assets_are_all_used() {
     assert!(unused.is_empty(), "{} files of the asset directory are used by nothing (delete them, or move them to archive/):\n{}", unused.len(), unused.iter().map(|s| s.as_str()).collect::<Vec<_>>().join("\n"));
 }
 
-/// Every directory has its provenance table, listing exactly its files.
+/// Every directory of the repository's `assets/` has its provenance
+/// table, listing exactly its files (the full asset directory here; in a
+/// checkout with our own files only, those: the game data imported
+/// elsewhere has no tables).
 #[test]
 fn every_file_has_its_provenance() {
-    tt_assets::require_game_data!();
-    let w = Walk::new();
+    let root = repo().join("assets");
+    let files: BTreeMap<String, PathBuf> = tt_assets::layout::files(&root).into_iter().collect();
+    assert!(!files.is_empty(), "{}: no files", root.display());
+    let w = Walk { root, files, used: BTreeSet::new(), todo: Vec::new(), problems: Vec::new() };
     let mut problems = Vec::new();
     let mut tables: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for top in TOP {

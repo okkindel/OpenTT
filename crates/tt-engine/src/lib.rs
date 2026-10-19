@@ -20,6 +20,8 @@
 //! * [`gameplay`] – the engine side of the game server, the client, the
 //!   data declarations and the golden behaviour traces;
 //! * [`fs`] – asset dir (read-only) + user data dir (writes) file system;
+//! * [`crash`] – fatal errors made visible (crash log, message box,
+//!   console attach on Windows);
 //! * [`console`] – the dedicated server's typed console; [`mission`] –
 //!   missions (RON) and the render scene; [`app`] – window and main loop;
 //!   [`gfx`] – GPU helpers and offscreen screenshots; [`hud`] – the native
@@ -36,6 +38,7 @@ pub mod audio;
 pub mod boot;
 pub mod canvas;
 pub mod console;
+pub mod crash;
 pub mod engine;
 #[cfg(feature = "dev")]
 pub mod framestats;

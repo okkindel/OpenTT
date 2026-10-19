@@ -4,7 +4,7 @@ members = ["crates/*"]
 
 [workspace.package]
 edition = "2021"
-version = "0.1.0"
+version = "0.1.1"
 # The public project's identity (the packages and the exported OpenTT
 # repository use these values; packaging/README.md).
 authors = ["okkindel <okkindel@users.noreply.github.com>"]

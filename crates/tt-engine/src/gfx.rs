@@ -8,17 +8,70 @@ use tt_render::{Camera, Renderer, Scene};
 /// Background when no 3D view is shown (menus).
 pub const CLEAR: wgpu::Color = wgpu::Color { r: 0.02, g: 0.02, b: 0.03, a: 1.0 };
 
+/// The wgpu instance of every window and offscreen target: all the
+/// backends of this build (Windows: DX12, Vulkan and GL; Linux: Vulkan and
+/// GL; macOS: Metal), or only those named by `WGPU_BACKEND` (`dx12`,
+/// `vulkan`, `gl`, `metal`, comma-separated) for a player whose driver
+/// misbehaves on the default choice (README § Troubleshooting).
+pub fn instance() -> wgpu::Instance {
+    wgpu::Instance::new(&wgpu::InstanceDescriptor::from_env_or_default())
+}
+
+/// The adapter, device and queue to draw with (on `compatible` when given).
+/// The adapter is wgpu's choice, else any adapter of any enabled backend
+/// that can draw there (the best kind first, [`adapter_rank`]), else the
+/// software one (WARP on Windows); the error lists what was found.
 pub async fn gpu(compatible: Option<&wgpu::Surface<'_>>, instance: &wgpu::Instance) -> Result<(wgpu::Adapter, wgpu::Device, wgpu::Queue), String> {
-    let adapter = instance
-        .request_adapter(&wgpu::RequestAdapterOptions { compatible_surface: compatible, ..Default::default() })
-        .await
-        .ok_or("no GPU adapter")?;
+    let adapter = adapter(compatible, instance).await?;
+    let info = adapter.get_info();
     // Optional features: GPU pass timing (`TT_GPU_TIMING`) and the packed
     // HDR scene format of the graphics extras.
     let features = adapter.features() & (tt_render::gputime::wanted_features() | tt_render::post::OPTIONAL_FEATURES);
-    let desc = wgpu::DeviceDescriptor { required_features: features, ..Default::default() };
-    let (device, queue) = adapter.request_device(&desc, None).await.map_err(|e| e.to_string())?;
+    let desc = wgpu::DeviceDescriptor { required_features: features, required_limits: device_limits(&adapter.limits()), ..Default::default() };
+    let (device, queue) = adapter.request_device(&desc, None).await.map_err(|e| format!("{} ({:?}): {e}", info.name, info.backend))?;
     Ok((adapter, device, queue))
+}
+
+/// See [`gpu`].
+async fn adapter(compatible: Option<&wgpu::Surface<'_>>, instance: &wgpu::Instance) -> Result<wgpu::Adapter, String> {
+    if let Some(a) = instance.request_adapter(&wgpu::RequestAdapterOptions { compatible_surface: compatible, ..Default::default() }).await {
+        return Ok(a);
+    }
+    let all = instance.enumerate_adapters(wgpu::Backends::all());
+    let found: Vec<String> = all.iter().map(|a| a.get_info()).map(|i| format!("{} ({:?}, {:?})", i.name, i.backend, i.device_type)).collect();
+    let usable = all.into_iter().filter(|a| compatible.is_none_or(|s| a.is_surface_supported(s))).min_by_key(|a| adapter_rank(a.get_info().device_type));
+    if let Some(a) = usable {
+        return Ok(a);
+    }
+    if let Some(a) = instance.request_adapter(&wgpu::RequestAdapterOptions { compatible_surface: compatible, force_fallback_adapter: true, ..Default::default() }).await {
+        return Ok(a);
+    }
+    let found = if found.is_empty() { "none".to_string() } else { found.join(", ") };
+    Err(format!("no graphics adapter can draw the game (adapters found: {found}); update the graphics driver, or choose another graphics backend with the environment variable WGPU_BACKEND=dx12, vulkan or gl"))
+}
+
+/// The order adapters are tried in when wgpu's own choice found none: a
+/// real GPU first, the software (CPU) ones last.
+pub fn adapter_rank(t: wgpu::DeviceType) -> u8 {
+    match t {
+        wgpu::DeviceType::DiscreteGpu => 0,
+        wgpu::DeviceType::IntegratedGpu => 1,
+        wgpu::DeviceType::VirtualGpu => 2,
+        wgpu::DeviceType::Other => 3,
+        wgpu::DeviceType::Cpu => 4,
+    }
+}
+
+/// The limits the device is asked for: wgpu's defaults (WebGPU's) when the
+/// adapter has them, else everything it has (older GPUs and GL drivers fall
+/// short of a default, which would refuse the device outright).
+pub fn device_limits(supported: &wgpu::Limits) -> wgpu::Limits {
+    let default = wgpu::Limits::default();
+    if default.check_limits(supported) {
+        default
+    } else {
+        supported.clone()
+    }
 }
 
 /// Camera above the first spawn point looking at the map centre (as tt-viewer).
@@ -203,7 +256,7 @@ pub fn draw_game_frame(
 
 #[allow(clippy::too_many_arguments)]
 pub fn screenshot(out: &Path, size: (u32, u32), scene: Option<&Scene>, camera: Option<Camera>, game: Option<&GameView>, time: f32, overlay: Option<Overlay>) -> Result<(), String> {
-    let instance = wgpu::Instance::default();
+    let instance = crate::gfx::instance();
     let (_, device, queue) = pollster::block_on(gpu(None, &instance))?;
     let (w, h) = size;
     let format = wgpu::TextureFormat::Rgba8UnormSrgb;
@@ -290,7 +343,7 @@ pub struct Offscreen {
 
 impl Offscreen {
     pub fn new(size: (u32, u32)) -> Result<Offscreen, String> {
-        let instance = wgpu::Instance::default();
+        let instance = crate::gfx::instance();
         let (adapter, device, queue) = pollster::block_on(gpu(None, &instance))?;
         let info = adapter.get_info();
         let adapter = format!("{} ({:?}, {:?})", info.name, info.device_type, info.backend);
@@ -317,5 +370,29 @@ impl Offscreen {
     pub fn save(&self, out: &Path) -> Result<(), String> {
         let pixels = read_rgba(&self.device, &self.queue, &self.texture, self.size, self.format);
         image::save_buffer(out, &pixels, self.size.0, self.size.1, image::ColorType::Rgba8).map_err(|e| e.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn real_gpus_before_software_adapters() {
+        use wgpu::DeviceType::*;
+        let mut kinds = [Cpu, Other, VirtualGpu, IntegratedGpu, DiscreteGpu];
+        kinds.sort_by_key(|&t| adapter_rank(t));
+        assert_eq!(kinds, [DiscreteGpu, IntegratedGpu, VirtualGpu, Other, Cpu]);
+    }
+
+    #[test]
+    fn device_limits_fall_back_to_the_adapters() {
+        // An adapter with the defaults (or more) is asked for the defaults.
+        let big = wgpu::Limits { max_texture_dimension_2d: 16384, ..wgpu::Limits::default() };
+        assert_eq!(device_limits(&big), wgpu::Limits::default());
+        // One short of a default (an old GL driver) for what it has.
+        let gl = wgpu::Limits::downlevel_webgl2_defaults();
+        assert!(!wgpu::Limits::default().check_limits(&gl));
+        assert_eq!(device_limits(&gl), gl);
     }
 }

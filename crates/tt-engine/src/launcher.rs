@@ -38,7 +38,7 @@ struct SetupGfx {
 
 impl SetupGfx {
     fn new(window: Arc<Window>) -> Result<SetupGfx, String> {
-        let instance = wgpu::Instance::default();
+        let instance = crate::gfx::instance();
         let surface = instance.create_surface(window.clone()).map_err(|e| e.to_string())?;
         let (adapter, device, queue) = pollster::block_on(crate::gfx::gpu(Some(&surface), &instance))?;
         let size = window.inner_size();

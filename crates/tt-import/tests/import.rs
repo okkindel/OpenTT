@@ -10,11 +10,22 @@ fn asset_files() -> BTreeSet<String> {
     tt_assets::layout::files(&tt_import::repo_assets()).into_iter().map(|(r, _)| r).filter(|r| !r.ends_with("SOURCES.md")).collect()
 }
 
+/// Whether the repository's `assets/` is the full asset directory with all
+/// its provenance tables (the private repository); a checkout with only
+/// our own files there (the game data imported elsewhere) skips the tests
+/// of the whole tree.
+fn full_repo_assets(test: &str) -> bool {
+    let full = tt_assets::testdata::present_in(&tt_import::repo_assets()) && tt_assets::testdata::mode() != tt_assets::testdata::Mode::Skip;
+    if !full {
+        eprintln!("{test}: skipped, the repository's assets/ holds our own files only");
+    }
+    full
+}
+
 /// `mapping.ron` is what the provenance tables say (`tt-import mapping`).
 #[test]
 fn mapping_is_generated_from_sources() {
-    // The provenance tables are in the private repository only.
-    if !tt_assets::testdata::require_fixture("mapping_is_generated_from_sources", &tt_import::repo_assets().join("data/SOURCES.md")) {
+    if !full_repo_assets("mapping_is_generated_from_sources") {
         return;
     }
     let generated = mapping::from_sources(&tt_import::repo_assets()).unwrap();
@@ -24,7 +35,9 @@ fn mapping_is_generated_from_sources() {
 /// Every file of `assets/` is made by the importer or is OpenTT's own, once.
 #[test]
 fn mapping_covers_the_asset_tree() {
-    tt_assets::require_game_data!();
+    if !full_repo_assets("mapping_covers_the_asset_tree") {
+        return;
+    }
     let m = Mapping::builtin();
     let mut listed = BTreeSet::new();
     for a in m.files.iter().map(|e| &e.asset).chain(&m.ours) {

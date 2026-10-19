@@ -441,9 +441,9 @@ impl ApplicationHandler for App {
             modes.dedup();
             self.engine.host.video.modes = modes;
         }
-        let instance = wgpu::Instance::default();
-        let surface = instance.create_surface(window.clone()).expect("surface");
-        let (adapter, device, queue) = pollster::block_on(crate::gfx::gpu(Some(&surface), &instance)).expect("gpu");
+        let instance = crate::gfx::instance();
+        let surface = instance.create_surface(window.clone()).unwrap_or_else(|e| panic!("graphics: cannot draw in the window: {e}"));
+        let (adapter, device, queue) = pollster::block_on(crate::gfx::gpu(Some(&surface), &instance)).unwrap_or_else(|e| panic!("graphics: {e}"));
         let size = window.inner_size();
         let mut config = surface.get_default_config(&adapter, size.width.max(1), size.height.max(1)).expect("surface config");
         // Fifo (vsync) unless vsync is off (see `present_mode`). One frame
@@ -631,7 +631,8 @@ fn capture_frame(engine: &mut Engine, g: &mut Gfx, frame: &wgpu::Texture, size: 
 }
 
 /// Runs `handler`'s event loop (the game, or [`crate::launcher::Launcher`])
-/// until it exits. May be called off the main thread; only once per process.
+/// until it exits. Only once per process; off the main thread on Linux and
+/// Windows only (on macOS the game runs on the main thread: main.rs).
 pub fn run_handler<H: ApplicationHandler>(handler: &mut H) -> Result<(), String> {
     #[allow(unused_mut)]
     let mut builder = EventLoop::builder();
@@ -641,6 +642,16 @@ pub fn run_handler<H: ApplicationHandler>(handler: &mut H) -> Result<(), String>
         use winit::platform::x11::EventLoopBuilderExtX11;
         EventLoopBuilderExtX11::with_any_thread(&mut builder, true);
         EventLoopBuilderExtWayland::with_any_thread(&mut builder, true);
+    }
+    // Without this winit panics off the main thread on Windows ("Initializing
+    // the event loop outside of the main thread ..."): the game runs on a
+    // thread of its own (main.rs). The window and its messages then live on
+    // that thread, which Windows allows. (macOS has no such option: there the
+    // game runs on the main thread.)
+    #[cfg(target_os = "windows")]
+    {
+        use winit::platform::windows::EventLoopBuilderExtWindows;
+        builder.with_any_thread(true);
     }
     let event_loop = builder.build().map_err(|e| e.to_string())?;
     event_loop.set_control_flow(ControlFlow::Poll);

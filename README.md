@@ -157,6 +157,28 @@ enabled: Desert Camo (new tank textures) and Carpet Bombing (a data-only
 Mortar change). Copy one to your mods folder as a starting point
 (`docs/modding.md` § Example mods).
 
+## Troubleshooting
+
+* **Logs.** Every run writes `logs/console.log` in the `opentt` folder
+  above (Windows: `%APPDATA%\opentt\logs\console.log`; paste
+  `%APPDATA%\opentt\logs` into the Explorer address bar). When OpenTT
+  stops because of an error it says so in a message box and writes the
+  details to `logs/crash.log` next to it. Please attach both to a bug report.
+* **Windows: see the output.** OpenTT opens no console window. Run it
+  from a Command Prompt in its folder (`opentt`, or `opentt --help`) and its
+  messages appear there. The dedicated server opens a console of its own;
+  from a Command Prompt start it with `start /wait opentt --dedicated ...`
+  to use that one.
+* **Graphics.** OpenTT picks a graphics backend itself (Windows: Direct3D 12,
+  Vulkan or OpenGL; Linux: Vulkan or OpenGL; macOS: Metal) and falls back to
+  any adapter that works, the software one last. If it fails to start or
+  draws wrongly, update the graphics driver or choose the backend with the
+  environment variable `WGPU_BACKEND` (`dx12`, `vulkan` or `gl`):
+  `set WGPU_BACKEND=vulkan` then `opentt` in a Command Prompt (Linux and
+  macOS: `WGPU_BACKEND=gl opentt`).
+* **No sound** is not an error: without an audio output device the game
+  runs silent; `--no-sound` turns sound off.
+
 ## Tests
 
 ```sh

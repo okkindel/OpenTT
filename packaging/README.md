@@ -65,6 +65,28 @@ sudo apt install mingw-w64     # x86_64-w64-mingw32-gcc and -windres
 publisher, copyright, version) into the executable; without it the
 executable is built without them. Zipping needs `zip`, `7z` or `python3`.
 
+A release build is a GUI program (`windows_subsystem = "windows"`,
+`crates/tt-engine/src/main.rs`): double-clicking it opens no console
+window. Started from cmd or PowerShell it attaches to that console, and
+`--dedicated` / `--master` open a console of their own when there is none.
+A fatal error or panic shows a message box and goes to
+`%APPDATA%\opentt\logs\crash.log` (next to `console.log`;
+`tt_engine::crash`). Debug builds keep the console. To test a package:
+start the game by double-click on a machine without the game data (the
+first-run screen must open), then from cmd with `--help` (the usage must
+appear in the console).
+
+### Troubleshooting a player's report
+
+* Ask for `%APPDATA%\opentt\logs\console.log` and `crash.log`.
+* "It opens and closes": release 0.1.0 was a console program and
+  panicked at once (winit refused the event loop off the main thread); the
+  message vanished with the console window. Now it is in `crash.log` and a
+  message box.
+* Graphics: `WGPU_BACKEND=dx12|vulkan|gl` picks the backend (wgpu's
+  `InstanceDescriptor::from_env_or_default`, `tt_engine::gfx::instance`);
+  without an adapter that can draw, the error lists the adapters found.
+
 ## macOS
 
 On a Mac with Rust and both targets

@@ -151,7 +151,7 @@ impl Pictures {
     /// box-filtered down.
     pub fn new(root: &Path, mission: &str, time: f32, triggers: bool, ssaa: u32) -> Result<Pictures, String> {
         let (scene, trigger_list) = load(root, mission)?;
-        let instance = wgpu::Instance::default();
+        let instance = crate::gfx::instance();
         let (_, device, queue) = pollster::block_on(crate::gfx::gpu(None, &instance))?;
         let mut renderer = Renderer::new_with_settings(&device, &queue, FORMAT, &scene, settings());
         let (dynamic, anims) = if triggers { posed(&trigger_list, time) } else { Default::default() };

@@ -67,6 +67,15 @@
 //! game's command line options ([`tt_engine::boot::BootArgs`]). Everything the
 //! game writes (settings, players, high scores, logs/console.log) goes to the data
 //! directory (default `$XDG_DATA_HOME/opentt`; docs/layout.md § User data).
+//!
+//! A release build for Windows is a GUI program: no console window opens
+//! with the game. Started from a console (cmd, PowerShell) it writes its
+//! output there; `--dedicated` and `--master` open a console of their own
+//! when there is none. A panic or the error that ends the game goes to
+//! `logs/crash.log` in the data directory and, in a windowed run, to a
+//! message box (`tt_engine::crash`; `TT_NO_ERROR_DIALOG=1` turns it off).
+
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 #[cfg(feature = "dev")]
 mod devtools;
@@ -178,6 +187,10 @@ fn parse_args() -> Result<Args, String> {
 }
 
 fn run(a: Args) -> Result<(), String> {
+    if std::env::var_os("TT_PRINT_ENGINE_THREAD").is_some() {
+        // For the startup test (tests/startup.rs).
+        eprintln!("engine thread: {}", std::thread::current().name().unwrap_or("?"));
+    }
     if a.master {
         // The master (lobby) server alone: no game, no assets.
         let o = tt_master::Options { port: a.port.unwrap_or(tt_net::master::DEFAULT_MASTER_PORT), ..Default::default() };
@@ -352,26 +365,83 @@ fn dedicated(engine: &mut Engine) -> Result<(), String> {
     Ok(())
 }
 
+/// Whether the run shows the window (fatal errors then also go to a message
+/// box): not a server, an import or a developer run without a window.
+fn windowed_run(a: &Args) -> bool {
+    #[cfg(feature = "dev")]
+    let offline = a.dev.offline();
+    #[cfg(not(feature = "dev"))]
+    let offline = false;
+    !(a.dedicated || a.master || a.import.is_some() || offline)
+}
+
+/// Whether a fatal error of a windowed run goes to a message box as well:
+/// always on Windows (a release build has no console window), elsewhere
+/// when stderr is no terminal (started from the desktop) and not from cargo
+/// (`cargo run`, the tests).
+fn error_dialog() -> bool {
+    use std::io::IsTerminal;
+    cfg!(windows) || (!std::io::stderr().is_terminal() && std::env::var_os("CARGO_MANIFEST_DIR").is_none())
+}
+
+/// The stack of the thread that runs the game: 32 MB. The game needs
+/// about 1 MB in a debug build (the 3D view's frame is the deepest; a
+/// simulation, a mission load or an import need under 512 KB) and under
+/// 256 KB in a release build, so this is a wide margin. On macOS the game
+/// runs on the main thread, whose stack is set when the binary is linked
+/// (`-stack_size` in build.rs, the same size; at most 64 MB there).
+const ENGINE_STACK: usize = 32 << 20;
+
+/// Whether the game runs on the main thread: on macOS, where the window's
+/// event loop must be created there (winit has no way around it); elsewhere
+/// on a thread of its own with [`ENGINE_STACK`] (the main thread's stack
+/// is 1 MB on Windows).
+const ENGINE_ON_MAIN_THREAD: bool = cfg!(target_os = "macos");
+
+/// Runs [`run`] where [`ENGINE_ON_MAIN_THREAD`] says; a panic becomes the
+/// error that ends the game.
+fn run_engine(args: Args) -> Result<(), String> {
+    let crashed = |_| match tt_engine::crash::first_panic() {
+        Some(p) => format!("the game crashed: {p}"),
+        None => "engine thread panicked".to_string(),
+    };
+    if ENGINE_ON_MAIN_THREAD {
+        return std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || run(args))).map_err(crashed).and_then(|r| r);
+    }
+    std::thread::Builder::new().name("engine".into()).stack_size(ENGINE_STACK).spawn(move || run(args)).map_err(|e| e.to_string()).and_then(|h| h.join().map_err(crashed)).and_then(|r| r)
+}
+
 fn main() -> ExitCode {
+    let early: Vec<String> = std::env::args().skip(1).take_while(|a| a != "--").collect();
+    let has = |flag: &str| early.iter().any(|a| a == flag);
+    // Windows release builds have no console window of their own (see the
+    // top): the output goes to the console the game was started from, a
+    // server without one opens one.
+    let console = tt_engine::crash::attach_console(has("--dedicated") || has("--master"));
+    tt_engine::crash::install(&tt_engine::fs::default_data_dir());
     // The default data directory of the earlier product name becomes the
     // current one, before the defaults below look into it (not with `--data`).
-    if !std::env::args().skip(1).take_while(|a| a != "--").any(|a| a == "--data") {
+    if !has("--data") {
         tt_engine::userdata::move_default_data_dir();
     }
     let args = match parse_args() {
         Ok(a) => a,
         Err(e) => {
-            eprintln!("{e}");
+            if console {
+                eprintln!("{e}");
+            } else {
+                tt_engine::crash::fatal(&e, true);
+            }
             return ExitCode::from(2);
         }
     };
-    // Run the engine on a thread with a big stack (deep recursion in the
-    // world's collision code on big maps).
-    let r = std::thread::Builder::new().name("engine".into()).stack_size(256 << 20).spawn(move || run(args)).map_err(|e| e.to_string()).and_then(|h| h.join().map_err(|_| "engine thread panicked".to_string()));
-    match r.and_then(|r| r) {
+    tt_engine::crash::install(&args.cfg.data);
+    let dialog = windowed_run(&args) && error_dialog();
+    let r = run_engine(args);
+    match r {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("error: {e}");
+            tt_engine::crash::fatal(&e, dialog);
             ExitCode::FAILURE
         }
     }

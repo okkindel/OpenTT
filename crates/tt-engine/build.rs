@@ -1,6 +1,9 @@
 //! `cfg(tt_original)` when `TT_ORIGINAL_DIR` is set at build time: the
 //! import-flow test (tests/game_data.rs) then runs instead of being ignored.
 //!
+//! For a macOS target the binary's main thread gets a 32 MB stack (the
+//! game runs on it there; `src/main.rs`).
+//!
 //! For a Windows target the application icon (`icon/opentt.ico`) and the
 //! version information (company, product name from `TT_PRODUCT_NAME`,
 //! copyright, the package version) go into the executable's resources
@@ -14,10 +17,19 @@ fn main() {
     if std::env::var_os("TT_ORIGINAL_DIR").is_some_and(|v| !v.is_empty()) {
         println!("cargo::rustc-cfg=tt_original");
     }
-    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
-        windows_resources();
+    match std::env::var("CARGO_CFG_TARGET_OS").as_deref() {
+        Ok("windows") => windows_resources(),
+        // The game runs on the main thread there (src/main.rs,
+        // ENGINE_STACK): its stack is the size linked into the binary
+        // (default 8 MB; Apple's ld takes at most 64 MB, in hex, a multiple
+        // of the page size). tests/startup.rs checks the binary's header.
+        Ok("macos") => println!("cargo::rustc-link-arg-bins=-Wl,-stack_size,{MACOS_MAIN_STACK}"),
+        _ => {}
     }
 }
+
+/// The main thread's stack of the macOS binary: 32 MB.
+const MACOS_MAIN_STACK: &str = "0x2000000";
 
 /// The publisher shown in the executable's properties.
 const COMPANY: &str = "okkindel";

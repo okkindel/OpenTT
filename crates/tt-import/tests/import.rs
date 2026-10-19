@@ -100,3 +100,91 @@ fn import_reproduces_the_assets() {
     assert!(mixed.is_empty(), "file names not lowercase: {mixed:?}");
     assert!(unexpected.is_empty(), "{} unexpected differences: {:?}", unexpected.len(), unexpected.iter().take(10).collect::<Vec<_>>());
 }
+
+/// A copy of the install `game` under `dir` (symbolic links to its files)
+/// without the files `drop` says to leave out.
+fn linked_copy(game: &std::path::Path, dir: &std::path::Path, drop: &dyn Fn(&str) -> bool) {
+    for (rel, path) in tt_assets::layout::files(game) {
+        if drop(&rel) {
+            continue;
+        }
+        let to = dir.join(&rel);
+        std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&path, &to).unwrap();
+        #[cfg(not(unix))]
+        std::fs::copy(&path, &to).unwrap();
+    }
+}
+
+/// Other editions of the game, made from the game install: the
+/// Shockwave.com edition imports with those skipped and listed; the Mac
+/// edition's slides (PNGs with their alpha) are taken instead.
+#[test]
+#[cfg_attr(not(tt_original), ignore = "needs the game install: set TT_ORIGINAL_DIR")]
+fn other_editions_import() {
+    let Some(game) = tt_import::original_dir() else {
+        eprintln!("no game install (TT_ORIGINAL_DIR): skipped");
+        return;
+    };
+    let base = std::env::temp_dir().join(format!("tt-import-editions-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let marquee = |rel: &str| rel.to_ascii_lowercase().starts_with("game/client/ui/backgrounds/marquee");
+    let missions = "game/data/missions";
+
+    // Shockwave.com: no Marquee*, TT3_2.mis in UTF-16, TT2_1.mis zero-filled.
+    let sw = base.join("shockwave");
+    linked_copy(&game, &sw, &|rel| marquee(rel) || rel.ends_with("TT3_2.mis") || rel.ends_with("TT2_1.mis"));
+    let text = std::fs::read(game.join(missions).join("TT3_2.mis")).unwrap();
+    let mut utf16 = Vec::new();
+    for u in tt_assets::latin1(&text).encode_utf16() {
+        utf16.extend(u.to_le_bytes());
+    }
+    std::fs::write(sw.join(missions).join("TT3_2.mis"), &utf16).unwrap();
+    std::fs::write(sw.join(missions).join("TT2_1.mis"), vec![0u8; 5000]).unwrap();
+    std::fs::write(sw.join(missions).join("TT2_1.mis.dso"), b"compiled").unwrap();
+    assert_eq!(tt_import::locate::resolve(&sw).unwrap(), sw, "the slides are optional");
+    let out = base.join("out-sw");
+    let mut opts = tt_import::Options::new(&sw, &out);
+    opts.normal_maps = false;
+    opts.ffmpeg = String::new();
+    let r = tt_import::import(&opts).unwrap();
+    eprintln!("{}", r.summary());
+    for l in r.details() {
+        eprintln!("{l}");
+    }
+    assert!(!r.tutorial_available());
+    let slides: Vec<_> = r.skipped.iter().filter(|s| s.asset.starts_with("ui/backgrounds/") && s.asset.contains("marquee")).collect();
+    assert_eq!(slides.len(), 9, "{slides:?}");
+    assert!(slides.iter().all(|s| s.reason == tt_import::TUTORIAL_DISABLED));
+    assert_eq!(r.missing.iter().filter(|m| m.to_ascii_lowercase().contains("marquee")).count(), 17);
+    let bad = r.skipped.iter().find(|s| s.asset == "missions/tt2_1.ron").expect("tt2_1 skipped");
+    assert!(bad.reason.contains("TT2_1.mis.dso"), "{}", bad.reason);
+    assert!(!out.join("missions/tt2_1.ron").exists() && !out.join("ui/backgrounds/marquee1.png").exists());
+    assert!(r.warnings.iter().any(|w| w.contains("TT3_2.mis") && w.contains("UTF-16")), "{:?}", r.warnings);
+    let utf16_ron = std::fs::read_to_string(out.join("missions/tt3_2.ron")).unwrap();
+
+    // Mac: Marquee<n>.png with the alpha inside instead of .jpg + .alpha.jpg.
+    let mac = base.join("mac");
+    linked_copy(&game, &mac, &|rel| marquee(rel));
+    let bg = "game/client/ui/backgrounds";
+    for n in (1..=8).map(|n| n.to_string()).chain(["Background".to_string()]) {
+        let color = image::open(game.join(bg).join(format!("Marquee{n}.jpg"))).unwrap();
+        let img = match image::open(game.join(bg).join(format!("Marquee{n}.alpha.jpg"))) {
+            Ok(mask) => image::DynamicImage::ImageRgba8(tt_import::images::merge_alpha(&color, &mask)),
+            Err(_) => color,
+        };
+        img.save(mac.join(bg).join(format!("marquee{n}.png"))).unwrap();
+    }
+    let out = base.join("out-mac");
+    let mut opts = tt_import::Options::new(&mac, &out);
+    opts.normal_maps = false;
+    opts.ffmpeg = String::new();
+    let r = tt_import::import(&opts).unwrap();
+    assert!(r.tutorial_available(), "{:?}", r.skipped);
+    assert!(r.skipped.is_empty() && r.missing.is_empty(), "{:?} {:?}", r.skipped, r.missing);
+    let a = image::open(out.join("ui/backgrounds/marquee1.png")).unwrap().to_rgba8();
+    assert!(a.pixels().any(|p| p.0[3] < 128), "the slide keeps its alpha");
+    assert_eq!(std::fs::read_to_string(out.join("missions/tt3_2.ron")).unwrap(), utf16_ron, "the UTF-16 mission converts as the plain one");
+    let _ = std::fs::remove_dir_all(&base);
+}

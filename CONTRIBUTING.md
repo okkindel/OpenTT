@@ -2,7 +2,7 @@
 
 Thanks for helping. A few rules keep the project healthy and legal:
 
-* **No game content.** Never commit files from a *Think Tanks* install or
+* **No game content.** Never commit files from a *ThinkTanks* install or
   anything derived from them (models, textures, sounds, music, missions,
   scripts, extracted tables, screenshots of the game's art). The game data
   comes from `tt-import` on each user's machine. New assets must be your

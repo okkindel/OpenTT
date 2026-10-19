@@ -57,6 +57,24 @@ fn empty_asset_dir_starts_at_the_first_run_screen() {
     let e = flow.ui.error.clone().unwrap_or_default();
     assert!(e.contains("\"game\" folder"), "{e}");
     assert!(!flow.importing() && flow.outcome.is_none());
+    // An install without its files: every missing file in the report and
+    // the log, the log's place in the message; Continue goes back.
+    let bare = base.join("bare");
+    std::fs::create_dir_all(bare.join("game/data/missions")).unwrap();
+    std::fs::create_dir_all(bare.join("game/server/scripts")).unwrap();
+    flow.log_dir = Some(base.join("logs"));
+    flow.handle(SetupAction::Import(bare.display().to_string()));
+    assert!(!flow.importing());
+    let missing = tt_import::locate::missing_required(&bare, &tt_import::mapping::Mapping::builtin());
+    let r = flow.ui.report.clone().expect("the report");
+    assert!(!r.ok && r.lines.len() == missing.len() + 1, "{} lines for {} files", r.lines.len(), missing.len());
+    let e = flow.ui.error.clone().unwrap_or_default();
+    assert!(e.contains("incomplete") && e.contains("import.log"), "{e}");
+    let log = std::fs::read_to_string(base.join("logs/import.log")).unwrap();
+    assert!(missing.iter().all(|m| log.contains(m.as_str())) && log.contains("result: failed"));
+    assert_eq!(frame(&mut flow), None);
+    flow.handle(SetupAction::Continue);
+    assert!(flow.ui.report.is_none() && flow.outcome.is_none());
     // Quit leaves.
     flow.handle(SetupAction::Quit);
     assert!(matches!(flow.outcome, Some(Outcome::Quit)));
@@ -103,6 +121,7 @@ fn import_flow_then_a_mission() {
     let target = base.join("gamedata");
     let mut flow = SetupFlow::new(SetupMode::FirstRun, target.clone(), None);
     flow.pictures = false;
+    flow.log_dir = Some(base.join("logs"));
     flow.handle(SetupAction::Import(source.display().to_string()));
     let mut seen = Vec::new();
     let mut last_done = 0;
@@ -117,6 +136,13 @@ fn import_flow_then_a_mission() {
             }
         }
     }
+    // The report is shown (and written to the log folder) until Continue.
+    assert!(flow.outcome.is_none());
+    let shown = flow.ui.report.clone().unwrap_or_else(|| panic!("import failed: {:?}", flow.ui.error));
+    assert!(shown.ok && shown.summary.contains("files imported"), "{shown:?}");
+    assert!(std::fs::read_to_string(base.join("logs/import.log")).unwrap().contains("result: imported"));
+    flow.handle(SetupAction::Continue);
+    assert!(flow.ui.report.is_none());
     let Some(Outcome::Imported { assets, source: from, report }) = flow.outcome.take() else { panic!("import failed: {:?}", flow.ui.error) };
     eprintln!("{} files; phases seen: {seen:?}; warnings: {:?}", report.written, report.warnings);
     assert_eq!(assets, target);

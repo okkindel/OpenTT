@@ -1,6 +1,6 @@
 [package]
 name = "tt-game"
-description = "Deterministic Think Tanks gameplay simulation: tanks, projectiles, pads, power-ups"
+description = "Deterministic ThinkTanks gameplay simulation: tanks, projectiles, pads, power-ups"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

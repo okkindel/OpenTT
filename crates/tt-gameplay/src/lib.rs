@@ -1,4 +1,4 @@
-//! `tt-gameplay`: the Think Tanks game logic without engine or I/O
+//! `tt-gameplay`: the ThinkTanks game logic without engine or I/O
 //! (docs/rust-native-plan.md §2): the game server's rules ([`server`],
 //! behind the [`server::host::ServerHost`] the engine implements), the
 //! game data they use ([`data`]), the typed messages between the server

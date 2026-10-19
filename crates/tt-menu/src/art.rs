@@ -21,6 +21,13 @@ pub fn art_path(art: &Art) -> String {
     }
 }
 
+/// Whether the asset directory `root` has every tutorial slide
+/// ([`Art::Slide`] 1..8): the import skips them when the install has none
+/// (some editions of ThinkTanks), and the menus then do not offer the tutorial.
+pub fn tutorial_available(root: &Path) -> bool {
+    (1..=8).all(|n| tt_assets::find_ci(&root.join(art_path(&Art::Slide(n)))).is_some())
+}
+
 /// Largest texture kept for a piece of art (the 4x tutorial slides are
 /// 2560x1920; on the menu stage they are at most about 1300 pixels wide).
 fn max_size(art: &Art) -> Option<(u32, u32)> {

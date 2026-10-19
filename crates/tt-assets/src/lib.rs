@@ -1,4 +1,4 @@
-//! Loaders for Think Tanks data files.
+//! Loaders for ThinkTanks data files.
 
 mod bytes;
 pub mod data;

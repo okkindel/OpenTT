@@ -8,7 +8,7 @@ What lives where, how files are named and how the game refers to them.
 | Path | What |
 |---|---|
 | `assets/` | Everything the game loads at run time, nothing else (below). `--assets DIR` / `$TT_ASSETS` point the game at another copy. |
-| `gamedata/` | The asset directory imported from a Think Tanks install (`tt-import`, or the game's first-run screen; § Imported game data). Ignored. |
+| `gamedata/` | The asset directory imported from a ThinkTanks install (`tt-import`, or the game's first-run screen; § Imported game data). Ignored. |
 | `crates/` | The Rust workspace (`README.md` lists the crates). Generators of asset files are examples of the crates (§ Generators). |
 | `mods/` | The example mods that ship with the game (`docs/modding.md` § Example mods); other folders here are a developer's own mods (ignored). |
 | `docs/` | Design notes and specs; `docs/archive/` holds reports of finished stages. |
@@ -126,7 +126,7 @@ asset paths for the file references; an import reproduces them exactly
 ## Imported game data
 
 A copy without the game's data (a fresh checkout of the public
-repository, a release build) gets it from the player's own Think Tanks
+repository, a release build) gets it from the player's own ThinkTanks
 install, imported into a `gamedata/` directory (`docs/import.md`). The
 game looks for the asset directory in this order
 (`tt_assets::layout::default_dir`):
@@ -139,7 +139,7 @@ game looks for the asset directory in this order
 3. `./assets` when it has `missions/`, else the repository's `assets/`.
 
 When the directory found lacks the game data, the game opens its
-first-run screen instead of the menus: the player picks the Think Tanks
+first-run screen instead of the menus: the player picks the ThinkTanks
 folder, the game imports it and starts. The game's own import writes to
 `tt_assets::layout::import_target`: the source checkout's `gamedata/`
 when it runs from its checkout, else `gamedata/` next to the executable
@@ -197,7 +197,7 @@ key. The sections are `tt_shell::settings::SECTIONS`: `player`, `video`,
 `graphics`, `audio`, `input`, `host`, `net`, `server` (the typed ones),
 `opengl`, `shapes`, `terrain`, `lighting`, `shell`, `demo`, `hud`, ... and
 `misc`. `game_data` says where the imported game data came from
-(Settings → Game data): `game_data.source` (the Think Tanks folder) and
+(Settings → Game data): `game_data.source` (the ThinkTanks folder) and
 `game_data.imported` (when: `YYYY-MM-DD HH:MM` UTC). `mods.enabled` lists
 the enabled mods' folder names in load order (Options → Mods,
 `docs/modding.md`).
@@ -251,7 +251,7 @@ migration on a copy of a real data directory.
 ## Provenance
 
 All files of `assets/` and `archive/` come from the owner's own licensed copy of
-Think Tanks, or are OpenTT's own work made from them. The EULA forbids
+ThinkTanks, or are OpenTT's own work made from them. The EULA forbids
 redistribution: never push this repository to a public remote.
 
 Textures marked "Real-ESRGAN" were upscaled 4x with realesrgan-ncnn-vulkan

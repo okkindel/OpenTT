@@ -49,6 +49,24 @@ impl How {
             Recolour { .. } | Sound { .. } | NormalMap(_) => Vec::new(),
         }
     }
+
+    pub fn required_files(&self) -> Vec<String> {
+        match self {
+            How::Image { from, .. } => vec![from.clone()],
+            other => other.game_files(),
+        }
+    }
+}
+
+/// Asset folders the game runs without (`docs/import.md` § Optional
+/// files): the menu and HUD art (among them the tutorial slides, which
+/// some editions lack), the music, the menu sounds and the voice lines.
+pub const OPTIONAL_DIRS: &[&str] = &["ui/", "sound/music/", "sound/ui/", "sound/voice/"];
+
+/// The tutorial's slide art (`ui/backgrounds/marquee<n>.png`, 1..8): the
+/// tutorial is offered only when all of them were imported.
+pub fn tutorial_slide(asset: &str) -> bool {
+    asset.strip_prefix("ui/backgrounds/").and_then(|r| r.strip_prefix("marquee")).and_then(|r| r.strip_suffix(".png")).is_some_and(|n| n.parse::<u32>().is_ok_and(|n| (1..=8).contains(&n)))
 }
 
 /// The level a made sound is brought to.
@@ -66,6 +84,12 @@ pub struct Entry {
     /// Its asset path.
     pub asset: String,
     pub how: How,
+}
+
+impl Entry {
+    pub fn optional(&self) -> bool {
+        matches!(self.how, How::Picture { .. }) || OPTIONAL_DIRS.iter().any(|d| self.asset.starts_with(d))
+    }
 }
 
 /// `mapping.ron`.

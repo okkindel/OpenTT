@@ -1,4 +1,4 @@
-//! Think Tanks mission viewer.
+//! ThinkTanks mission viewer.
 //!
 //! ```text
 //! tt-viewer [--assets DIR] <MISSION> [--screenshot out.png] [--size WxH]

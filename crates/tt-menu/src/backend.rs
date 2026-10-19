@@ -703,7 +703,7 @@ impl ModsInfo {
 /// Settings → Game data.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct GameDataInfo {
-    /// The Think Tanks folder it was imported from (empty: not recorded).
+    /// The ThinkTanks folder it was imported from (empty: not recorded).
     pub source: String,
     /// When (empty: not recorded).
     pub imported: String,
@@ -727,6 +727,11 @@ pub trait MenuBackend {
     fn delete_player(&mut self, name: &str) -> Result<(), String>;
     /// Ask "play the tutorial?" now (after creating a player, like `doTutorial`).
     fn wants_tutorial_prompt(&self) -> bool;
+    /// The tutorial's slide art is in the game data (some editions of
+    /// ThinkTanks have none: the tutorial is then not offered).
+    fn tutorial_available(&mut self) -> bool {
+        true
+    }
 
     // ---- tanks (tankSelectionGui)
     fn tanks(&self) -> Vec<TankInfo>;
@@ -861,6 +866,8 @@ pub struct MockBackend {
     pub modes: Vec<DisplayMode>,
     pub game_root: Option<PathBuf>,
     pub tutorial_prompt: bool,
+    /// What `tutorial_available` returns (default true).
+    pub tutorial: bool,
     pub loading: Option<Loading>,
     pub message: Option<ScriptMessage>,
     art: HashMap<Art, Option<egui::TextureHandle>>,
@@ -946,6 +953,7 @@ impl MockBackend {
                 .collect(),
             game_root: None,
             tutorial_prompt: false,
+            tutorial: true,
             loading: None,
             message: None,
             art: HashMap::new(),
@@ -1040,6 +1048,9 @@ impl MenuBackend for MockBackend {
     fn wants_tutorial_prompt(&self) -> bool {
         self.tutorial_prompt
     }
+    fn tutorial_available(&mut self) -> bool {
+        self.tutorial
+    }
     fn tanks(&self) -> Vec<TankInfo> {
         self.tanks.clone()
     }
@@ -1132,7 +1143,7 @@ impl MenuBackend for MockBackend {
         DisplayMode { width: 1920, height: 1080 }
     }
     fn game_data(&self) -> Option<GameDataInfo> {
-        Some(GameDataInfo { source: "/home/player/Games/Think Tanks".into(), imported: "2026-10-18 12:00 UTC".into(), location: format!("/home/player/.local/share/{}/gamedata", tt_assets::product::DATA_DIR) })
+        Some(GameDataInfo { source: "/home/player/Games/ThinkTanks".into(), imported: "2026-10-18 12:00 UTC".into(), location: format!("/home/player/.local/share/{}/gamedata", tt_assets::product::DATA_DIR) })
     }
     fn key_bindings(&self) -> Vec<KeyBinding> {
         let k = |a: &str, keys: &[&str]| KeyBinding { action: a.into(), keys: keys.iter().map(|s| s.to_string()).collect() };

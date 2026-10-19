@@ -1,4 +1,4 @@
-//! Think Tanks gameplay simulation: a deterministic, engine-independent port of the tank,
+//! ThinkTanks gameplay simulation: a deterministic, engine-independent port of the tank,
 //! projectile, pad, power-up and volcano logic of the 2003 game, following
 //! `docs/tank-physics.md`.
 //!

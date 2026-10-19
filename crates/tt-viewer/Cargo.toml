@@ -1,6 +1,6 @@
 [package]
 name = "tt-viewer"
-description = "Mission viewer for Think Tanks data"
+description = "Mission viewer for ThinkTanks data"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

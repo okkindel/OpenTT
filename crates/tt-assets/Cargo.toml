@@ -1,6 +1,6 @@
 [package]
 name = "tt-assets"
-description = "Loaders for Think Tanks game data: terrain, missions, shapes"
+description = "Loaders for ThinkTanks game data: terrain, missions, shapes"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

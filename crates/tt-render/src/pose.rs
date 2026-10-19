@@ -150,9 +150,9 @@ pub fn sequence_ifl_of(shape: &Shape, seq_name: &str, t: f32) -> Vec<(String, f3
     let d = seq.duration.max(1e-6);
     let pos_time = if seq.flags & Sequence::CYCLIC != 0 { t.rem_euclid(d) } else { t.clamp(0.0, d) };
     // AnimateIfls reads the IFL at `thread.pos * seq.duration +
-    // seq.toolBegin`, not at the bare thread time: Think Tanks' IFLs are
-    // laid out on the exporter's timeline (`RTread`'s frames sit at 0.333 s,
-    // after an 11-tick hold).
+    // seq.toolBegin`, not at the bare thread time: ThinkTanks' IFLs are
+    // laid out on the exporter's timeline (`RTread`'s frames sit at 0.333
+    // s, after an 11-tick hold).
     let time = pos_time + seq.tool_begin.max(0.0);
     seq.ifl_matters
         .iter()

@@ -746,7 +746,13 @@ pub fn next_sp_mission(h: &mut EngineHost, fresh: bool) -> Option<CampaignStep> 
     if restart && !new_run(h) {
         return None;
     }
-    let level = h.shell.run.as_mut().and_then(|r| r.advance_level().cloned())?;
+    let mut level = h.shell.run.as_mut().and_then(|r| r.advance_level().cloned())?;
+    // A level whose mission the import left out (an unreadable
+    // mission file of the install) is passed over.
+    while !h.fs.exists(&tt_assets::layout::mission(&level.mission)) {
+        h.log.warn(&format!("solo: {} is not in the game data; level {} skipped", tt_assets::layout::mission(&level.mission), level.index));
+        level = h.shell.run.as_mut().and_then(|r| r.advance_level().cloned())?;
+    }
     let (seq, total) = h.shell.run.as_ref().map(|r| (r.mission_seq, r.mission_seq_total)).unwrap_or_default();
     // The level select opens every level the player has started.
     let player = h.shell.prefs.player_name();

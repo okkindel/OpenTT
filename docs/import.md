@@ -2,12 +2,12 @@
 
 The game's asset directory (`assets/`, `docs/layout.md`) is mostly the game's
 data in OpenTT's layout and formats. A public copy of OpenTT may hold only
-OpenTT's own files; a player builds the rest from their own Think Tanks install:
+OpenTT's own files; a player builds the rest from their own ThinkTanks install:
 
 ```sh
 cargo run --release -p tt-engine                 # no game data: the first-run screen imports it
-cargo run --release -p tt-engine -- --import "/path/to/Think Tanks"   # the same import, no window
-cargo run --release -p tt-import -- --game "/path/to/Think Tanks" --out gamedata
+cargo run --release -p tt-engine -- --import "/path/to/ThinkTanks"   # the same import, no window
+cargo run --release -p tt-import -- --game "/path/to/ThinkTanks" --out gamedata
 cargo run --release -p tt-engine                 # finds ./gamedata (or --assets DIR, TT_ASSETS=DIR)
 ```
 
@@ -140,7 +140,7 @@ tt-engine --test golden`): the data are identical.
 
 Without the game data (`tt_assets::testdata::MARKERS` missing from the
 asset directory) the game opens a first-run screen instead of failing:
-"Locate your Think Tanks installation", a folder field, **Browse...** (the
+"Locate your ThinkTanks installation", a folder field, **Browse...** (the
 system's folder dialog: `rfd`, the XDG desktop portal on Linux with a
 zenity fallback; without one the path is typed) and **Import**. It says
 that the files are converted on this computer and stay there.
@@ -148,9 +148,12 @@ that the files are converted on this computer and stay there.
 * The folder is checked first (`tt_import::locate::resolve`): the install
   root (with `game/data/missions` and `game/server/scripts`), the folder
   above it, its `game/` folder or one inside it, or a file in it, are all
-  taken; then every file the import reads must be there. Otherwise the
-  screen says what is missing (no `game` folder; `game/server/scripts`
-  missing; "incomplete: 3 of its files are missing (...)").
+  taken, and so is a Mac application bundle (`<name>.app/Contents/Resources`);
+  then every file the game cannot run without must be there
+  (`tt_import::locate::missing_required`, in any accepted form, § Optional
+  files). Otherwise the screen says what is missing (no `game` folder;
+  `game/server/scripts` missing; "incomplete: 3 of the files the game
+  needs are missing (...)"), and the report lists every missing file.
 * The import runs on a background thread (`tt_engine::gamedata::ImportJob`)
   through `tt_import::install`: progress (phase, files done of the total,
   the current file) after every file, Cancel between files. It writes
@@ -167,7 +170,14 @@ that the files are converted on this computer and stay there.
 * Our own files are built into the program (`tt_import::OURS`, from the
   repository's `assets/` at build time), the data tables (`data/`) among
   them, so the imported directory is complete.
-* On success the game boots on the new data without a restart; the
+* After the import (or a failed one) the screen shows its report: the
+  counts, a scrollable list of what was skipped, not found or warned
+  about, **Open log folder** and **Continue** (into the game) or **Back**.
+  The full report is written to `<user data>/logs/import.log`
+  (`tt_engine::gamedata::IMPORT_LOG`) and appended to `logs/console.log`;
+  the new session's console log repeats it. A failure's message names
+  the log.
+* On success (after Continue) the game boots on the new data without a restart; the
   settings get `game_data.source` (the folder) and `game_data.imported`
   (the date). Settings → Game data shows both and **Re-import...** runs
   the same screen again (the running game is shut down first and booted
@@ -175,6 +185,30 @@ that the files are converted on this computer and stay there.
 
 `opentt --import DIR [--assets OUT]` runs the same import without a window
 (progress on stderr) and exits.
+
+## Optional files and other editions
+
+The editions of ThinkTanks differ, so the import is tolerant:
+
+* **Required** are the files the game cannot run without: models, textures,
+  terrains, skies, missions, sound effects. A missing optional file is skipped
+  and listed in the report (`Report::skipped`, `Report::missing`), as are files
+  made from a skipped one. An image's `.alpha` mask is never required: without
+  it the image is imported opaque, or with the alpha it has itself.
+* **Other forms**: a file is found ignoring case, and an image under
+  another image extension (`Marquee1.png` with its alpha inside, the Mac
+  edition's, for `Marquee1.jpg` + `Marquee1.alpha.jpg`), a sound as
+  `.ogg` or `.wav` (`tt_import::locate::game_file`).
+* **The tutorial** is offered only when all eight slides were imported
+  (`tt_menu::art::tutorial_available`); otherwise the player screen has
+  no Tutorial button, a new player gets no tutorial prompt and the report
+  says "optional, not found: tutorial disabled".
+* **Mission files** are read as the game read them
+  (`tt_import::convert::mission_text`): UTF-16 (LE/BE, with a byte order mark or
+  recognised by its NUL bytes) is decoded, NUL padding removed, and text after
+  the editor's `//--- OBJECT WRITE END ---` line ignored when the whole does not
+  parse. A mission that still cannot be read is left out (the menus list the
+  missions there are) and the import goes on.
 
 ## Open questions
 

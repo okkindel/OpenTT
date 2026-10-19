@@ -1,5 +1,7 @@
-//! The first-run screen ("Locate your Think Tanks installation") and its
-//! import progress, also used by Settings → Game data → Re-import. It runs
+//! The first-run screen ("Locate your ThinkTanks installation"), its
+//! import progress and the import's report (what was imported and what
+//! was skipped, with the log folder a click away), also used by Settings →
+//! Game data → Re-import. It runs
 //! before the game data exists, so it draws with the menu's palette, fonts
 //! and logo only (all compiled in).
 //! The engine owns the work (folder check, folder dialog, the import
@@ -43,6 +45,25 @@ pub enum SetupAction {
     Back,
     /// Quit the program (first run).
     Quit,
+    /// Open the folder of the import log in the file manager (the report).
+    OpenLogFolder,
+    /// Leave the report: into the game after an import, back to the
+    /// folder choice after a failure.
+    Continue,
+}
+
+/// What the last import (or folder check) found, shown until the player
+/// continues ([`SetupAction::Continue`]).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SetupReport {
+    /// The import succeeded (Continue starts the game).
+    pub ok: bool,
+    /// One paragraph: the counts, or what failed.
+    pub summary: String,
+    /// The details, a line each (skipped and missing files, warnings).
+    pub lines: Vec<String>,
+    /// The full report's file (`logs/import.log`), empty when none was written.
+    pub log: String,
 }
 
 /// The screen's state; the engine sets the fields, [`SetupState::ui`] draws them.
@@ -64,13 +85,15 @@ pub struct SetupState {
     pub progress: Option<SetupProgress>,
     /// Cancel was asked for; the import stops after its current file.
     pub cancelling: bool,
+    /// The report of the last import, shown in place of the folder choice.
+    pub report: Option<SetupReport>,
     /// The menu state the drawing helpers keep their bits in.
     menu: MenuState,
 }
 
 impl SetupState {
     pub fn new(mode: SetupMode) -> SetupState {
-        SetupState { mode, path: String::new(), error: None, note: None, can_browse: true, browsing: false, target: String::new(), progress: None, cancelling: false, menu: MenuState::new() }
+        SetupState { mode, path: String::new(), error: None, note: None, can_browse: true, browsing: false, target: String::new(), progress: None, cancelling: false, report: None, menu: MenuState::new() }
     }
 
     /// Draws the screen and handles its input.
@@ -82,7 +105,13 @@ impl SetupState {
             return None;
         }
         let mut menu = std::mem::take(&mut self.menu);
-        let action = if self.progress.is_some() { importing(ctx, self, &mut menu) } else { locate(ctx, self, &mut menu) };
+        let action = if self.progress.is_some() {
+            importing(ctx, self, &mut menu)
+        } else if self.report.is_some() {
+            report(ctx, self, &mut menu)
+        } else {
+            locate(ctx, self, &mut menu)
+        };
         menu.sounds.clear();
         self.menu = menu;
         action
@@ -112,17 +141,17 @@ fn field_text(g: &Gfx, path: &str, w: f32) -> String {
     format!("...{}", chars[start..].iter().collect::<String>())
 }
 
-/// Which copy of Think Tanks to choose, in three steps (the setup screen
+/// Which copy of ThinkTanks to choose, in three steps (the setup screen
 /// and Options → Game data).
 pub(super) const STEPS: [&str; 3] = [
-    "You need Think Tanks for Windows, installed.",
-    "On Linux or macOS: install it with Wine, or unpack the installer (e.g. innoextract).",
-    "Choose the folder that contains the \"game\" folder, not the installer .exe.",
+    "You need ThinkTanks for Windows, installed.",
+    "On Linux or macOS, install it with Wine (wine Setup.exe, or whatever the installer is called).",
+    "Choose the folder that contains the \"game\" folder, not the installer.",
 ];
 /// Example folders of an installed copy.
-pub(super) const EXAMPLES: [(&str, &str); 2] = [("Windows", "C:\\Program Files\\Think Tanks"), ("Wine", "~/.wine/drive_c/Program Files/Think Tanks")];
+pub(super) const EXAMPLES: [(&str, &str); 2] = [("Windows", "C:\\Program Files (x86)\\BraveTree\\ThinkTanks"), ("Wine", "~/.wine/drive_c/Program Files (x86)/BraveTree/ThinkTanks")];
 
-/// The hint panel of the first-run screen: which copy of Think Tanks to
+/// The hint panel of the first-run screen: which copy of ThinkTanks to
 /// choose, in short numbered steps, with example folders. A calm steel
 /// panel with a brass strip down its left edge.
 fn what_to_choose(g: &mut Gfx, r: Rect) {
@@ -139,14 +168,29 @@ fn what_to_choose(g: &mut Gfx, r: Rect) {
         y += g.paragraph(Rect::from_min_max(Pos2::new(inner.left() + num_w, y), Pos2::new(inner.right(), inner.bottom())), s, 21.0, pal::SAND) + 8.0;
     }
     y += 4.0;
+    examples(g, inner, y, num_w);
+}
+
+/// The example folders ([`EXAMPLES`]) from `y` in `inner`, indented by
+/// `indent`: the system, then the path beside it, or below it when it
+/// does not fit there. Returns the `y` below them.
+pub(super) fn examples(g: &mut Gfx, inner: Rect, mut y: f32, indent: f32) -> f32 {
+    let label_w = 86.0;
     for (os, path) in EXAMPLES {
         if y + 22.0 > inner.bottom() {
             break;
         }
-        g.text(Pos2::new(inner.left() + num_w, y), os, 18.0, pal::SAND_MUTED, Align2::LEFT_TOP);
-        g.text_fit(Pos2::new(inner.left() + num_w + 86.0, y + 9.0), path, 18.0, pal::SAND_MUTED, inner.right() - inner.left() - num_w - 86.0);
+        g.text(Pos2::new(inner.left() + indent, y), os, 18.0, pal::SAND_MUTED, Align2::LEFT_TOP);
+        let beside = inner.width() - indent - label_w;
+        if g.text_width(path, 18.0) > beside && y + 40.0 <= inner.bottom() {
+            y += 19.0;
+            g.text_fit(Pos2::new(inner.left() + indent, y + 9.0), path, 18.0, pal::SAND_MUTED, inner.width() - indent);
+        } else {
+            g.text_fit(Pos2::new(inner.left() + indent + label_w, y + 9.0), path, 18.0, pal::SAND_MUTED, beside);
+        }
         y += 24.0;
     }
+    y
 }
 
 fn locate(ctx: &egui::Context, st: &mut SetupState, menu: &mut MenuState) -> Option<SetupAction> {
@@ -191,9 +235,9 @@ fn locate(ctx: &egui::Context, st: &mut SetupState, menu: &mut MenuState) -> Opt
         let x = g.stage.left() + 40.0;
         let w = g.stage.width() - 80.0;
         let mut y = g.r(0.0, 120.0, 0.0, 0.0).top();
-        g.label(Pos2::new(x, y), "Locate your Think Tanks installation", 34.0, pal::SAND, Align2::LEFT_TOP);
+        g.label(Pos2::new(x, y), "Locate your ThinkTanks installation", 34.0, pal::SAND, Align2::LEFT_TOP);
         y += 64.0;
-        let intro = "The game needs the models, maps, sounds and music of Think Tanks. They are converted once into the game's own format.";
+        let intro = "The game needs the models, maps, sounds and music of ThinkTanks. They are converted once into the game's own format.";
         y += g.paragraph(Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, 120.0)), intro, 24.0, pal::SAND) + 4.0;
         let local = if st.target.is_empty() {
             "Your files stay on this computer: they are only read, and the converted copy is kept locally. Nothing is uploaded.".to_string()
@@ -206,7 +250,7 @@ fn locate(ctx: &egui::Context, st: &mut SetupState, menu: &mut MenuState) -> Opt
         let hint = Rect::from_min_max(Pos2::new(x + w - hint_w, y), Pos2::new(x + w, g.action(0.0, 10.0).top() - 18.0));
         what_to_choose(g, hint);
         let w = w - hint_w - 24.0;
-        g.text(Pos2::new(x, y), "Think Tanks folder", 22.0, pal::SAND_MUTED, Align2::LEFT_TOP);
+        g.text(Pos2::new(x, y), "ThinkTanks folder", 22.0, pal::SAND_MUTED, Align2::LEFT_TOP);
         y += 30.0;
         let browse_w = 170.0;
         let field = Rect::from_min_size(Pos2::new(x, y), Vec2::new(w - browse_w - 12.0, 54.0));
@@ -249,7 +293,7 @@ fn importing(ctx: &egui::Context, st: &mut SetupState, menu: &mut MenuState) -> 
         let x = g.stage.left() + 40.0;
         let w = g.stage.width() - 80.0;
         let mut y = g.r(0.0, 120.0, 0.0, 0.0).top();
-        g.label(Pos2::new(x, y), "Importing Think Tanks", 34.0, pal::SAND, Align2::LEFT_TOP);
+        g.label(Pos2::new(x, y), "Importing ThinkTanks", 34.0, pal::SAND, Align2::LEFT_TOP);
         y += 64.0;
         let from = if st.path.is_empty() { String::new() } else { format!("From {}", st.path) };
         g.text_fit(Pos2::new(x, y + 12.0), &from, 22.0, pal::SAND_MUTED, w);
@@ -277,6 +321,83 @@ fn importing(ctx: &egui::Context, st: &mut SetupState, menu: &mut MenuState) -> 
         action = clicked;
     }
     action
+}
+
+/// Height of a line of the report's list.
+const REPORT_LINE: f32 = 28.0;
+
+/// The import's report: the summary, the scrollable list of what was
+/// skipped or missing, "Open log folder" and Continue (or Back).
+fn report(ctx: &egui::Context, st: &mut SetupState, menu: &mut MenuState) -> Option<SetupAction> {
+    let r = st.report.clone().unwrap_or_default();
+    let mut action = None;
+    if pressed(ctx, Key::Enter) || pressed(ctx, Key::Escape) {
+        action = Some(SetupAction::Continue);
+    }
+    // Keys scroll the list as the wheel does.
+    let key = egui::Id::new(("tt-menu-scroll-px", "setup-report"));
+    let step = ctx.input(|i| {
+        let mut d = 0.0;
+        if i.key_pressed(Key::ArrowDown) {
+            d += REPORT_LINE;
+        }
+        if i.key_pressed(Key::ArrowUp) {
+            d -= REPORT_LINE;
+        }
+        if i.key_pressed(Key::PageDown) {
+            d += REPORT_LINE * 10.0;
+        }
+        if i.key_pressed(Key::PageUp) {
+            d -= REPORT_LINE * 10.0;
+        }
+        d
+    });
+    if step != 0.0 {
+        ctx.data_mut(|d| {
+            let v: f32 = d.get_temp(key).unwrap_or(0.0);
+            d.insert_temp(key, (v + step).max(0.0));
+        });
+    }
+    let clicked = frame(ctx, menu, egui::Order::Background, false, |g, _| {
+        chrome(g, if r.ok { "Game data imported" } else { "Game data: not imported" });
+        let x = g.stage.left() + 40.0;
+        let w = g.stage.width() - 80.0;
+        let mut y = g.r(0.0, 120.0, 0.0, 0.0).top();
+        g.label(Pos2::new(x, y), if r.ok { "Import complete" } else { "Import failed" }, 34.0, pal::SAND, Align2::LEFT_TOP);
+        y += 60.0;
+        y += g.paragraph(Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, 110.0)), &r.summary, 22.0, if r.ok { pal::SAND } else { pal::RED }) + 10.0;
+        if !r.log.is_empty() {
+            g.text_fit(Pos2::new(x, y + 11.0), &format!("Full report: {}", r.log), 20.0, pal::SAND_MUTED, w);
+            y += 34.0;
+        }
+        let bottom = g.action(0.0, 10.0).top() - 18.0;
+        let list = g.well(Rect::from_min_max(Pos2::new(x, y), Pos2::new(x + w, bottom)));
+        let inner = list.shrink2(Vec2::new(14.0, 8.0));
+        let lines: Vec<&str> = if r.lines.is_empty() { vec!["Nothing was skipped: every file of the game was found."] } else { r.lines.iter().map(String::as_str).collect() };
+        let content_h = lines.len() as f32 * REPORT_LINE;
+        let off = g.scroll_offset("setup-report", inner, content_h);
+        g.clipped(inner, |g| {
+            for (i, l) in lines.iter().enumerate() {
+                let ly = inner.top() + i as f32 * REPORT_LINE - off;
+                if ly + REPORT_LINE < inner.top() || ly > inner.bottom() {
+                    continue;
+                }
+                let head = !l.starts_with(' ');
+                let colour = if head && !r.lines.is_empty() { pal::BRASS } else { pal::SAND };
+                let indent = if head { 0.0 } else { 22.0 };
+                g.text_fit(Pos2::new(inner.left() + indent, ly + REPORT_LINE / 2.0), l.trim_start(), 20.0, colour, inner.width() - 12.0 - indent);
+            }
+        });
+        let mut out = None;
+        if g.button("setup-log", g.action_left(0.0, 260.0), "Open log folder", false, false, !r.log.is_empty()).clicked() {
+            out = Some(SetupAction::OpenLogFolder);
+        }
+        if g.button("setup-continue", g.action(0.0, 220.0), if r.ok { "Continue" } else { "Back" }, true, false, true).clicked() {
+            out = Some(SetupAction::Continue);
+        }
+        out
+    });
+    clicked.or(action)
 }
 
 #[cfg(test)]
@@ -316,5 +437,14 @@ mod tests {
         assert_eq!(run(&mut again, esc()), Some(SetupAction::Back));
         again.progress = Some(SetupProgress { phase: "Converting textures".into(), done: 10, total: 100, file: "x.png".into() });
         assert_eq!(run(&mut again, esc()), Some(SetupAction::Cancel));
+    }
+
+    #[test]
+    fn the_report_continues_on_enter() {
+        let mut st = SetupState::new(SetupMode::FirstRun);
+        st.report = Some(SetupReport { ok: true, summary: "300 files imported, 9 skipped".into(), lines: (0..50).map(|i| format!("  file{i}")).collect(), log: "/tmp/logs/import.log".into() });
+        assert_eq!(run(&mut st, Vec::new()), None);
+        let enter = vec![egui::Event::Key { key: Key::Enter, physical_key: None, pressed: true, repeat: false, modifiers: Default::default() }];
+        assert_eq!(run(&mut st, enter), Some(SetupAction::Continue));
     }
 }

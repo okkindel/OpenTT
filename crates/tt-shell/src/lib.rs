@@ -1,4 +1,4 @@
-//! Native Think Tanks shell (menu) logic, save compatible with the game's
+//! Native ThinkTanks shell (menu) logic, save compatible with the game's
 //! client scripts:
 //!
 //! - [`solo`]: the campaign level table and sequence, run state and the

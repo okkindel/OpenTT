@@ -4,21 +4,21 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0-only</project_license>
   <name>OpenTT</name>
-  <summary>Engine for the tank arena game Think Tanks</summary>
+  <summary>Engine for the tank arena game ThinkTanks</summary>
   <developer id="io.github.okkindel">
     <name>okkindel</name>
   </developer>
   <description>
     <p>
-      OpenTT is an open-source engine for Think Tanks, the 2003 tank arena
+      OpenTT is an open-source engine for ThinkTanks, the 2003 tank arena
       game, written in Rust. It plays the solo campaign, bot matches and
       network games on the local network or over the internet, with modern
       rendering and menus.
     </p>
     <p>
       OpenTT does not include the game's content. It needs the files of a
-      copy of Think Tanks that you own: on the first start it asks for the
-      Think Tanks folder and imports the models, textures, sounds and
+      copy of ThinkTanks that you own: on the first start it asks for the
+      ThinkTanks folder and imports the models, textures, sounds and
       missions from it. Nothing is downloaded.
     </p>
   </description>

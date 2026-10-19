@@ -119,7 +119,7 @@ impl SoundProfile {
     }
 }
 
-/// Think Tanks `MusicDef`: a track made of short Ogg segments chained by
+/// ThinkTanks `MusicDef`: a track made of short Ogg segments chained by
 /// sequences.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct MusicTrack {

@@ -1,4 +1,4 @@
-//! Shape preview without a mission: Think Tanks' `GuiObjectViewCtrl` (tank
+//! Shape preview without a mission: ThinkTanks' `GuiObjectViewCtrl` (tank
 //! selection screen) and similar shell views.
 //!
 //! - Script API: `load(file, mount, mountNode)`, `set/getCameraDistance`,

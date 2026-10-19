@@ -1009,6 +1009,11 @@ pub(crate) fn ui(st: &mut MenuState, ctx: &egui::Context, b: &mut dyn MenuBacken
 fn draw_screen(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, screen: Screen) -> Option<MenuAction> {
     match screen {
         Screen::PlayerSelect => player_select(g, st, b),
+        Screen::TutorialPrompt | Screen::Tutorial if !b.tutorial_available() => {
+            // No tutorial art in the game data: no tutorial.
+            st.reset(Screen::MainMenu);
+            None
+        }
         Screen::TutorialPrompt => tutorial_prompt(g, st),
         Screen::Tutorial => tutorial(g, st, b),
         Screen::MainMenu => main_menu(g, st, b),
@@ -1193,9 +1198,10 @@ fn player_select(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend) -> Op
     if g.button("del", g.action_left(240.0, 160.0), "Delete", false, false, can_del).clicked() && can_del {
         st.confirm_delete = players.get(st.player_sel).map(|p| p.name.clone());
     }
-    // loadPlayerGui's tutorial button: the slides with the selected player.
+    // loadPlayerGui's tutorial button: the slides with the selected player
+    // (not there when the game data has no tutorial art).
     let can_tut = !players.is_empty();
-    if g.button("tutorial", g.action_left(420.0, 200.0), "Tutorial", false, false, can_tut).clicked() && can_tut && !g.blocked {
+    if b.tutorial_available() && g.button("tutorial", g.action_left(420.0, 200.0), "Tutorial", false, false, can_tut).clicked() && can_tut && !g.blocked {
         if let Some(p) = players.get(st.player_sel) {
             match b.select_player(&p.name) {
                 Ok(()) => {
@@ -1291,8 +1297,8 @@ fn delete_dialog(ctx: &egui::Context, st: &mut MenuState, b: &mut dyn MenuBacken
     }
 }
 
-fn finish_player(st: &mut MenuState, b: &mut dyn MenuBackend) -> Option<MenuAction> {
-    if b.wants_tutorial_prompt() {
+pub(crate) fn finish_player(st: &mut MenuState, b: &mut dyn MenuBackend) -> Option<MenuAction> {
+    if b.wants_tutorial_prompt() && b.tutorial_available() {
         st.reset(Screen::TutorialPrompt);
     } else {
         st.reset(Screen::MainMenu);
@@ -2339,14 +2345,7 @@ fn which_folder(g: &mut Gfx, r: Rect) {
         y += g.paragraph(Rect::from_min_max(Pos2::new(inner.left() + num_w, y), Pos2::new(inner.right(), inner.bottom())), s, 20.0, pal::SAND) + 4.0;
     }
     y += 4.0;
-    for (os, path) in setup::EXAMPLES {
-        if y + 22.0 > inner.bottom() {
-            break;
-        }
-        g.text(Pos2::new(inner.left() + num_w, y), os, 18.0, pal::SAND_MUTED, Align2::LEFT_TOP);
-        g.text_fit(Pos2::new(inner.left() + num_w + 86.0, y + 9.0), path, 18.0, pal::SAND_MUTED, inner.width() - num_w - 86.0);
-        y += 24.0;
-    }
+    let y = setup::examples(g, inner, y, num_w);
     // The strip runs as far as the hint does.
     let strip = Rect::from_min_max(r.min, Pos2::new(r.left() + 4.0, y.min(r.bottom())));
     g.fill_grad(&[strip.left_top(), strip.right_top(), strip.right_bottom(), strip.left_bottom()], strip.top(), strip.bottom(), steel::shade(pal::BRASS, 0.1), steel::shade(pal::BRASS, -0.3));

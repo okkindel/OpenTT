@@ -1,4 +1,4 @@
-//! Renderer for Think Tanks scenes (terrain, sky, fog, DTS shapes), shared by
+//! Renderer for ThinkTanks scenes (terrain, sky, fog, DTS shapes), shared by
 //! the mission viewer and the game.
 
 pub mod lighting;

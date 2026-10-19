@@ -11,9 +11,9 @@
 //!   default `$TT_ASSETS`, else an imported `gamedata/`, else `./assets`,
 //!   else the repository's `assets/`: `tt_assets::layout::default_dir`).
 //!   Without the game data there the window shows the first-run screen,
-//!   which imports it from the player's Think Tanks installation
+//!   which imports it from the player's ThinkTanks installation
 //!   (`tt_engine::launcher`, docs/import.md);
-//! * `--import DIR`: that import without a window (DIR: the Think Tanks
+//! * `--import DIR`: that import without a window (DIR: the ThinkTanks
 //!   folder; into `--assets DIR` if given, else where the game looks
 //!   first, `tt_assets::layout::import_target`), then exits;
 //! * `--mission MISSION` (an id, `tt1_1`, or a mission file): developer
@@ -148,7 +148,7 @@ fn parse_args() -> Result<Args, String> {
                 a.cfg.assets = it.next().ok_or("--assets needs a directory")?.into();
                 a.assets_explicit = true;
             }
-            "--import" => a.import = Some(it.next().ok_or("--import needs the Think Tanks folder")?.into()),
+            "--import" => a.import = Some(it.next().ok_or("--import needs the ThinkTanks folder")?.into()),
             "--data" => a.cfg.data = it.next().ok_or("--data needs a directory")?.into(),
             "--windowed" => a.cfg.windowed = true,
             "--no-sound" => a.cfg.audio_output = false,
@@ -256,7 +256,7 @@ fn run(a: Args) -> Result<(), String> {
 /// The message for a run that needs the game data and has none.
 fn no_game_data(assets: &Path) -> String {
     format!(
-        "{}: no game data. Start the game normally to import it from your Think Tanks installation, or run `{} --import DIR` (docs/import.md)",
+        "{}: no game data. Start the game normally to import it from your ThinkTanks installation, or run `{} --import DIR` (docs/import.md)",
         assets.display(),
         env!("CARGO_BIN_NAME")
     )
@@ -307,6 +307,7 @@ fn window_app_loaded(a: &Args, engine: Engine, assets: &Path) -> App {
 fn import(a: &Args, source: &Path, target: &Path) -> Result<(), String> {
     eprintln!("importing {} into {}", source.display(), target.display());
     let mut flow = gamedata::SetupFlow::new(tt_menu::SetupMode::FirstRun, target.to_path_buf(), None);
+    flow.log_dir = Some(a.cfg.data.join("logs"));
     let mut last = (String::new(), 0);
     let report = flow.run_blocking(&source.to_string_lossy(), |p| {
         let step = p.done * 20 / p.total.max(1);
@@ -315,9 +316,7 @@ fn import(a: &Args, source: &Path, target: &Path) -> Result<(), String> {
             last = (p.phase.clone(), step);
         }
     })?;
-    for w in &report.warnings {
-        eprintln!("warning: {w}");
-    }
+    // The report went to stderr and logs/import.log (SetupFlow).
     // Record where it came from (as the import screen does).
     let root = tt_import::locate::find_root(source).unwrap_or_else(|_| source.to_path_buf());
     let quiet = Config { assets: target.to_path_buf(), data: a.cfg.data.clone(), args: Vec::new(), audio_output: false, echo_log: false, windowed: true };

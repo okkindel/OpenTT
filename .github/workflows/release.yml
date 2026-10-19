@@ -118,7 +118,7 @@ jobs:
             OpenTT ${{ needs.version.outputs.version }}.
 
             OpenTT does not include the game's content: on the first start it
-            asks for the folder of your own copy of Think Tanks and imports it.
+            asks for the folder of your own copy of ThinkTanks and imports it.
 
             * Linux: `.deb` (Debian, Ubuntu), `.AppImage` (any distribution:
               `chmod +x` and run) or the portable `.tar.gz`.

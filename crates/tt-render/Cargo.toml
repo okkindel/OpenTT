@@ -1,6 +1,6 @@
 [package]
 name = "tt-render"
-description = "wgpu renderer for Think Tanks scenes: terrain, sky, DTS shapes"
+description = "wgpu renderer for ThinkTanks scenes: terrain, sky, DTS shapes"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

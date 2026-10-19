@@ -275,7 +275,7 @@ pub struct InstanceOptions {
     pub shadow: bool,
     /// IFL material times in seconds (material name, with or without
     /// `.ifl`, case-insensitive). Listed IFLs show the frame at that time;
-    /// the others run on the global clock. Think Tanks drives the tread
+    /// the others run on the global clock. ThinkTanks drives the tread
     /// IFLs `LTread`/`Rtread` through the `LTread`/`RTread` sequences, see
     /// [`crate::pose::sequence_ifl`].
     pub ifl: Vec<(String, f32)>,

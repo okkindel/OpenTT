@@ -25,6 +25,11 @@ static FIRST_PANIC: Mutex<Option<String>> = Mutex::new(None);
 /// Whether this run wrote the report already (later reports append).
 static WRITTEN: AtomicBool = AtomicBool::new(false);
 
+/// The user data directory set by [`install`], if it was called.
+pub fn data_dir() -> Option<PathBuf> {
+    DIR.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
 /// Sets the user data directory of the report and installs the panic hook
 /// (once; later calls only change the directory). The hook writes the
 /// panic's thread, message, place and backtrace to [`CRASH_LOG`], keeps the

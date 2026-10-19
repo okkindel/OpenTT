@@ -2,7 +2,7 @@
 
 by okkindel
 
-Inspired by Think Tanks (BraveTree Productions, 2003)
+Inspired by ThinkTanks (BraveTree Productions, 2003)
 and the Torque Game Engine (GarageGames)
 
 Original art, sound and music: BraveTree Productions

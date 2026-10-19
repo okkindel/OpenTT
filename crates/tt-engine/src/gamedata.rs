@@ -2,8 +2,9 @@
 //! asset directory has it, and the import flow behind the first-run
 //! screen and Settings → Game data ([`SetupFlow`]: the folder check, the
 //! system's folder dialog, the import on a background thread, its
-//! progress and cancel). The screen itself is `tt_menu::SetupState`; the
-//! window around it is [`crate::launcher`].
+//! progress and cancel, its report: on the screen and in
+//! `<user data>/logs/import.log`, [`IMPORT_LOG`]). The screen itself is
+//! `tt_menu::SetupState`; the window around it is [`crate::launcher`].
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -11,7 +12,52 @@ use std::sync::mpsc::{Receiver, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use tt_import::{InstallError, Progress, Report};
-use tt_menu::{SetupAction, SetupMode, SetupProgress, SetupState};
+use tt_menu::{SetupAction, SetupMode, SetupProgress, SetupReport, SetupState};
+
+/// The import's report, relative to the user data directory (rewritten by
+/// every import; next to `logs/console.log`, which gets a copy).
+pub const IMPORT_LOG: &str = "logs/import.log";
+
+/// Opens `dir` in the system's file manager (best effort).
+pub fn open_folder(dir: &Path) -> Result<(), String> {
+    let opener = if cfg!(target_os = "windows") {
+        "explorer"
+    } else if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
+    match std::process::Command::new(opener).arg(dir).spawn() {
+        Ok(mut child) => {
+            // Reaped when the opener exits.
+            std::thread::spawn(move || child.wait());
+            Ok(())
+        }
+        Err(e) => Err(format!("cannot open {} with {opener}: {e}", dir.display())),
+    }
+}
+
+/// The text of an import log: where from and to, then `lines`.
+pub fn log_text(source: &Path, target: &Path, ok: bool, lines: &[String]) -> String {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    let mut t = format!("{} import of the ThinkTanks game data, {}\n", tt_assets::product::NAME, utc_stamp(now));
+    t.push_str(&format!("from: {}\ninto: {}\nresult: {}\n\n", source.display(), target.display(), if ok { "imported" } else { "failed" }));
+    for l in lines {
+        t.push_str(l);
+        t.push('\n');
+    }
+    t
+}
+
+/// The report's lines for a finished import: the counts, then the details.
+pub fn report_lines(report: &Report) -> Vec<String> {
+    let mut v = vec![format!("{}.", report.summary())];
+    if !report.tutorial_available() {
+        v.push("The install has no tutorial art: the tutorial is not offered.".into());
+    }
+    v.extend(report.details());
+    v
+}
 
 /// Settings keys of the imported data's origin (`docs/layout.md` § Settings).
 pub const SOURCE_KEY: &str = "game_data.source";
@@ -137,7 +183,7 @@ fn browse(start: &str) -> Receiver<Option<PathBuf>> {
     let (tx, rx) = std::sync::mpsc::channel();
     let start = PathBuf::from(start);
     std::thread::spawn(move || {
-        let mut d = rfd::FileDialog::new().set_title("Locate your Think Tanks installation");
+        let mut d = rfd::FileDialog::new().set_title("Locate your ThinkTanks installation");
         if start.is_dir() {
             d = d.set_directory(&start);
         } else if let Some(h) = std::env::var_os("HOME") {
@@ -169,6 +215,10 @@ pub struct SetupFlow {
     pub pictures: bool,
     job: Option<ImportJob>,
     dialog: Option<Receiver<Option<PathBuf>>>,
+    /// The import's result while its report is shown (Continue takes it).
+    finished: Option<Outcome>,
+    /// Where the import log goes (`<user data>/logs`); `None`: not written.
+    pub log_dir: Option<PathBuf>,
     /// Set when the screen is done.
     pub outcome: Option<Outcome>,
 }
@@ -181,12 +231,43 @@ impl SetupFlow {
         ui.target = target.display().to_string();
         ui.path = source.unwrap_or_default();
         ui.can_browse = dialog_available();
-        SetupFlow { ui, target, pictures: true, job: None, dialog: None, outcome: None }
+        // The game's data directory (set at start-up), else the platform's.
+        let log_dir = Some(crate::crash::data_dir().unwrap_or_else(tt_assets::layout::user_data_dir).join("logs"));
+        SetupFlow { ui, target, pictures: true, job: None, dialog: None, finished: None, log_dir, outcome: None }
     }
 
     /// An import is running.
     pub fn importing(&self) -> bool {
         self.job.is_some()
+    }
+
+    /// Writes the import log (and a copy to the end of the console log);
+    /// returns its path, `None` when there is no log folder or it failed.
+    fn write_log(&self, source: &Path, ok: bool, lines: &[String]) -> Option<PathBuf> {
+        let text = log_text(source, &self.target, ok, lines);
+        for l in text.lines() {
+            eprintln!("import: {l}");
+        }
+        let dir = self.log_dir.as_ref()?;
+        std::fs::create_dir_all(dir).ok()?;
+        let path = dir.join(Path::new(IMPORT_LOG).file_name()?);
+        std::fs::write(&path, &text).ok()?;
+        if let Ok(mut f) = std::fs::OpenOptions::new().append(true).create(true).open(dir.join("console.log")) {
+            use std::io::Write as _;
+            let _ = writeln!(f, "{}", text.lines().map(|l| format!("import: {l}")).collect::<Vec<_>>().join("\n"));
+        }
+        Some(path)
+    }
+
+    /// Shows the report of a failed import or check: `message` in red on
+    /// the folder screen (with the log's place), the details in the report.
+    fn failed(&mut self, source: &Path, message: String, lines: Vec<String>) {
+        let mut all = vec![message.clone()];
+        all.extend(lines.iter().cloned());
+        let log = self.write_log(source, false, &all);
+        let at = log.as_ref().map(|p| format!(" The full report is in {}.", p.display())).unwrap_or_default();
+        self.ui.error = Some(format!("{message}{at}"));
+        self.ui.report = Some(SetupReport { ok: false, summary: message, lines, log: log.map(|p| p.display().to_string()).unwrap_or_default() });
     }
 
     /// Handles what the player asked for.
@@ -203,7 +284,20 @@ impl SetupFlow {
                     return;
                 }
                 self.ui.note = None;
-                match tt_import::locate::resolve(Path::new(&path)) {
+                self.ui.report = None;
+                let checked = tt_import::locate::find_root(Path::new(&path)).and_then(|root| {
+                    let missing = tt_import::locate::missing_required(&root, &tt_import::mapping::Mapping::builtin());
+                    if missing.is_empty() {
+                        Ok(root)
+                    } else {
+                        self.ui.path = root.display().to_string();
+                        let mut lines = vec![format!("Missing from the install ({}):", missing.len())];
+                        lines.extend(missing.iter().map(|m| format!("  {m}")));
+                        self.failed(&root, tt_import::locate::incomplete(&root, &missing), lines);
+                        Err(String::new())
+                    }
+                });
+                match checked {
                     Ok(root) => {
                         self.ui.error = None;
                         self.ui.path = root.display().to_string();
@@ -211,7 +305,21 @@ impl SetupFlow {
                         self.ui.cancelling = false;
                         self.job = Some(ImportJob::start(options(&root, &self.target, self.pictures)));
                     }
+                    Err(e) if e.is_empty() => {}
                     Err(e) => self.ui.error = Some(e),
+                }
+            }
+            SetupAction::OpenLogFolder => {
+                if let Some(dir) = &self.log_dir {
+                    if let Err(e) = open_folder(dir) {
+                        eprintln!("import: {e}");
+                    }
+                }
+            }
+            SetupAction::Continue => {
+                self.ui.report = None;
+                if let Some(o) = self.finished.take() {
+                    self.outcome = Some(o);
                 }
             }
             SetupAction::Cancel => {
@@ -273,12 +381,20 @@ impl SetupFlow {
         self.ui.progress = None;
         self.ui.cancelling = false;
         match result {
-            Ok(report) => self.outcome = Some(Outcome::Imported { assets: self.target.clone(), source, report }),
+            Ok(report) => {
+                let lines = report_lines(&report);
+                let log = self.write_log(&source, true, &lines);
+                self.ui.report = Some(SetupReport { ok: true, summary: lines[0].clone(), lines: lines[1..].to_vec(), log: log.map(|p| p.display().to_string()).unwrap_or_default() });
+                self.finished = Some(Outcome::Imported { assets: self.target.clone(), source, report });
+            }
             Err(InstallError::Cancelled) => self.ui.note = Some("Import cancelled; nothing was changed.".into()),
             Err(InstallError::Failed(e)) => {
                 let lines: Vec<&str> = e.lines().collect();
                 let more = if lines.len() > 2 { format!(" (and {} more problems)", lines.len() - 2) } else { String::new() };
-                self.ui.error = Some(format!("The import failed: {}{more}", lines.iter().take(2).copied().collect::<Vec<_>>().join("; ")));
+                let message = format!("The import failed: {}{more}.", lines.iter().take(2).copied().collect::<Vec<_>>().join("; "));
+                let mut details = vec![format!("Problems ({}):", lines.len())];
+                details.extend(lines.iter().map(|l| format!("  {l}")));
+                self.failed(&source, message, details);
             }
         }
     }
@@ -293,6 +409,9 @@ impl SetupFlow {
             if let Some(p) = &self.ui.progress {
                 on_progress(p);
             }
+        }
+        if self.finished.is_some() {
+            self.handle(SetupAction::Continue);
         }
         match self.outcome.take() {
             Some(Outcome::Imported { report, .. }) => Ok(report),

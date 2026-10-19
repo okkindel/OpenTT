@@ -104,19 +104,8 @@ pub fn open_folder(h: &mut EngineHost) {
         h.log.warn(&format!("mods: {}: {e}", dir.display()));
         return;
     }
-    let opener = if cfg!(target_os = "windows") {
-        "explorer"
-    } else if cfg!(target_os = "macos") {
-        "open"
-    } else {
-        "xdg-open"
-    };
-    match std::process::Command::new(opener).arg(&dir).spawn() {
-        Ok(mut child) => {
-            // Reaped when the opener exits.
-            std::thread::spawn(move || child.wait());
-            h.log.info(&format!("mods: opened {}", dir.display()));
-        }
-        Err(e) => h.log.warn(&format!("mods: cannot open {} with {opener}: {e}", dir.display())),
+    match crate::gamedata::open_folder(&dir) {
+        Ok(()) => h.log.info(&format!("mods: opened {}", dir.display())),
+        Err(e) => h.log.warn(&format!("mods: {e}")),
     }
 }

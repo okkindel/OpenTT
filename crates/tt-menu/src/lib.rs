@@ -16,7 +16,7 @@ mod screens;
 pub mod theme;
 
 pub use backend::*;
-pub use screens::setup::{SetupAction, SetupMode, SetupProgress, SetupState};
+pub use screens::setup::{SetupAction, SetupMode, SetupProgress, SetupReport, SetupState};
 
 /// Screens of the new menu.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -589,6 +589,38 @@ mod tests {
         frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
         frame_at(&ctx, &mut s, &mut b, 0.1, vec![key(egui::Key::Escape)]);
         assert_eq!(s.screen(), Screen::MainMenu);
+    }
+
+    /// Game data without the tutorial's art (an edition of ThinkTanks
+    /// without the slides): no prompt after a new player, no Tutorial
+    /// button, and the slides' screens fall back to the main menu.
+    #[test]
+    fn no_tutorial_without_its_art() {
+        let ctx = egui::Context::default();
+        let pos = egui::pos2(420.0 + 40.0 + 100.0, 671.0);
+        let has_tutorial_button = |b: &mut MockBackend, ctx: &egui::Context| {
+            let mut s = MenuState::at(Screen::PlayerSelect);
+            frame_at(ctx, &mut s, b, 0.0, Vec::new());
+            let before = b.log.len();
+            click(&mut s, b, ctx, pos);
+            s.screen() == Screen::Tutorial || b.log.len() > before
+        };
+        for available in [true, false] {
+            let mut b = MockBackend::new();
+            b.tutorial = available;
+            // After creating a player.
+            b.tutorial_prompt = true;
+            let mut s = MenuState::at(Screen::PlayerSelect);
+            assert!(crate::screens::finish_player(&mut s, &mut b).is_none());
+            assert_eq!(s.screen(), if available { Screen::TutorialPrompt } else { Screen::MainMenu });
+            // The slides themselves.
+            let mut s = MenuState::at(Screen::MainMenu);
+            s.open(Screen::Tutorial);
+            frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
+            frame_at(&ctx, &mut s, &mut b, 0.1, Vec::new());
+            assert_eq!(s.screen(), if available { Screen::Tutorial } else { Screen::MainMenu });
+            assert_eq!(has_tutorial_button(&mut b, &ctx), available, "tutorial art: {available}");
+        }
     }
 
     #[test]

@@ -4,14 +4,14 @@
 
 *Watch the trailer on YouTube.*
 
-OpenTT is an open-source reimplementation of the engine of *Think Tanks*,
+OpenTT is an open-source reimplementation of the engine of *ThinkTanks*,
 the 2003 tank arena game, written in Rust (wgpu, winit, egui). It plays
 solo campaigns, bot matches and network games (LAN and internet, with an
 optional master server) with modern rendering and menus.
 
 **OpenTT does not include the game's content.** Models, textures, sounds,
-music and missions are read from a copy of *Think Tanks* that
-you own: on its first start OpenTT asks for your *Think Tanks* folder and
+music and missions are read from a copy of *ThinkTanks* that
+you own: on its first start OpenTT asks for your *ThinkTanks* folder and
 builds its asset directory from it.
 This repository only holds the code and a few assets made for OpenTT
 (three new maps, a power-up test arena, the Mortar rocket model and the
@@ -21,7 +21,7 @@ announcer lines of the new power-ups).
 
 Packages for Linux, Windows and macOS are attached to each release on
 <https://github.com/okkindel/OpenTT/releases>. After installing, start
-OpenTT and point it at your *Think Tanks* folder (see "Import the game
+OpenTT and point it at your *ThinkTanks* folder (see "Import the game
 data" below).
 
 * **Linux**
@@ -64,31 +64,38 @@ cargo build --release
 `target/dist/` (the `.tar.gz`, `.deb` and AppImage on Linux, the `.zip` on
 Windows or cross-built from Linux, the `.dmg` on macOS);
 `packaging/README.md` lists what each one needs. A tag `v<version>` runs
-them on GitHub Actions (`.github/workflows/release.yml`) and drafts a
+them on GitHub Actions (`.github/workflows/release.yml`) and publishes a
 release with the packages; `ci.yml` builds and tests every push and pull
 request on Linux, Windows and macOS.
 
 ## Import the game data
 
-You need the **installed Windows version** of Think Tanks: the folder it was
-installed to (with `game/` and `common/` inside), not the installer `.exe`.
-On Linux or macOS, install it with Wine, or unpack the installer (for
-example with `innoextract`), and point OpenTT at the resulting folder.
+Which folder?
 
-Start the game: without the game data it shows "Locate your Think Tanks
-installation". Choose the folder *Think Tanks* is installed in (the one
+1. You need ThinkTanks for Windows, installed.
+2. On Linux or macOS, install it with Wine (`wine Setup.exe`, or whatever
+   the installer is called).
+3. Choose the folder that contains the `game` folder (e.g. Windows
+   `C:\Program Files (x86)\BraveTree\ThinkTanks`; Wine
+   `~/.wine/drive_c/Program Files (x86)/BraveTree/ThinkTanks`), not the
+   installer.
+
+Start the game: without the game data it shows "Locate your ThinkTanks
+installation". Choose the folder *ThinkTanks* is installed in (the one
 with the game's `game/` folder) and press Import. OpenTT converts the
 files into `gamedata/` (next to the executable when that folder is
 writable, else in your user data folder, `~/.local/share/opentt`;
 in a source checkout, the checkout's `gamedata/`, ignored by git) and
 starts. Nothing is downloaded or uploaded and nothing of your install is
-changed. Settings → Game data imports again.
+changed. Afterwards it shows what it imported; the full report is in
+`logs/import.log` of the user data folder. Settings → Game data imports
+again.
 
 Without a window:
 
 ```sh
-cargo run --release -p tt-engine -- --import "/path/to/Think Tanks"
-cargo run --release -p tt-import -- --game "/path/to/Think Tanks" --out gamedata   # the importer alone
+cargo run --release -p tt-engine -- --import "/path/to/ThinkTanks"
+cargo run --release -p tt-import -- --game "/path/to/ThinkTanks" --out gamedata   # the importer alone
 ```
 
 Options and details: `docs/import.md`, `docs/layout.md`.
@@ -113,8 +120,8 @@ opentt --dedicated --mission tt2_3 --port 28000
 ```
 
 * It needs the game data like the game does: import it once on the server
-  machine from a copy of your Think Tanks folder (no window needed):
-  `tt-import --game "/path/to/Think Tanks" --out gamedata`.
+  machine from a copy of your ThinkTanks folder (no window needed):
+  `tt-import --game "/path/to/ThinkTanks" --out gamedata`.
 * Console on stdin: `status`, `say TEXT`, `kick PLAYER`, `ban PLAYER`,
   `map tt3_1` (change the map), `quit`, `set KEY VALUE` / `get KEY` for the
   settings (`set server.max_players 8`, `get server.*`), `help`.
@@ -212,6 +219,6 @@ OpenTT's code is licensed under the GNU General Public License version 3
 (`LICENSE`). Third-party components keep their own licences (`NOTICE`).
 
 OpenTT is a fan project. It is not affiliated with, endorsed by or
-connected to the authors or publishers of *Think Tanks*. *Think Tanks* and
+connected to the authors or publishers of *ThinkTanks*. *ThinkTanks* and
 all related names and trademarks belong to their respective owners. The
 game's content is not part of this repository and must not be added to it.

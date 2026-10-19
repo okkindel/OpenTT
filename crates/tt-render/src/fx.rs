@@ -11,11 +11,11 @@
 //! - Update: `a = acc − vel·drag + (0, 0, −9.81)·gravity`, `vel += a·dt`, `pos +=
 //!   vel·dt`; colour and size interpolated over the `times` keys; billboards of
 //!   side `size`. `inverse_alpha` selects alpha blending, otherwise additive.
-//! - Think Tanks' `ExplosionDef` has only `start_size`, `end_size`,
-//!   `duration_ms`, `resource` and `sound`. A `.png` resource is a sprite whose
-//!   side grows from `start_size` to `end_size` over `duration_ms` ms; a `.dts`
-//!   resource plays its first sequence once over `duration · duration_ms` ms
-//!   without scaling. There are no particle emitters, debris or light flashes.
+//! - ThinkTanks' `ExplosionDef` has only `start_size`, `end_size`, `duration_ms`,
+//!   `resource` and `sound`. A `.png` resource is a sprite whose side grows from
+//!   `start_size` to `end_size` over `duration_ms` ms; a `.dts` resource plays
+//!   its first sequence once over `duration · duration_ms` ms without scaling.
+//!   There are no particle emitters, debris or light flashes.
 
 use crate::render::DynamicInstance;
 use crate::sprites::{Sprite, SpriteBlend};

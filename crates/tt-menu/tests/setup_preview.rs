@@ -1,11 +1,12 @@
-//! Offscreen preview of the first-run screen ("Locate your Think Tanks
+//! Offscreen preview of the first-run screen ("Locate your ThinkTanks
 //! installation"), drawn with no game data at all (egui + egui-wgpu on a
 //! headless GPU). The PNG goes to `$TT_SETUP_PREVIEW` (a file path), else
 //! `<tmp>/tt-menu-preview/setup.png`; with `TT_SETUP_PREVIEW_STAGE=progress`
-//! the import progress is drawn instead. Skipped without a GPU adapter.
+//! the import progress is drawn instead, with `=report` the import report.
+//! Skipped without a GPU adapter.
 
 use std::path::PathBuf;
-use tt_menu::{theme, SetupMode, SetupProgress, SetupState};
+use tt_menu::{theme, SetupMode, SetupProgress, SetupReport, SetupState};
 
 const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
@@ -21,12 +22,24 @@ fn setup_screen_preview() {
         return;
     };
     let mut st = SetupState::new(SetupMode::FirstRun);
-    st.path = "/home/player/Games/Think Tanks".into();
+    st.path = "/home/player/Games/ThinkTanks".into();
     st.target = format!("/home/player/.local/share/{}/gamedata", tt_assets::product::DATA_DIR);
-    st.error = Some("No Think Tanks installation in /home/player/Games/Think Tanks: it has no \"game\" folder. Choose the folder Think Tanks was installed to (it holds the \"game\" and \"common\" folders).".into());
+    st.error = Some("No ThinkTanks installation in /home/player/Games/ThinkTanks: it has no \"game\" folder. Choose the folder ThinkTanks was installed to (it holds the \"game\" and \"common\" folders).".into());
     if std::env::var("TT_SETUP_PREVIEW_STAGE").as_deref() == Ok("progress") {
         st.error = None;
         st.progress = Some(SetupProgress { phase: "Converting textures".into(), done: 212, total: 467, file: "models/tanks/tank01.png".into() });
+    }
+    // The report of an import of an edition without the tutorial slides.
+    if std::env::var("TT_SETUP_PREVIEW_STAGE").as_deref() == Ok("report") {
+        st.error = None;
+        let mut lines = vec!["The install has no tutorial art: the tutorial is not offered.".to_string(), "Skipped (9):".to_string()];
+        lines.extend((1..=8).map(|n| format!("  ui/backgrounds/marquee{n}.png: optional, not found: tutorial disabled")));
+        lines.push("  ui/backgrounds/marqueebackground.png: optional, not found: tutorial disabled".into());
+        lines.push("Not found in the install (17):".into());
+        lines.extend((1..=8).flat_map(|n| [format!("  game/client/ui/backgrounds/Marquee{n}.jpg"), format!("  game/client/ui/backgrounds/Marquee{n}.alpha.jpg")]));
+        lines.push("Warnings (1):".into());
+        lines.push("  game/data/missions/TT3_2.mis: decoded from UTF-16 (little-endian)".into());
+        st.report = Some(SetupReport { ok: true, summary: "325 files imported, 9 skipped, 17 optional files not found in the install, 1 warning.".into(), lines, log: format!("/home/player/.local/share/{}/logs/import.log", tt_assets::product::DATA_DIR) });
     }
     for size in [[1280u32, 720u32], [1600, 900], [1920, 1080], [1280, 800]] {
     let ctx = egui::Context::default();

@@ -66,6 +66,8 @@ pub struct BridgeData {
     /// The round length at boot (s; custom games change it).
     boot_duration: f32,
     art: HashMap<Art, Option<egui::TextureHandle>>,
+    /// The game data has the tutorial's slides (looked up once).
+    tutorial: OnceCell<bool>,
     credits: OnceCell<String>,
     /// Set by `tank_preview` each frame it is shown.
     pub preview_request: Option<PreviewRequest>,
@@ -106,6 +108,7 @@ pub fn install(engine: &mut Engine) {
             tutorial_prompt: Cell::new(false),
             boot_duration,
             art: HashMap::new(),
+            tutorial: OnceCell::new(),
             credits: OnceCell::new(),
             preview_request: None,
             preview_texture: None,
@@ -644,6 +647,11 @@ impl MenuBackend for Backend<'_> {
 
     fn wants_tutorial_prompt(&self) -> bool {
         self.d.tutorial_prompt.replace(false)
+    }
+
+    fn tutorial_available(&mut self) -> bool {
+        let host = &self.host;
+        *self.d.tutorial.get_or_init(|| tt_menu::art::tutorial_available(host.borrow().fs.root()))
     }
 
     fn tanks(&self) -> Vec<TankInfo> {

@@ -67,6 +67,7 @@ fn register_list_punch_and_connect_through_nat() {
     assert_eq!(st.public_addr, Some(a(SERVER)));
     assert_eq!(w.master.servers(), vec![a(SERVER)]);
     assert_eq!(w.master.stats.challenges, 1, "one cookie round trip");
+    assert_eq!(w.master.drain_log(), ["added 203.0.113.10:28000 (id 000000000000004d)"], "refreshes are not logged");
 
     // A browser behind its own NAT: the master's list, then the info query
     // gets through thanks to the introduction.
@@ -123,6 +124,7 @@ fn register_list_punch_and_connect_through_nat() {
     w.server.set_master(None, 77, w.t);
     w.run(500, &mut accept_all);
     assert!(w.master.servers().is_empty());
+    assert_eq!(w.master.drain_log(), ["dropped 203.0.113.10:28000 (id 000000000000004d): server closed"]);
 }
 
 #[test]
@@ -141,6 +143,12 @@ fn entries_expire_and_spoofed_heartbeats_do_not_register() {
     // Heartbeats keep it listed for a long time.
     w.run(150_000, &mut accept_all);
     assert_eq!(w.master.servers(), vec![a(SERVER)]);
+    assert_eq!(w.master.drain_log().len(), 1, "only the first registration");
+    // A restarted server: closed, then added again with its new id.
+    w.server.set_master(None, 1, w.t);
+    w.server.set_master(Some(a(MASTER)), 3, w.t);
+    w.run(1000, &mut accept_all);
+    assert_eq!(w.master.drain_log(), ["dropped 203.0.113.10:28000 (id 0000000000000001): server closed", "added 203.0.113.10:28000 (id 0000000000000003)"]);
     // A server that stops heartbeating expires.
     let t0 = w.t;
     while w.t < t0 + ENTRY_LIFETIME + Duration::from_secs(2) {
@@ -149,6 +157,14 @@ fn entries_expire_and_spoofed_heartbeats_do_not_register() {
         w.master.update(w.t);
     }
     assert!(w.master.servers().is_empty());
+    assert_eq!(w.master.drain_log(), ["dropped 203.0.113.10:28000 (id 0000000000000003): no heartbeat for 70s"]);
+}
+
+#[test]
+fn utc_stamps() {
+    assert_eq!(tt_master::utc_stamp(0), "1970-01-01 00:00:00 UTC");
+    assert_eq!(tt_master::utc_stamp(1_792_491_303), "2026-10-20 10:15:03 UTC");
+    assert_eq!(tt_master::utc_stamp(951_782_400), "2000-02-29 00:00:00 UTC");
 }
 
 #[test]

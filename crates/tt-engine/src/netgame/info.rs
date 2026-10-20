@@ -78,6 +78,8 @@ pub fn server_info(h: &EngineHost) -> ServerInfo {
         cpu_mhz: cpu_mhz(),
         modded: false,
         mods: crate::mods::gameplay_refs(h),
+        version: tt_net::GAME_VERSION.to_string(),
+        protocols: (tt_net::PROTOCOL_VERSION, tt_net::PROTOCOL_VERSION),
         scores: {
             // Only when the list matches the groups (it is rebuilt on joins and drops).
             let s = scores(h);

@@ -8,10 +8,7 @@ const P: &str = "progress.";
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct HiScoreStart {
     pub name: String,
-    /// Plain numbers (text in files of earlier versions, still read).
-    #[serde(deserialize_with = "crate::save::de_u64")]
     pub score: u64,
-    #[serde(deserialize_with = "crate::save::de_u32")]
     pub level: u32,
     pub start: u32,
 }

@@ -22,9 +22,9 @@ fn dims(p: &Path) -> Option<(u32, u32)> {
 }
 
 /// Compares the imported directory `imported` with `assets` file by file
-/// (`mapping` says which are made how). `upscaled`: the import ran an
-/// upscaler (the textures should then have the repository's sizes).
-pub fn compare(imported: &Path, assets: &Path, mapping: &Mapping, upscaled: bool) -> Vec<Mismatch> {
+/// (`mapping` says which are made how). The upscaled textures are
+/// expected at the game's resolution, a quarter of the repository's.
+pub fn compare(imported: &Path, assets: &Path, mapping: &Mapping) -> Vec<Mismatch> {
     let mut out = Vec::new();
     let mut push = |class: &'static str, asset: &str, detail: String| out.push(Mismatch { class, asset: asset.to_string(), detail });
     let listed = |root: &Path| -> BTreeSet<String> { tt_assets::layout::files(root).into_iter().map(|(r, _)| r).filter(|r| !r.ends_with("SOURCES.md")).collect() };
@@ -54,12 +54,11 @@ pub fn compare(imported: &Path, assets: &Path, mapping: &Mapping, upscaled: bool
                     push("unreadable image", a, String::new());
                     continue;
                 };
-                let factor = if upscaled { 1 } else { 4 };
-                if (g.0 * factor, g.1 * factor) != w && g != w {
-                    push("texture size", a, format!("{}x{} imported, {}x{} in assets/ (x{factor} expected)", g.0, g.1, w.0, w.1));
+                if (g.0 * 4, g.1 * 4) != w && g != w {
+                    push("texture size", a, format!("{}x{} imported, {}x{} in assets/ (x4 expected)", g.0, g.1, w.0, w.1));
                 }
                 if matches!(e.how, How::Picture { game_file: None, .. }) {
-                    push("picture placeholder", a, "our own map: rendered with --pictures, else a shaded-terrain placeholder".into());
+                    push("picture placeholder", a, "our own map: a shaded-terrain placeholder (the game's import renders it)".into());
                 }
             }
             How::Image { upscaled: false, .. } => {

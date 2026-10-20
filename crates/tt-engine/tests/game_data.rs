@@ -22,7 +22,6 @@ fn temp(tag: &str) -> PathBuf {
 fn frame(flow: &mut SetupFlow) -> Option<SetupAction> {
     let ctx = egui::Context::default();
     tt_menu::theme::install_fonts(&ctx);
-    tt_menu::theme::apply_style(&ctx);
     let mut action = None;
     for _ in 0..2 {
         let raw = egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 720.0))), ..Default::default() };

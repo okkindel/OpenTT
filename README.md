@@ -130,6 +130,7 @@ opentt --dedicated --mission tt2_3 --port 28000
 * Internet: the server's UDP port (28000 by default) must be reachable:
   forward it on the router, or `--port-mapping` asks the router (UPnP /
   NAT-PMP). `--master-server HOST[:PORT]` lists it on a master server.
+* All the options, settings and versions: [docs/server.md](docs/server.md).
 
 ## Master server (server list for internet games)
 
@@ -140,6 +141,10 @@ default):
 ```sh
 cargo run --release -p tt-master -- --port 28100     # or: opentt --master
 ```
+
+Each release also has the master server alone (`opentt-master-*` archives
+for Linux, Windows and macOS: one small binary, `README.txt` with its
+options). It prints the time when a game server joins or leaves the list.
 
 Players enter its address in Play → On-line → Join → Internet → "Master
 server"; hosts tick "List on the master server" (or start a dedicated

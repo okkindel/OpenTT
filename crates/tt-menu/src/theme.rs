@@ -2,7 +2,7 @@
 //! gunmetal, olive-tinted steel, olive drab, brass, sand), the bundled fonts
 //! (Chakra Petch for text, Russo One for headings and labels).
 
-use egui::{Color32, FontData, FontDefinitions, FontFamily, FontId, TextStyle};
+use egui::{Color32, FontData, FontDefinitions, FontFamily, FontId};
 
 use crate::screens::pal;
 
@@ -57,39 +57,15 @@ pub fn install_fonts(ctx: &egui::Context) {
     ctx.set_fonts(defs);
 }
 
-/// The dark theme of the menus.
-pub fn apply_style(ctx: &egui::Context) {
-    ctx.style_mut(|s| {
-        s.visuals = egui::Visuals::dark();
-        let v = &mut s.visuals;
-        v.panel_fill = pal::GUNMETAL;
-        v.window_fill = pal::PANEL;
-        v.extreme_bg_color = pal::WELL;
-        v.faint_bg_color = pal::PLATE;
-        v.selection.bg_fill = pal::OLIVE;
-        v.selection.stroke = egui::Stroke::new(1.0_f32, pal::BRASS);
-        v.hyperlink_color = pal::BRASS;
-        v.override_text_color = Some(pal::SAND);
-        v.widgets.inactive.bg_fill = pal::PLATE;
-        v.widgets.inactive.weak_bg_fill = pal::PLATE;
-        v.widgets.hovered.bg_fill = pal::PANEL_HI;
-        v.widgets.hovered.weak_bg_fill = pal::PANEL_HI;
-        v.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, pal::BRASS);
-        v.widgets.active.bg_fill = pal::OLIVE;
-        v.widgets.active.weak_bg_fill = pal::OLIVE;
-        s.spacing.item_spacing = egui::vec2(10.0, 10.0);
-        s.spacing.button_padding = egui::vec2(14.0, 8.0);
-        s.spacing.slider_width = 260.0;
-        s.spacing.interact_size.y = 30.0;
-        s.text_styles = [
-            (TextStyle::Heading, FontId::new(34.0, heading_family())),
-            (TextStyle::Body, FontId::new(19.0, FontFamily::Proportional)),
-            (TextStyle::Button, FontId::new(19.0, FontFamily::Proportional)),
-            (TextStyle::Small, FontId::new(15.0, FontFamily::Proportional)),
-            (TextStyle::Monospace, FontId::new(17.0, FontFamily::Monospace)),
-        ]
-        .into();
-    });
+/// Installs the fonts unless they are installed; true when it did (they
+/// take effect on the next frame).
+pub fn ensure(ctx: &egui::Context) -> bool {
+    if ctx.fonts(|f| f.families().contains(&heading_family())) {
+        return false;
+    }
+    install_fonts(ctx);
+    ctx.request_repaint();
+    true
 }
 
 /// Points per pixel so the 1280x720 layout scales with the window

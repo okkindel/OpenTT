@@ -21,20 +21,7 @@ pub const GLOBAL_MAP: &str = "GlobalActionMap";
 /// The game's map (pushed while `PlayGui` is up).
 pub const MOVE_MAP: &str = "MoveMap";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Device {
-    Keyboard,
-    Mouse,
-}
-
-impl From<tt_gameplay::client::binds::Device> for Device {
-    fn from(d: tt_gameplay::client::binds::Device) -> Device {
-        match d {
-            tt_gameplay::client::binds::Device::Keyboard => Device::Keyboard,
-            tt_gameplay::client::binds::Device::Mouse => Device::Mouse,
-        }
-    }
-}
+pub use tt_gameplay::client::binds::Device;
 
 pub fn canonical_key(s: &str) -> String {
     let k = s.to_ascii_lowercase();

@@ -29,7 +29,9 @@ use crate::{BUILD_ID, DEFAULT_PORT, PROTOCOL_VERSION};
 pub const PORT_RANGE: u16 = 10;
 /// Version of the [`ServerInfo`] layout (first payload byte). Format 2
 /// appends the player scores, format 3 the gameplay mods (before the
-/// player list); format 1 and 2 replies still decode.
+/// player list); format 1 and 2 replies still decode. A format 3 reply may
+/// end with the server's version and protocol range (older browsers ignore
+/// the trailing bytes, older servers do not send them).
 pub const INFO_FORMAT: u8 = 3;
 
 /// A mod that changes the game, as a server announces it
@@ -90,6 +92,12 @@ pub struct ServerInfo {
     /// Those mods, as many as fit the reply (format 3; joining checks them
     /// all, `docs/modding.md`).
     pub mods: Vec<ModRef>,
+    /// The server's game version ([`crate::GAME_VERSION`]; empty from
+    /// servers that do not send it).
+    pub version: String,
+    /// The wire protocols it accepts (lowest, highest); (0, 0) when not
+    /// sent: then only the `Info` header's protocol.
+    pub protocols: (u16, u16),
 }
 
 fn field(s: &str, i: usize) -> &str {
@@ -154,8 +162,15 @@ impl ServerInfo {
             n += 1;
         }
         out[count_at] = n;
-        // The list's length byte, then the score count byte.
-        let room = MAX_INFO_PAYLOAD.saturating_sub(out.len() + 2);
+        // The version tail goes last (when known); the list's length byte,
+        // then the score count byte.
+        let mut tail = Vec::new();
+        if !self.version.is_empty() || self.protocols != (0, 0) {
+            put_str(&mut tail, &self.version, 16);
+            tail.extend_from_slice(&self.protocols.0.to_le_bytes());
+            tail.extend_from_slice(&self.protocols.1.to_le_bytes());
+        }
+        let room = MAX_INFO_PAYLOAD.saturating_sub(out.len() + 2 + tail.len());
         let mut players = String::new();
         let mut kept = 0usize;
         for (team, name) in self.player_list() {
@@ -172,6 +187,7 @@ impl ServerInfo {
         for i in 0..kept {
             out.extend_from_slice(&self.scores.get(i).copied().unwrap_or(0).to_le_bytes());
         }
+        out.extend_from_slice(&tail);
         debug_assert!(out.len() <= MAX_INFO_PAYLOAD);
         out
     }
@@ -216,6 +232,10 @@ impl ServerInfo {
                 info.scores.push(r.u16()? as i16);
             }
         }
+        if !r.rest().is_empty() {
+            info.version = r.str()?;
+            info.protocols = (r.u16()?, r.u16()?);
+        }
         Ok(info)
     }
 }
@@ -245,9 +265,11 @@ pub struct LanServer {
 }
 
 impl LanServer {
-    /// Same protocol and build as this program: joining can work.
+    /// The server accepts our protocol and runs our build: joining can work.
     pub fn compatible(&self) -> bool {
-        self.protocol == PROTOCOL_VERSION && self.info.build == BUILD_ID
+        let (lo, hi) = self.info.protocols;
+        let protocol = if hi == 0 { self.protocol == PROTOCOL_VERSION } else { (lo..=hi).contains(&PROTOCOL_VERSION) };
+        protocol && self.info.build == BUILD_ID
     }
 }
 
@@ -494,6 +516,7 @@ mod tests {
             scores: vec![12, -3],
             modded: true,
             mods: vec![ModRef { name: "Big Maps".into(), version: "1.0".into(), hash: 0x1234_5678_9abc_def0 }],
+            ..Default::default()
         }
     }
 
@@ -540,6 +563,29 @@ mod tests {
         assert_eq!(d.mods[1].name, "A mod with a long name 1");
         assert!(ServerInfo::decode(&b[..b.len() - 1]).is_err());
         assert!(ServerInfo::decode(&[9]).is_err());
+    }
+
+    #[test]
+    fn version_tail_is_optional_and_checked() {
+        let i = ServerInfo { version: "0.1.2".into(), protocols: (10, 11), ..sample() };
+        let b = i.encode();
+        assert_eq!(ServerInfo::decode(&b).unwrap(), i);
+        // Without the tail (older servers): the same bytes before it, no version, no range.
+        let old = ServerInfo { version: String::new(), protocols: (0, 0), ..i.clone() };
+        assert_eq!(b[..b.len() - 10], old.encode()[..]);
+        assert_eq!(ServerInfo::decode(&b[..b.len() - 10]).unwrap(), old);
+        // A full player list leaves room for it.
+        let full = ServerInfo { players: (0..40).map(|k| format!("G\tA rather long player name {k}")).collect::<Vec<_>>().join("\t"), scores: (0..40).collect(), ..i.clone() };
+        let enc = full.encode();
+        assert!(enc.len() <= MAX_INFO_PAYLOAD);
+        let d = ServerInfo::decode(&enc).unwrap();
+        assert_eq!((d.version.as_str(), d.protocols), ("0.1.2", (10, 11)));
+        // Joinable: our protocol in the announced range, else the header's protocol.
+        let server = |protocol, protocols| LanServer { addr: "10.0.0.1:28000".parse().unwrap(), info: ServerInfo { build: BUILD_ID, protocols, ..Default::default() }, protocol, ping: Duration::ZERO, seen: Duration::ZERO };
+        assert!(server(PROTOCOL_VERSION, (0, 0)).compatible());
+        assert!(!server(PROTOCOL_VERSION + 1, (0, 0)).compatible());
+        assert!(server(PROTOCOL_VERSION + 1, (PROTOCOL_VERSION - 1, PROTOCOL_VERSION + 1)).compatible());
+        assert!(!server(PROTOCOL_VERSION, (PROTOCOL_VERSION + 1, PROTOCOL_VERSION + 2)).compatible());
     }
 
     #[test]

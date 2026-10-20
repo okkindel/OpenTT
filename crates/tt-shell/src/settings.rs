@@ -409,10 +409,9 @@ impl Settings {
         crate::save::pretty(self, &format!("{} settings (keys: docs/layout.md § Settings).", tt_assets::product::NAME))
     }
 
-    /// Reads `settings.ron` (an earlier build's file is migrated,
-    /// [`crate::legacy::migrate_settings`]).
+    /// Reads `settings.ron`.
     pub fn from_ron(src: &str) -> Result<Settings, String> {
-        ron::from_str(src).map(crate::legacy::migrate_settings).map_err(|e| e.to_string())
+        ron::from_str(src).map_err(|e| e.to_string())
     }
 }
 

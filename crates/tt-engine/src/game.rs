@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tt_assets::mission::SceneObject;
 use tt_game::fields::Defs;
-use tt_game::{Event, FlagId, HitObject, Move, ProjectileParams, StaticShape, TankParams, TankId, TriggerShape, World};
+use tt_game::{Event, FlagId, HitObject, ProjectileParams, StaticShape, TankParams, TankId, TriggerShape, World};
 use tt_gameplay::server::combat::KdaEvent;
 use tt_gameplay::{EntityId, EntityKind, EntityTable, GameEvent};
 use tt_game::fmt::format_g;
@@ -116,7 +116,7 @@ pub struct GameSim {
     pub prev_pose: HashMap<TankId, (Vec3, Mat3)>,
     /// Turret aim (`yaw_n`, `pitch_n`) before the last world tick (render
     /// interpolation).
-    pub prev_anim: HashMap<TankId, PrevAnim>,
+    pub prev_aim: HashMap<TankId, (f32, f32)>,
     /// Flag (scrum ball) positions before the last world tick.
     pub prev_flags: HashMap<FlagId, Vec3>,
     /// Last collision sound per (tank, kind) in sim ms (`*_collision_interval_ms`).
@@ -224,12 +224,6 @@ pub struct PlayerAim {
     pub pending: (f32, f32),
 }
 
-/// Per-tank render state of the previous tick (see [`GameSim::prev_anim`]).
-#[derive(Debug, Clone, Copy, Default)]
-pub struct PrevAnim {
-    pub aim: (f32, f32),
-}
-
 fn floats(s: &str) -> Vec<f32> {
     s.split_whitespace().map(tt_game::fields::atof).collect()
 }
@@ -308,13 +302,10 @@ pub fn tank_script_transform(pos: Vec3, rot: Mat3) -> String {
 /// as the engine does. The quantisation of docs/engine-notes.md §7 is applied
 /// by the world (`World::quantize_moves`).
 ///
-/// Set the pref to 0 for that. Only the local player's move is touched — bots
-/// and the simulation are unchanged.
-pub fn player_move(prefs: &tt_shell::Prefs, moves: &mut tt_gameplay::client::MoveState, last_trigger_count: &mut i32) -> Move {
-    moves.take_move(reverse_steering(prefs), last_trigger_count)
-}
-
-/// Unset means on.
+/// For the local player's move (`MoveState::take_move`). DEVIATION: when set,
+/// the turn input is negated while the throttle is reversed, so A/D steer like
+/// a car backing up. Only the local player's move is touched — bots and the
+/// simulation are unchanged.
 fn reverse_steering(prefs: &tt_shell::Prefs) -> bool {
     let v = prefs.get("input.reverse_steering");
     let v = v.trim();
@@ -556,7 +547,7 @@ impl GameSim {
             last_coll_sound: HashMap::new(),
             engine_sounds: HashMap::new(),
             prev_pose: HashMap::new(),
-            prev_anim: HashMap::new(),
+            prev_aim: HashMap::new(),
             prev_flags: HashMap::new(),
             explosions: Vec::new(),
             ammo_warning: false,
@@ -633,15 +624,16 @@ impl GameSim {
         }
     }
 
-    /// A def's name as declared (the scripts may write it in any case).
-    fn declared_name(&self, name: &str) -> String {
+    /// A def's name as declared (the scripts may write it in any case;
+    /// `setAI(name)`).
+    pub fn declared(&self, name: &str) -> String {
         self.db.object(name).map(|o| o.name.clone()).unwrap_or_else(|| name.to_string())
     }
 
     /// Adds a power-up, pad or volcano entity of the mission object `o`
     /// (its class, name, `def` and transform).
     pub fn add_trigger(&mut self, o: &SceneObject) -> Option<EntityId> {
-        let dbn = self.declared_name(o.get("def").unwrap_or(""));
+        let dbn = self.declared(o.get("def").unwrap_or(""));
         let fields = self.db.fields(&dbn)?;
         let shape = self.trigger_shape(fields.get("shape").unwrap_or(""));
         let xf = object_transform(o);
@@ -716,7 +708,7 @@ impl GameSim {
     pub fn add_tank(&mut self, def: &str, name: &str, pos: Vec3, rot: Mat3, id: Option<EntityId>) -> Option<EntityId> {
         let data = self.tank_data(def)?;
         let t = self.world.add_tank_at(data, pos, rot);
-        let dbn = self.declared_name(def);
+        let dbn = self.declared(def);
         Some(match id {
             Some(e) => {
                 self.entities.insert_id(e, EntityKind::Tank(t), name, &dbn);
@@ -748,7 +740,7 @@ impl GameSim {
             data.set_shape(&s);
         }
         let f = self.world.add_flag(Arc::new(data), pos);
-        let dbn = self.declared_name(def);
+        let dbn = self.declared(def);
         Some(match id {
             Some(e) => {
                 self.entities.insert_id(e, EntityKind::Flag(f), name, &dbn);
@@ -819,7 +811,7 @@ impl GameSim {
     /// `setDef(name)` on an entity: a tank takes the new tank data, a
     /// power-up its new type.
     pub fn set_def(&mut self, e: EntityId, name: &str) {
-        let name = self.declared_name(name);
+        let name = self.declared(name);
         let Some(ent) = self.entities.get_mut(e) else { return };
         ent.def = name.clone();
         match ent.kind {
@@ -873,11 +865,6 @@ impl GameSim {
         }
     }
 
-    /// A def reference as its declared name (`setAI(name)`).
-    pub fn declared(&self, name: &str) -> String {
-        self.declared_name(name)
-    }
-
     /// Pose of a tank for rendering: interpolated between the previous and
     /// the current tick by `alpha`.
     pub fn render_pose(&self, t: &tt_game::Tank, alpha: f32) -> (Vec3, Mat3) {
@@ -909,8 +896,8 @@ impl GameSim {
     /// is continuous across ticks and follows the mouse frame by frame;
     /// the rest of the change (auto-level, key aiming) still interpolates.
     pub fn render_aim(&self, t: &tt_game::Tank, alpha: f32) -> (f32, f32) {
-        let (yaw, pitch) = match self.prev_anim.get(&t.id) {
-            Some(p) => (lerp(p.aim.0, t.yaw_n, alpha), lerp(p.aim.1, t.pitch_n, alpha)),
+        let (yaw, pitch) = match self.prev_aim.get(&t.id) {
+            Some(p) => (lerp(p.0, t.yaw_n, alpha), lerp(p.1, t.pitch_n, alpha)),
             None => (t.yaw_n, t.pitch_n),
         };
         let a = &self.player_aim;
@@ -918,7 +905,7 @@ impl GameSim {
             return (yaw, pitch);
         }
         // Without a previous tick nothing is interpolated: `consumed` is in already.
-        let alpha = if self.prev_anim.contains_key(&t.id) { alpha } else { 1.0 };
+        let alpha = if self.prev_aim.contains_key(&t.id) { alpha } else { 1.0 };
         predict_aim((yaw, pitch), a.consumed, a.pending, alpha)
     }
 
@@ -927,12 +914,6 @@ impl GameSim {
     pub fn set_pending_aim(&mut self, moves: &tt_gameplay::client::MoveState) {
         let (yaw, pitch) = moves.aim();
         self.player_aim.pending = (yaw / std::f32::consts::PI, pitch / std::f32::consts::PI);
-    }
-
-    /// Tread and wheel animation of a tank (None before its first tick or
-    /// without a shape).
-    pub fn render_treads(&self, t: &tt_game::Tank) -> Option<&crate::treads::Treads> {
-        self.treads.get(&t.id)
     }
 
     /// Position of a flag (scrum ball) for rendering.
@@ -1112,16 +1093,26 @@ fn lerp(a: f32, b: f32, t: f32) -> f32 {
 /// wheel spin between the last two ticks.
 pub fn pose_tank(g: &GameSim, t: &tt_game::Tank, alpha: f32, shape: &tt_assets::dts::Shape, inst: &mut tt_render::DynamicInstance) {
     use glam::Mat4;
-    use tt_render::pose::{node_default, sequence_pose_of, sequence_visibility_of};
+    use tt_render::pose::{node_default, node_transform, sequence_pose_of, sequence_visibility_of};
     let d = &t.data;
     if t.is_corpse {
-        // The world picks death1..4 once the corpse shake is over.
-        if let Some((k, _)) = t.death_sequence {
+        // Corpse render transform: during corpse_shake_time the tank
+        // shakes (Euler x/y wobble); then the death sequence flips it by
+        // moving `codeFlip`: drawn at T · codeFlip · tankall⁻¹.
+        let (ct, fx) = ((t.corpse_timer - (1.0 - alpha) * tt_game::DT).max(0.0), &d.fx);
+        if ct < fx.corpse_shake_time {
+            let (w, a) = (std::f32::consts::PI * fx.corpse_shake_speed, 0.15 * fx.corpse_shake_amp);
+            let (x, y) = ((10.0 * w * ct).sin() * a, (9.0 * w * (ct - fx.corpse_shake_time)).sin() * a);
+            inst.transform *= Mat4::from_mat3(tt_game::geom::rot_x(x) * Mat3::from_rotation_y(-y));
+        } else if let Some((k, _)) = t.death_sequence {
+            // The world picks death1..4 once the corpse shake is over.
             let seq = format!("death{}", k + 1);
-            let time = (t.corpse_timer - d.fx.corpse_shake_time).max(0.0);
-            inst.nodes = sequence_pose_of(shape, &seq, time);
-            for (o, vis) in sequence_visibility_of(shape, &seq, time) {
+            inst.nodes = sequence_pose_of(shape, &seq, ct - fx.corpse_shake_time);
+            for (o, vis) in sequence_visibility_of(shape, &seq, ct - fx.corpse_shake_time) {
                 if vis { inst.shown.push(o) } else { inst.hidden.push(o) }
+            }
+            if let (Some(flip), Some(all)) = (node_transform(shape, &inst.nodes, "codeFlip"), node_transform(shape, &inst.nodes, "tankall")) {
+                inst.transform = inst.transform * flip * all.inverse();
             }
             return;
         }
@@ -1135,7 +1126,7 @@ pub fn pose_tank(g: &GameSim, t: &tt_game::Tank, alpha: f32, shape: &tt_assets::
     if let Some(m) = node_default(shape, "codeWeapon") {
         inst.nodes.push(("codeWeapon".into(), m * Mat4::from_mat3(tt_game::geom::rot_x(pitch))));
     }
-    if let Some(tr) = g.render_treads(t) {
+    if let Some(tr) = g.treads.get(&t.id) {
         let angles = tr.state.wheel_angles(&tr.rig, alpha);
         for (n, a) in crate::treads::WHEEL_NODES.iter().zip(angles) {
             if let Some(m) = node_default(shape, n) {
@@ -1285,16 +1276,6 @@ pub fn update_world(h: &mut EngineHost) {
     }
 }
 
-/// A field of an entity's def (`obj.def.field`).
-fn db_field(g: &GameSim, kind: EntityKind, field: &str) -> String {
-    g.def_fields(kind).and_then(|f| f.get(field).map(str::to_string)).unwrap_or_default()
-}
-
-/// A field of a tank's TankFxParams (`tank.def.fx.field`).
-fn fx_field(g: &GameSim, tank: TankId, field: &str) -> String {
-    g.fx_value(tank, field).unwrap_or_default().to_string()
-}
-
 /// Looping engine sounds of all living tanks: two 3D sources (TankFxParams
 /// `engine_sound_a/B`), pitch and volume interpolated between their `0` and `1`
 /// values by speed / max_speed. A linear blend is used.
@@ -1355,11 +1336,6 @@ fn play_at(h: &mut EngineHost, profile: &str, pos: Vec3) {
     }
 }
 
-/// The script object of a world tank, if it still exists.
-fn tank_obj(g: &GameSim, t: TankId) -> Option<EntityId> {
-    g.entity_of_tank(t)
-}
-
 /// Presentation of one world event: sounds, explosions, muzzle flashes,
 /// brain jars (every role but `Dedicated`). Never calls scripts.
 fn cosmetic_event(h: &mut EngineHost, g: &mut GameSim, e: &Event, player: Option<TankId>) {
@@ -1402,7 +1378,7 @@ fn cosmetic_event(h: &mut EngineHost, g: &mut GameSim, e: &Event, player: Option
         Event::PadUsed { trigger, .. } | Event::VolcanoErupted { trigger, .. } => {
             if let (Some(_), Some(tr)) = (g.entities.of_trigger(*trigger), g.world.trigger(*trigger)) {
                 let p: Vec3 = tr.transform.translation.into();
-                play_at(h, &db_field(g, EntityKind::Trigger(*trigger), "sound"), p);
+                play_at(h, g.def_fields(EntityKind::Trigger(*trigger)).as_ref().and_then(|f| f.get("sound")).unwrap_or(""), p);
             }
         }
         Event::PowerUpSwitched { trigger, on } => {
@@ -1412,35 +1388,35 @@ fn cosmetic_event(h: &mut EngineHost, g: &mut GameSim, e: &Event, player: Option
             // PowerUpParams `sound` when it (re)appears, `sound_off` when taken.
             if let (Some(_), Some(tr)) = (g.entities.of_trigger(*trigger), g.world.trigger(*trigger)) {
                 let p: Vec3 = tr.transform.translation.into();
-                play_at(h, &db_field(g, EntityKind::Trigger(*trigger), if *on { "sound" } else { "sound_off" }), p);
+                play_at(h, g.def_fields(EntityKind::Trigger(*trigger)).as_ref().and_then(|f| f.get(if *on { "sound" } else { "sound_off" })).unwrap_or(""), p);
             }
         }
         Event::BrainEjected { tank, projectile, shape } => {
             if let Some(p) = projectile.filter(|_| !shape.is_empty()) {
                 g.brain_shapes.insert(p, shape.clone());
             }
-            if let (Some(_), Some(t)) = (tank_obj(g, *tank), g.world.tank(*tank)) {
+            if let (Some(_), Some(t)) = (g.entity_of_tank(*tank), g.world.tank(*tank)) {
                 let p = t.pos;
-                play_at(h, &fx_field(g, *tank, "loose_head_sound"), p);
+                play_at(h, g.fx_value(*tank, "loose_head_sound").unwrap_or(""), p);
             }
         }
         Event::Collided { tank, other, speed } => {
             // TankFxDef hard/soft collision sounds by relative speed,
             // at most once per `*_collision_interval_ms` per tank and kind.
-            if let (Some(_), Some(t)) = (tank_obj(g, *tank), g.world.tank(*tank)) {
+            if let (Some(_), Some(t)) = (g.entity_of_tank(*tank), g.world.tank(*tank)) {
                 let (kind, k) = match other {
                     HitObject::Tank(_) => ("tank", 0u8),
                     HitObject::Static(_) => ("static", 1),
                     HitObject::Terrain => ("ground", 2),
                 };
-                let num = |n: String| tt_game::fields::atof(&fx_field(g, *tank, &n));
+                let num = |n: String| tt_game::fields::atof(g.fx_value(*tank, &n).unwrap_or(""));
                 let interval = num(format!("{kind}_collision_interval_ms")) as i64;
                 let now = g.world.time_ms;
                 if g.last_coll_sound.get(&(*tank, k)).is_none_or(|&last| now - last >= interval) {
                     let snd = if *speed >= num(format!("hard_{kind}_collision_speed")) {
-                        fx_field(g, *tank, &format!("hard_{kind}_collision_sound"))
+                        g.fx_value(*tank, &format!("hard_{kind}_collision_sound")).unwrap_or_default().to_string()
                     } else if *speed >= num(format!("soft_{kind}_collision_speed")) {
-                        fx_field(g, *tank, &format!("soft_{kind}_collision_sound"))
+                        g.fx_value(*tank, &format!("soft_{kind}_collision_sound")).unwrap_or_default().to_string()
                     } else {
                         String::new()
                     };
@@ -1477,7 +1453,7 @@ pub fn tick(h: &mut EngineHost) {
         let q = |a: f32| if g.world.quantize_moves { tt_game::netmove::u16_to_angle(tt_game::netmove::angle_to_u16(a)) } else { a };
         (q(yaw) / std::f32::consts::PI, q(pitch) / std::f32::consts::PI)
     };
-    let mut mv = player_move(&h.shell.prefs, &mut h.client.moves, &mut g.last_trigger_count);
+    let mut mv = h.client.moves.take_move(reverse_steering(&h.shell.prefs), &mut g.last_trigger_count);
     g.player_aim = PlayerAim { tank: player.filter(|_| !g.world.ai_control_mode), consumed: mouse, pending: (0.0, 0.0) };
     if let Some(p) = player {
         if g.free_aim.tank == Some(p) {
@@ -1526,12 +1502,7 @@ pub fn tick(h: &mut EngineHost) {
     g.world.team_game = h.srv.get().is_some_and(|s| s.setup.team_game);
     g.prev_pose = g.world.tanks.iter().map(|t| (t.id, (t.pos, t.rot))).collect();
     let was_corpse: std::collections::HashSet<TankId> = g.world.tanks.iter().filter(|t| t.is_corpse).map(|t| t.id).collect();
-    g.prev_anim = g
-        .world
-        .tanks
-        .iter()
-        .map(|t| (t.id, PrevAnim { aim: (t.yaw_n, t.pitch_n) }))
-        .collect();
+    g.prev_aim = g.world.tanks.iter().map(|t| (t.id, (t.yaw_n, t.pitch_n))).collect();
     g.prev_flags = g.world.flags.iter().map(|f| (f.id, f.pos)).collect();
     if g.role == Role::Client {
         // Puppets to the render time (their previous poses are saved above).
@@ -1666,6 +1637,7 @@ mod tests {
 
     use tt_gameplay::client::binds::MoveAxis;
     use tt_gameplay::client::MoveState;
+    use tt_game::Move;
 
     #[test]
     fn player_moves() {
@@ -1676,13 +1648,13 @@ mod tests {
         m.yaw = tt_gameplay::client::text::SVal::Str("0.01".into());
         m.trigger(0);
         let mut last = 0;
-        let mv = player_move(&prefs, &mut m, &mut last);
+        let mv = m.take_move(reverse_steering(&prefs), &mut last);
         assert_eq!((mv.x, mv.y, mv.yaw), (-1.0, 1.0, 0.01));
         assert!(mv.trigger[0]);
         assert_eq!(m.yaw.string(), "0");
         m.trigger(0);
-        assert!(player_move(&prefs, &mut m, &mut last).trigger[0]); // changed
-        assert!(!player_move(&prefs, &mut m, &mut last).trigger[0]); // even, unchanged
+        assert!(m.take_move(reverse_steering(&prefs), &mut last).trigger[0]); // changed
+        assert!(!m.take_move(reverse_steering(&prefs), &mut last).trigger[0]); // even, unchanged
     }
 
     /// Yaw change (radians, + = right/clockwise from above) after holding
@@ -1702,7 +1674,7 @@ mod tests {
         let id = world.add_tank(data, Vec3::ZERO, 0.0);
         let mut last = 0;
         for _ in 0..ticks {
-            let mv = player_move(prefs, &mut m, &mut last);
+            let mv = m.take_move(reverse_steering(prefs), &mut last);
             world.set_move(id, mv);
             world.tick();
         }
@@ -1733,9 +1705,9 @@ mod tests {
         m.set_axis(Backward, "1");
         m.set_axis(Left, "1");
         let mut last = 0;
-        assert_eq!(player_move(&prefs, &mut m, &mut last).x, 1.0);
+        assert_eq!(m.take_move(reverse_steering(&prefs), &mut last).x, 1.0);
         m.set_axis(Backward, "0");
-        assert_eq!(player_move(&prefs, &mut m, &mut last).x, -1.0);
+        assert_eq!(m.take_move(reverse_steering(&prefs), &mut last).x, -1.0);
     }
 
     #[test]

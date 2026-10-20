@@ -8,7 +8,7 @@
 use glam::Vec3;
 use std::path::{Path, PathBuf};
 use tt_engine::{Config, Engine};
-use tt_menu::{CustomGame, MenuAction, MenuBackend, Team};
+use tt_menu::{CustomGame, MenuAction, Team};
 
 mod common;
 use common::*;
@@ -60,27 +60,10 @@ fn start(root: &Path, tag: &str, view: bool) -> (Engine, Option<View>) {
         v = Some(View { off, fe, dir });
     }
     steps(&mut e, &mut v, 1000);
-    {
-        let Engine { host, menu, .. } = &mut e;
-        let m = menu.as_mut().unwrap();
-        tt_engine::menu::Backend::new(host, &mut m.data).create_player("Tester").unwrap();
-    }
+    new_player(&mut e, "Tester");
     let g = CustomGame { mission: MISSION.into(), mode: 0, bots: Vec::new(), player_tank: 1, player_team: Team::Green, minutes: 10, replace_bots: true };
-    {
-        let Engine { host, menu, .. } = &mut e;
-        menu.as_mut().unwrap().apply(MenuAction::StartCustom(g), host);
-    }
-    for i in 0..3000 {
-        step(&mut e, &mut v);
-        if i % 60 == 0 {
-            e.key("space", true, None);
-            e.key("space", false, None);
-        }
-        if player(&e).is_some() {
-            break;
-        }
-    }
-    assert!(player(&e).is_some(), "the player did not spawn");
+    apply(&mut e, MenuAction::StartCustom(g));
+    until_spawned(&mut e, |e| step(e, &mut v));
     steps(&mut e, &mut v, 3000);
     (e, v)
 }

@@ -232,7 +232,7 @@ pub fn mission_text(bytes: &[u8]) -> (String, Vec<String>) {
 /// ([`mission_text`]); when the whole text does not parse, what comes
 /// after the editor's end line (`//--- OBJECT WRITE END ---`) is left
 /// out. Also returns the notes of what was done to the bytes.
-pub fn mission_file_notes(mis: &str, bytes: &[u8], paths: Paths) -> Result<(String, Vec<String>), String> {
+pub fn mission_file(mis: &str, bytes: &[u8], paths: Paths) -> Result<(String, Vec<String>), String> {
     let (text, mut notes) = mission_text(bytes);
     let dir = dir_of(mis);
     let converted = match convert_mission_text(&text, dir, paths) {
@@ -257,11 +257,6 @@ pub fn mission_file_notes(mis: &str, bytes: &[u8], paths: Paths) -> Result<(Stri
     Ok((data::to_ron(&mission_header(name, &functions), &m)?, notes))
 }
 
-/// [`mission_file_notes`] without the notes.
-pub fn mission_file(mis: &str, bytes: &[u8], paths: Paths) -> Result<String, String> {
-    mission_file_notes(mis, bytes, paths).map(|(t, _)| t)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -269,7 +264,7 @@ mod tests {
     const MIS: &str = "//--- OBJECT WRITE BEGIN ---\r\nnew SimGroup(MissionGroup) {\r\n      musicTrack = \"Lush\";\r\n   new ScriptObject(MissionInfo) {\r\n         name = \"Test\";\r\n   };\r\n};\r\n//--- OBJECT WRITE END ---\r\n";
 
     fn convert(bytes: &[u8]) -> Result<(String, Vec<String>), String> {
-        mission_file_notes("game/data/missions/TT3_2.mis", bytes, &|_: &str, _: &str| None)
+        mission_file("game/data/missions/TT3_2.mis", bytes, &|_: &str, _: &str| None)
     }
 
     fn utf16(text: &str, le: bool, bom: bool) -> Vec<u8> {

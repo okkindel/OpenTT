@@ -65,6 +65,8 @@ pub use transport::{Datagram, LinkConditions, LinkStats, MemLink, MemNet, Restri
 /// the messages are `DefManifest`/`DefsDone`/`ReplicasDone`/ `ReplicaReset` (same tags),
 /// mission objects are `Prop`, `Group`, ...
 pub const PROTOCOL_VERSION: u16 = 11;
+/// This build's game version ("0.1.2"), as servers announce it.
+pub const GAME_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// The game type a server announces (LAN answers, the master list): the
 /// same for every build of this code base, whatever its product name, so
 /// they list and join each other's games (docs/netcode.md).

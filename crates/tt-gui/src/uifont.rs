@@ -2,8 +2,7 @@
 //! `assets/fonts`, used for all GUI, HUD and menu text, rasterised at the
 //! exact pixel size it is shown at (see [`GlyphAtlas`]).
 //!
-//! To swap the font everywhere, change [`REGULAR_TTF`] / [`BOLD_TTF`]. For
-//! comparisons, `TT_UI_FONT=regular.ttf[:bold.ttf]` overrides them at run time.
+//! To swap the font everywhere, change [`REGULAR_TTF`] / [`BOLD_TTF`].
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -63,22 +62,10 @@ impl UiFont {
     }
 }
 
-fn leak_file(path: &str) -> Option<&'static [u8]> {
-    let data = std::fs::read(path).ok()?;
-    FontArc::try_from_vec(data.clone()).ok()?;
-    Some(Box::leak(data.into_boxed_slice()))
-}
-
 /// The UI font (loaded once).
 pub fn ui_font() -> &'static UiFont {
     static FONT: OnceLock<UiFont> = OnceLock::new();
-    FONT.get_or_init(|| {
-        let env = std::env::var("TT_UI_FONT").ok();
-        let mut parts = env.as_deref().unwrap_or("").split(':').filter(|s| !s.is_empty());
-        let regular = parts.next().and_then(leak_file);
-        let bold = parts.next().and_then(leak_file).or(regular);
-        UiFont { regular: Face::load(regular.unwrap_or(REGULAR_TTF)), bold: Face::load(bold.unwrap_or(BOLD_TTF)) }
-    })
+    FONT.get_or_init(|| UiFont { regular: Face::load(REGULAR_TTF), bold: Face::load(BOLD_TTF) })
 }
 
 /// The display face ([`HEADING_TTF`], loaded once).

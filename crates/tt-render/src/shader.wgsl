@@ -233,26 +233,6 @@ fn fs_depth_only() -> @location(0) vec4<f32> {
     return vec4<f32>(0.0);
 }
 
-struct ColorOut {
-    @builtin(position) clip: vec4<f32>,
-    @location(0) world: vec3<f32>,
-    @location(1) color: vec3<f32>,
-};
-
-@vertex
-fn vs_color(@location(0) pos: vec3<f32>, @location(1) color: vec3<f32>) -> ColorOut {
-    var o: ColorOut;
-    o.clip = g.view_proj * vec4<f32>(pos, 1.0);
-    o.world = pos;
-    o.color = color;
-    return o;
-}
-
-@fragment
-fn fs_color(i: ColorOut) -> @location(0) vec4<f32> {
-    return vec4<f32>(mix(i.color, g.fog_color.rgb, fog_factor(i.world)), 1.0);
-}
-
 @group(1) @binding(0) var sky_tex: texture_2d_array<f32>;
 @group(1) @binding(1) var sky_samp: sampler;
 

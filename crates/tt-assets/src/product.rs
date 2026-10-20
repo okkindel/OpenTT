@@ -22,6 +22,3 @@ pub const DATA_DIR: &str = match option_env!("TT_PRODUCT_DATA_DIR") {
     None => "opentt",
 };
 
-/// The user data directory's earlier name (before OpenTT): renamed
-/// to [`DATA_DIR`] once at startup (`tt_engine::userdata`).
-pub const OLD_DATA_DIR: &str = "thinktanks-rs";

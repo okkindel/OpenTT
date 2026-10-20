@@ -112,9 +112,6 @@ fn apply_inputs(engine: &mut Engine, keys: &[(u64, String)], cmds: &[(u64, Strin
             let parts: Vec<i32> = key.split_once(':').map(|(_, p)| p.split(',').map(|v| v.trim().parse().unwrap_or(0)).collect()).unwrap_or_default();
             if key.starts_with("wheel:") && parts.len() == 3 {
                 engine.mouse_wheel(parts[2] as f32);
-            } else if key.starts_with("move:") && parts.len() == 2 {
-                // The game does not use the cursor position (the menus take
-                // their pointer from the window).
             } else if let Some((axis, d)) = key.strip_prefix("axis:").and_then(|p| p.split_once(',')) {
                 let ev = tt_engine::input::InputEvent::Axis { device: tt_engine::input::Device::Mouse, axis: format!("{axis}axis"), delta: d.trim().parse().unwrap_or(0.0) };
                 engine.input(&ev);
@@ -181,7 +178,8 @@ fn bench(engine: &mut Engine, a: &DevArgs, assets: &Path, dev_mission: bool, sec
     }
     let dt = 1000.0 / 60.0;
     let frames = (seconds * 60.0) as u32;
-    let mut frame_ms = Vec::with_capacity(frames as usize);
+    // Frames over 16.7 ms and over 33.3 ms.
+    let mut slow = [0usize; 2];
     let wall = std::time::Instant::now();
     let mut window: Vec<f64> = Vec::new();
     let mut next_input = 0;
@@ -228,16 +226,15 @@ fn bench(engine: &mut Engine, a: &DevArgs, assets: &Path, dev_mission: bool, sec
         let tw = std::time::Instant::now();
         off.wait();
         fe.perf.add("gpu wait", tw.elapsed().as_secs_f64() * 1000.0);
-        frame_ms.push(t.elapsed().as_secs_f64() * 1000.0);
-        window.push(t.elapsed().as_secs_f64() * 1000.0);
+        let ms = t.elapsed().as_secs_f64() * 1000.0;
+        fe.perf.add("frame", ms);
+        slow[0] += usize::from(ms > 16.7);
+        slow[1] += usize::from(ms > 33.3);
+        window.push(ms);
     }
     let total = wall.elapsed().as_secs_f64();
-    let mut sorted = frame_ms.clone();
-    sorted.sort_by(|x, y| x.partial_cmp(y).unwrap());
-    let p = |q: f64| sorted[((sorted.len() as f64 * q) as usize).min(sorted.len() - 1)];
-    let avg = frame_ms.iter().sum::<f64>() / frame_ms.len().max(1) as f64;
     println!("==== bench: {} frames at {}x{} on {}, {:.1} s wall ({:.0} fps) ====", frames, off.size.0, off.size.1, off.adapter, total, frames as f64 / total);
-    println!("frame ms: min {:.2} avg {:.2} p50 {:.2} p95 {:.2} p99 {:.2} max {:.2}; frames > 16.7 ms: {}, > 33 ms: {}", sorted[0], avg, p(0.5), p(0.95), p(0.99), sorted[sorted.len() - 1], frame_ms.iter().filter(|f| **f > 16.7).count(), frame_ms.iter().filter(|f| **f > 33.3).count());
+    println!("frames > 16.7 ms: {}, > 33 ms: {}", slow[0], slow[1]);
     println!("{}", fe.perf.report());
     // Memory at the end of the run (Linux).
     if let Ok(st) = std::fs::read_to_string("/proc/self/status") {
@@ -260,17 +257,14 @@ fn screenshot(engine: &mut Engine, a: &DevArgs, assets: &Path, dev_mission: bool
         }
     }
     let scene = match mission::build_scene(&engine.host, assets, !dev_mission) {
-        Some(Ok(mut s)) => {
-            s.markers.clear();
-            Some(s)
-        }
+        Some(Ok(s)) => Some(s),
         Some(Err(e)) => return Err(format!("scene: {e}")),
         None => None,
     };
     let t = engine.host.sim_time() as f32 / 1000.0;
     if dev_mission {
         // Developer view: the 3D scene only, like tt-viewer.
-        gfx::screenshot(out, a.size.unwrap_or((1280, 720)), scene.as_ref(), None, None, t, None)?;
+        gfx::screenshot(out, a.size.unwrap_or((1280, 720)), scene.as_ref(), None, t)?;
     } else {
         // The canvas at the game's resolution, drawn exactly like a window frame.
         let canvas = (engine.host.video.width, engine.host.video.height);

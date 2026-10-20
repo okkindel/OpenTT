@@ -35,15 +35,6 @@ pub fn declare_def(h: &mut EngineHost, d: &Def) {
     declare(h, d.class(), d.name(), d.parent(), d.is_def(), &fields);
 }
 
-/// Logs the deprecation notes of the data files read since the last call
-/// (names of earlier versions a mod's file still uses,
-/// [`tt_assets::data::take_notes`]).
-pub fn log_data_notes(h: &mut EngineHost) {
-    for n in tt_assets::data::take_notes() {
-        h.log.warn(&format!("data file: deprecated name, still read: {n}"));
-    }
-}
-
 /// Declares every def of `data/<stem>.ron`, in order.
 pub fn declare_file(h: &mut EngineHost, stem: &str) {
     let file = match db::load_file(h.fs.root(), stem) {
@@ -53,7 +44,6 @@ pub fn declare_file(h: &mut EngineHost, stem: &str) {
             return;
         }
     };
-    log_data_notes(h);
     for d in &file {
         declare_def(h, d);
     }
@@ -75,10 +65,7 @@ pub fn load_server_set(h: &mut EngineHost, set: &str) -> bool {
 /// The power-up weapons of the data files.
 pub fn load_weapons(h: &mut EngineHost) {
     let weapons = match db::load_weapons(h.fs.root()) {
-        Ok(w) => {
-            log_data_notes(h);
-            w
-        }
+        Ok(w) => w,
         Err(e) => {
             h.log.error(&format!("data file: {e}"));
             Vec::new()

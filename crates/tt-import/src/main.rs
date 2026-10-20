@@ -7,8 +7,8 @@ use tt_import::{verify, Options};
 
 const USAGE: &str = "\
 usage: tt-import --game GAME_DIR --out ASSETS_DIR [--ours DIR] [--no-normal-maps]
-                 [--upscale-cmd CMD] [--ffmpeg PATH] [-v]
-       tt-import compare --out IMPORTED_DIR [--assets DIR] [--upscaled]
+                 [--ffmpeg PATH] [-v]
+       tt-import compare --out IMPORTED_DIR [--assets DIR]
        tt-import mapping [--assets DIR] [--check]
 
 import     builds the asset directory ASSETS_DIR from the game install
@@ -19,9 +19,6 @@ import     builds the asset directory ASSETS_DIR from the game install
            The mission pictures are the game's (our own maps get a
            shaded-terrain placeholder); the game's own import
            (the game executable's --import GAME_DIR) renders them
---upscale-cmd CMD
-           runs CMD on every texture the repository has upscaled, e.g.
-           \"realesrgan-ncnn-vulkan -i {in} -o {out} -n realesrgan-x4plus\"
 --ffmpeg   ffmpeg for our sounds made from the game's (default ffmpeg;
            without it the built-in mixer makes them)
 compare    compares an imported directory with assets/ (docs/import.md)
@@ -52,7 +49,6 @@ fn run(args: Vec<String>) -> Result<(), String> {
     let mut assets = tt_import::repo_assets();
     let mut opts = Options::new("", "");
     let mut check = false;
-    let mut upscaled = false;
     let mut it = rest.into_iter();
     while let Some(a) = it.next() {
         let mut val = |what: &str| it.next().ok_or(format!("{a} needs {what}"));
@@ -64,10 +60,8 @@ fn run(args: Vec<String>) -> Result<(), String> {
             "--normal-maps" => opts.normal_maps = true,
             "--no-normal-maps" => opts.normal_maps = false,
             "--pictures" => return Err("--pictures: the mission pictures are rendered by the game: run the game with --import GAME_DIR (docs/import.md)".into()),
-            "--upscale-cmd" => opts.upscale_cmd = Some(val("a command")?),
             "--ffmpeg" => opts.ffmpeg = val("a path")?,
             "--check" => check = true,
-            "--upscaled" => upscaled = true,
             "-v" | "--verbose" => opts.verbose = true,
             "-h" | "--help" => return Err(USAGE.into()),
             other => return Err(format!("unknown argument {other}\n{USAGE}")),
@@ -86,7 +80,7 @@ fn run(args: Vec<String>) -> Result<(), String> {
         }
         "compare" => {
             let out = out.ok_or("--out is required")?;
-            let m = verify::compare(&out, &assets, &Mapping::builtin(), upscaled);
+            let m = verify::compare(&out, &assets, &Mapping::builtin());
             for l in verify::summary(&m) {
                 println!("{l}");
             }

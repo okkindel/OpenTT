@@ -5,6 +5,7 @@ pub mod lighting;
 pub mod loadstats;
 pub mod objectview;
 pub mod fx;
+pub mod gpu;
 pub mod gputime;
 pub mod pose;
 pub mod post;

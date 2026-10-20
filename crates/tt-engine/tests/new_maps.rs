@@ -77,22 +77,9 @@ fn start_with(root: &Path, spec: &MapSpec, mode: u32, tank: u8) -> Engine {
         b.create_player("Tester").unwrap();
     }
     let g = CustomGame { mission: file.clone(), mode, bots: Vec::new(), player_tank: tank as usize, player_team: Team::Green, minutes: 10, replace_bots: true };
-    {
-        let Engine { host, menu, .. } = &mut e;
-        menu.as_mut().unwrap().apply(MenuAction::StartCustom(g), host);
-    }
-    for i in 0..3000 {
-        e.tick();
-        if i % 60 == 0 {
-            e.key("space", true, None);
-            e.key("space", false, None);
-        }
-        if player(&e).is_some() {
-            break;
-        }
-    }
+    apply(&mut e, MenuAction::StartCustom(g));
+    until_spawned(&mut e, |e| e.tick());
     assert!(e.server().session.mission_file.clone().eq_ignore_ascii_case(&file), "{}", e.server().session.mission_file.clone());
-    assert!(player(&e).is_some(), "{} mode {mode}: the player did not spawn", spec.id);
     for _ in 0..3000 / tt_engine::TICK_MS {
         e.tick();
     }
@@ -183,13 +170,12 @@ fn event_count(e: &Engine, name: &str) -> u32 {
 fn shot(e: &mut Engine, name: &str, pos: Vec3, look_at: Vec3) {
     let Some(dir) = std::env::var_os("NEW_MAPS_SHOTS") else { return };
     let root = e.host.fs.root().to_path_buf();
-    let mut scene = tt_engine::mission::build_scene(&e.host, &root, true).expect("mission").expect("scene");
-    scene.markers.clear();
+    let scene = tt_engine::mission::build_scene(&e.host, &root, true).expect("mission").expect("scene");
     let Some(mut gv) = e.game_view() else { return };
     let d = look_at - pos;
     gv.camera = tt_render::Camera { pos, yaw: d.x.atan2(d.y), pitch: d.z.atan2(d.truncate().length()) };
     let out = Path::new(&dir).join(format!("{name}.png"));
-    tt_engine::gfx::screenshot(&out, (1280, 720), Some(&scene), None, Some(&gv), 0.0, None).expect("screenshot");
+    tt_engine::gfx::screenshot(&out, (1280, 720), Some(&scene), Some(&gv), 0.0).expect("screenshot");
 }
 
 fn check_loads(spec: &MapSpec, mode: u32) {

@@ -28,7 +28,6 @@ impl HudLayer {
     pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat, assets: &std::path::Path) -> HudLayer {
         let ctx = egui::Context::default();
         tt_menu::theme::install_fonts(&ctx);
-        tt_menu::theme::apply_style(&ctx);
         HudLayer { ctx, renderer: egui_wgpu::Renderer::new(device, format, None, 1, false), art: tt_menu::hud::HudArt::new(assets) }
     }
 
@@ -83,7 +82,6 @@ impl MenuLayer {
     pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> MenuLayer {
         let ctx = egui::Context::default();
         tt_menu::theme::install_fonts(&ctx);
-        tt_menu::theme::apply_style(&ctx);
         MenuLayer { ctx, renderer: egui_wgpu::Renderer::new(device, format, None, 1, false), preview: None }
     }
 

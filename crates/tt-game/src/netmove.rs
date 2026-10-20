@@ -33,20 +33,6 @@ pub fn axis_to_u5(v: f32) -> u8 {
     }
 }
 
-/// What the client predicts with (`clamp` then `unclamp`).
-pub fn client_move(mv: &Move) -> Move {
-    let axis = |v: f32| (axis_to_u5(v) as f32 - 16.0) / 16.0;
-    let mut out = Move::NULL;
-    out.x = axis(mv.x);
-    out.y = axis(mv.y);
-    out.yaw = u16_to_angle(angle_to_u16(mv.yaw));
-    out.pitch = u16_to_angle(angle_to_u16(mv.pitch));
-    out.trigger = mv.trigger;
-    out.z = mv.z;
-    out.roll = mv.roll;
-    out
-}
-
 /// What the server receives after `pack`/`unpack`: use this for player input.
 pub fn server_move(mv: &Move) -> Move {
     let axis = |v: f32| match axis_to_u5(v) {
@@ -74,8 +60,9 @@ mod tests {
         assert_eq!(m(0.05, 0.0).x, 0.0); // (0.05+1)·16 = 16.8 → 16
         assert_eq!(m(-0.05, 0.0).x, -1.0); // 15.2 → 15
         assert_eq!(m(7.0, -7.0).x, 1.0);
-        assert_eq!(client_move(&Move { x: 0.5, ..Move::NULL }).x, 0.5);
-        assert_eq!(client_move(&Move { x: 0.53, ..Move::NULL }).x, 0.5);
+        // The 5-bit axis itself keeps halves.
+        assert_eq!(axis_to_u5(0.5), 24);
+        assert_eq!(axis_to_u5(0.53), 24);
     }
 
     #[test]

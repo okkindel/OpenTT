@@ -1,7 +1,7 @@
 //! A mask's alpha is its luma, taken when it has the image's size (as the
 //! game's former `load_rgba` did).
 
-use image::{DynamicImage, GenericImageView, RgbaImage};
+use image::{DynamicImage, RgbaImage};
 use std::path::Path;
 
 /// Decodes an image file (format from its content).
@@ -129,53 +129,6 @@ fn max_filter(img: &image::GrayImage, r: i64) -> image::GrayImage {
         }
         image::Luma([a])
     })
-}
-
-/// Runs the external upscaler `cmd` (a command line with `{in}` and
-/// `{out}` placeholders, split on whitespace, no shell) on `img`; the
-/// alpha channel is upscaled separately as a greyscale image, and
-/// `wrap` (tiled terrain textures) pads the image by wrapping before and
-/// crops after, so the result tiles seamlessly. `scratch` is a directory
-/// for the temporary files.
-pub fn upscale(cmd: &str, img: &DynamicImage, wrap: bool, scratch: &Path) -> Result<DynamicImage, String> {
-    let alpha = img.color().has_alpha();
-    let rgb = DynamicImage::ImageRgb8(img.to_rgb8());
-    let up_rgb = upscale_one(cmd, &rgb, wrap, scratch, "rgb")?;
-    if !alpha {
-        return Ok(up_rgb);
-    }
-    let a = DynamicImage::ImageLuma8(image::GrayImage::from_fn(img.width(), img.height(), |x, y| image::Luma([img.get_pixel(x, y).0[3]])));
-    let up_a = upscale_one(cmd, &a, wrap, scratch, "alpha")?;
-    Ok(DynamicImage::ImageRgba8(merge_alpha(&up_rgb, &up_a)))
-}
-
-fn upscale_one(cmd: &str, img: &DynamicImage, wrap: bool, scratch: &Path, tag: &str) -> Result<DynamicImage, String> {
-    let (w, h) = img.dimensions();
-    let pad = if wrap { (w.min(h) / 8).max(1) } else { 0 };
-    let src = if pad > 0 {
-        let rgb = img.to_rgb8();
-        DynamicImage::ImageRgb8(image::RgbImage::from_fn(w + 2 * pad, h + 2 * pad, |x, y| *rgb.get_pixel((x + w - pad) % w, (y + h - pad) % h)))
-    } else {
-        img.clone()
-    };
-    std::fs::create_dir_all(scratch).map_err(|e| format!("{}: {e}", scratch.display()))?;
-    let input = scratch.join(format!("upscale-{tag}-in.png"));
-    let output = scratch.join(format!("upscale-{tag}-out.png"));
-    save_png(&src, &input)?;
-    let _ = std::fs::remove_file(&output);
-    let args: Vec<String> = cmd.split_whitespace().map(|a| a.replace("{in}", &input.to_string_lossy()).replace("{out}", &output.to_string_lossy())).collect();
-    let (prog, rest) = args.split_first().ok_or("--upscale-cmd is empty")?;
-    let status = std::process::Command::new(prog).args(rest).stdout(std::process::Stdio::null()).status().map_err(|e| format!("{prog}: {e}"))?;
-    if !status.success() {
-        return Err(format!("upscaler failed ({status}): {cmd}"));
-    }
-    let up = open(&output)?;
-    let f = up.width() / src.width();
-    if f == 0 || up.width() != src.width() * f || up.height() != src.height() * f {
-        return Err(format!("upscaler gave {}x{} for {}x{}", up.width(), up.height(), src.width(), src.height()));
-    }
-    let up = if pad > 0 { up.crop_imm(pad * f, pad * f, w * f, h * f) } else { up };
-    Ok(if img.color().channel_count() == 1 { DynamicImage::ImageLuma8(up.to_luma8()) } else { DynamicImage::ImageRgb8(up.to_rgb8()) })
 }
 
 /// A placeholder menu picture of a mission without one: its terrain

@@ -216,22 +216,6 @@ out takes the default in brackets). Every class and field is in
 | `SoundDescDef` (`sounds.ron`) | `channel`, `volume`, `is_looping`, `is_3d`, `reference_distance`, `max_distance` | how it plays; `channel` is the volume slider it follows: `sim` (effects), `gui`, `message`, `music` |
 | `ReticleDef` (`weapons.ron`) | `image`, `size`, `tick_count`, `start_time`, `time_step`, `show_spot`, `spot_image`, `ring_image` | the aiming dots along the flight path |
 
-### Files of earlier versions
-
-The data vocabulary changed once (the classes ended in `Data`, some fields
-had other names: `splash_area`, `num_bounce`, `count`, `reload_time`,
-`burst_delay`, `burst_count`, `size_scale`, ...). A mod
-written before still loads: the old names are read as the new ones and the
-log says which, as `deprecated name, still read: ...`. To rewrite a mod's
-files with the current names (only the names change):
-
-```sh
-cargo run -p tt-assets --example migrate_data -- path/to/my-mod/data/weapons.ron ...
-```
-
-The complete list of renamed classes and fields is in
-`crates/tt-assets/src/data/legacy.rs`.
-
 ## Adding a map
 
 A map is three files in `missions/`, named by the map's id:

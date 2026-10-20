@@ -50,21 +50,11 @@ impl Prefs {
         self.set("server.password", v);
     }
 
-    /// The map last hosted. Saves of older builds hold the game's path
-    /// (`game/data/missions/TT2_1.mis`) or the mixed-case file name of the
-    /// time before lowercase asset names (`missions/TT2_1.ron`): read as the
-    /// new one.
+    /// The map last hosted. Settings imported from the game hold its path
+    /// (`game/data/missions/TT2_1.mis`): read as the asset path.
     pub fn host_mission(&self) -> String {
         let v = self.get("host.mission");
-        if let Some(m) = tt_assets::layout::migrate_mission(&v) {
-            return m;
-        }
-        let in_missions = v.get(..9).is_some_and(|d| d.eq_ignore_ascii_case("missions/")) && !v[9..].contains('/');
-        if in_missions && v.to_ascii_lowercase().ends_with(".ron") {
-            tt_assets::layout::mission(&tt_assets::layout::mission_id(&v))
-        } else {
-            v
-        }
+        tt_assets::layout::migrate_mission(&v).unwrap_or(v)
     }
 
     pub fn set_host_mission(&mut self, v: &str) {
@@ -174,14 +164,11 @@ mod tests {
     }
 
     #[test]
-    fn host_mission_of_an_older_save() {
+    fn host_mission_imported_from_the_original() {
         let mut p = Prefs::defaults();
         p.set_host_mission("game/data/missions/TT2_1.mis");
         assert_eq!(p.host_mission(), "missions/tt2_1.ron");
         p.set_host_mission("missions/tt3_2.ron");
-        assert_eq!(p.host_mission(), "missions/tt3_2.ron");
-        // The mixed-case name of an older build.
-        p.set_host_mission(&format!("missions/{}.ron", "TT3_2"));
         assert_eq!(p.host_mission(), "missions/tt3_2.ron");
     }
 }

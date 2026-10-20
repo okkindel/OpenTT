@@ -59,13 +59,16 @@ pub struct TankFxParams {
     pub hard_tank_coll_vel: f32,
     /// Seconds after death before the death sequence (and the brain ejection) starts.
     pub corpse_shake_time: f32,
+    /// Speed and amplitude of the corpse's shake before that (drawn only).
+    pub corpse_shake_speed: f32,
+    pub corpse_shake_amp: f32,
     /// Client-side cosmetic projectile carrying the brain jar out of a corpse.
     pub brain_projectile: Option<Arc<ProjectileParams>>,
 }
 
 impl Default for TankFxParams {
     fn default() -> Self {
-        TankFxParams { corpse_smoke_time: 5.0, corpse_fade_time: 30.0, corpse_fade_speed: 1.0, damage_emitter_start: 0.0, hard_tank_coll_vel: 100.0, corpse_shake_time: 3.0, brain_projectile: None }
+        TankFxParams { corpse_smoke_time: 5.0, corpse_fade_time: 30.0, corpse_fade_speed: 1.0, damage_emitter_start: 0.0, hard_tank_coll_vel: 100.0, corpse_shake_time: 3.0, corpse_shake_speed: 1.0, corpse_shake_amp: 1.0, brain_projectile: None }
     }
 }
 
@@ -86,6 +89,8 @@ impl TankFxParams {
             damage_emitter_start: f.f32_or("damage_emitter_start", d.damage_emitter_start),
             hard_tank_coll_vel: f.f32_or("hard_tank_collision_speed", d.hard_tank_coll_vel),
             corpse_shake_time: f.f32_or("corpse_shake_time", d.corpse_shake_time),
+            corpse_shake_speed: f.f32_or("corpse_shake_speed", d.corpse_shake_speed),
+            corpse_shake_amp: f.f32_or("corpse_shake_amp", d.corpse_shake_amp),
             brain_projectile: None,
         }
     }
@@ -535,11 +540,6 @@ impl TankGeometry {
                 Affine3A::from_mat3_translation(rot, Vec3::new(c.x, self.bounds.max.y, self.bounds.max.z))
             }
         }
-    }
-
-    /// Shape-space barrel orientation (weapon node, or the bare turret angles).
-    pub fn barrel_rotation(&self, yaw_n: f32, pitch_n: f32, data: &TankParams) -> glam::Mat3 {
-        glam::Mat3::from(self.muzzle(yaw_n, pitch_n, data).matrix3)
     }
 }
 

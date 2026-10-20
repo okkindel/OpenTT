@@ -1,6 +1,6 @@
 //! The menu logo ("OpenTT" in riveted camouflage-metal letters): our own
-//! artwork, compiled in (`art/logo.png`, made from `art/logo-source.png` by
-//! `examples/logo.rs`), so it shows before any game data is imported.
+//! artwork, compiled in (`art/logo.png`, made from `art/logo-source.png`,
+//! see `art/README.md`), so it shows before any game data is imported.
 
 use std::sync::OnceLock;
 

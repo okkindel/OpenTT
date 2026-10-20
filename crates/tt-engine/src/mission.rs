@@ -30,13 +30,8 @@ fn parse_ron(h: &mut EngineHost, path: &str) -> Option<m::Mission> {
         return None;
     };
     let bytes = h.fs.read(&ron)?;
-    match std::str::from_utf8(&bytes).map_err(|e| e.to_string()).and_then(tt_assets::data::from_ron_noted::<m::Mission>) {
-        Ok((v, notes)) => {
-            for n in notes {
-                h.log.warn(&format!("{ron}: deprecated name, still read: {n}"));
-            }
-            Some(v)
-        }
+    match std::str::from_utf8(&bytes).map_err(|e| e.to_string()).and_then(tt_assets::data::from_ron::<m::Mission>) {
+        Ok(v) => Some(v),
         Err(e) => {
             h.log.error(&format!("{ron}: {e}"));
             None

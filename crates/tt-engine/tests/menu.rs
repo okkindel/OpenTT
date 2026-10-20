@@ -22,7 +22,6 @@ impl Driver {
     fn new(e: Engine) -> Driver {
         let ctx = egui::Context::default();
         tt_menu::theme::install_fonts(&ctx);
-        tt_menu::theme::apply_style(&ctx);
         Driver { e, ctx, time: 0.0 }
     }
 
@@ -277,10 +276,7 @@ fn custom_game_on_tt2_3() {
             minutes: 5,
             replace_bots: false,
         };
-        {
-            let Engine { host, menu, .. } = &mut d.e;
-            menu.as_mut().unwrap().apply(MenuAction::StartCustom(g), host);
-        }
+        apply(&mut d.e, MenuAction::StartCustom(g));
         assert_eq!(d.screen(), Screen::Loading);
         assert!(d.until(60_000, |e| content(e) == "PlayGui"), "game: {}\n{}", content(&d.e), d.e.report(20));
         d.run(3000);

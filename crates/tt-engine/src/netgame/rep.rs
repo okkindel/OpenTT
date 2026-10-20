@@ -4,6 +4,7 @@
 //! them when its render timeline reaches that tick.
 
 use tt_net::bits::{BitReader, BitWriter};
+use tt_net::msg::{get_str, put_str};
 use tt_net::DecodeError;
 
 /// What a projectile or tank hit, with server ids.
@@ -54,16 +55,6 @@ impl Rep {
     pub fn reliable(&self) -> bool {
         matches!(self, Rep::TankInfo { .. } | Rep::TankRemove { .. } | Rep::FlagAdd { .. } | Rep::FlagRemove { .. } | Rep::TriggerSet { .. } | Rep::TriggerRemove { .. } | Rep::Cartridge { .. })
     }
-}
-
-fn put_str(w: &mut BitWriter, s: &str) {
-    w.write_varint(s.len() as u64);
-    w.write_bytes(s.as_bytes());
-}
-
-fn get_str(r: &mut BitReader) -> Result<String, DecodeError> {
-    let n = r.read_varint()? as usize;
-    Ok(String::from_utf8_lossy(&r.read_bytes(n)?).into_owned())
 }
 
 fn put_f(w: &mut BitWriter, v: f32) {

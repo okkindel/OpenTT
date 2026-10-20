@@ -3,7 +3,7 @@
 
 use egui::{Align2, Color32, Key, Pos2, Rect, Stroke, StrokeKind, Vec2};
 
-use super::{bot_table, frame, pal, pressed, Gfx};
+use super::{bot_table, edit_text, frame, pal, pressed, Gfx, Typed};
 use crate::backend::*;
 use crate::{Field, MenuAction, MenuState, OnlineTab};
 
@@ -64,32 +64,12 @@ fn type_into(ctx: &egui::Context, st: &mut MenuState, host: Option<&mut HostGame
         (Field::ServerName | Field::ServerPassword, None) => return false,
         (Field::Master, _) => (st.master.get_or_insert_with(String::new), MAX_ADDRESS),
     };
-    let mut enter = false;
-    let mut leave = false;
-    ctx.input(|i| {
-        for e in &i.events {
-            match e {
-                egui::Event::Text(t) => {
-                    for c in t.chars().filter(|c| !c.is_control()) {
-                        if text.chars().count() < max {
-                            text.push(c);
-                        }
-                    }
-                }
-                egui::Event::Key { key: Key::Backspace, pressed: true, .. } => {
-                    text.pop();
-                }
-                egui::Event::Key { key: Key::Enter, pressed: true, .. } => enter = true,
-                egui::Event::Key { key: Key::Escape, pressed: true, .. } | egui::Event::Key { key: Key::Tab, pressed: true, .. } => leave = true,
-                _ => {}
-            }
-        }
-    });
-    if leave {
+    let k = edit_text(ctx, text, max);
+    if k.escape || k.tab {
         st.field = None;
         st.esc_eaten = true;
     }
-    enter
+    k.enter
 }
 
 fn default_host(b: &dyn MenuBackend) -> HostGame {
@@ -516,8 +496,12 @@ fn server_info(g: &mut Gfx, s: &ServerEntry, area: Rect) -> f32 {
     line(g, "Ping", &format!("{} ms", s.ping_ms), pal::SAND);
     line(g, "Host", if s.dedicated { "Dedicated server" } else { "Hosted by a player" }, pal::SAND);
     line(g, "Password", if s.password { "Needed" } else { "None" }, if s.password { pal::RUST } else { pal::SAND });
-    let (v, c) = if s.compatible { ("Same as yours", pal::SAND) } else { ("Other game version: cannot join", pal::RED) };
-    line(g, "Version", v, c);
+    let (v, c) = match (s.compatible, s.version.as_str()) {
+        (true, _) => ("Same as yours".to_string(), pal::SAND),
+        (false, "") => ("Other game version: cannot join".to_string(), pal::RED),
+        (false, v) => (format!("{v}: cannot join"), pal::RED),
+    };
+    line(g, "Version", &v, c);
     if s.modded {
         let mods = if s.mods.is_empty() { "Modded (not listed)".to_string() } else { s.mods.join(", ") };
         line(g, "Mods", &mods, pal::RUST);
@@ -635,26 +619,7 @@ fn host(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, inner: Rect) -
 /// The password prompt (`joinPasswordDlg`).
 pub(super) fn password_dialog(ctx: &egui::Context, st: &mut MenuState) -> Option<MenuAction> {
     let (address, mut pw) = st.password.take()?;
-    let (mut ok, mut cancel) = (false, false);
-    ctx.input(|i| {
-        for e in &i.events {
-            match e {
-                egui::Event::Text(t) => {
-                    for c in t.chars().filter(|c| !c.is_control()) {
-                        if pw.chars().count() < MAX_PASSWORD {
-                            pw.push(c);
-                        }
-                    }
-                }
-                egui::Event::Key { key: Key::Backspace, pressed: true, .. } => {
-                    pw.pop();
-                }
-                egui::Event::Key { key: Key::Enter, pressed: true, .. } => ok = true,
-                egui::Event::Key { key: Key::Escape, pressed: true, .. } => cancel = true,
-                _ => {}
-            }
-        }
-    });
+    let Typed { enter: mut ok, escape: mut cancel, .. } = edit_text(ctx, &mut pw, MAX_PASSWORD);
     frame(ctx, st, egui::Order::Foreground, false, |g, _| {
         let (inner, y) = g.dialog(Vec2::new(660.0, 340.0), "Password");
         g.text(inner.min, "This server needs a password.", 22.0, pal::SAND_MUTED, Align2::LEFT_TOP);

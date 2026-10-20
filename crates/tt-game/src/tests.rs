@@ -785,7 +785,7 @@ fn turret_yaw_clamp_and_auto_turn() {
     run(&mut w, 1);
     let t = w.tank(id).unwrap();
     assert!((t.pitch_n + 0.5).abs() < EPS);
-    assert!((tank::barrel_elevation_deg(&t.data, t.pitch_n) - 12.5).abs() < EPS);
+    assert!((t.data.turret_pitch_center - t.data.turret_pitch_range * t.pitch_n - 12.5).abs() < EPS);
     let fwd: Vec3 = t.muzzle().matrix3.y_axis.into();
     assert!((fwd.z.asin().to_degrees() - 12.5).abs() < 0.01);
 }
@@ -801,7 +801,7 @@ fn auto_level_keeps_world_elevation() {
     let alpha = 3f32.to_radians();
     t.rot = Mat3::from_rotation_x(alpha);
     tank::update_turret(&mut t, &Move::NULL, old);
-    let world_elev = (t.rot * data.geometry.barrel_rotation(t.yaw_n, t.pitch_n, &data).y_axis).z.asin().to_degrees();
+    let world_elev = (t.rot * Mat3::from(data.geometry.muzzle(t.yaw_n, t.pitch_n, &data).matrix3).y_axis).z.asin().to_degrees();
     assert!((world_elev - 2.0).abs() < 0.05, "{world_elev}");
 }
 
@@ -1168,6 +1168,59 @@ fn hard_tank_hit_knocks_the_ball_loose() {
     assert!(ev.iter().any(|(_, e)| *e == Event::FlagDropped { tank: b, flag: f }), "{ev:?}");
 }
 
+/// The release compares the impulse, (1 + bounce_tank)/2 = 0.875 of the
+/// closing speed, with hardTankCollVel (10): a full-speed ram (11.9 m/s,
+/// impulse 10.4) knocks the ball loose, 11 m/s (9.6) does not.
+#[test]
+fn ram_knocks_the_ball_loose_by_impulse() {
+    for (speed, drops) in [(11.0, false), (11.9, true)] {
+        let mut data = medium();
+        data.coast_decel_rate = 0.0;
+        let data = Arc::new(data);
+        let mut w = World::new(None);
+        let a = w.add_tank(data.clone(), Vec3::ZERO, 0.0);
+        let b = w.add_tank(data, Vec3::new(0.0, 4.2, 0.0), 0.0);
+        let f = w.add_flag(ball(), Vec3::new(0.0, 4.2, 0.0));
+        run(&mut w, 1);
+        assert_eq!(w.get_flag(b), Some(f));
+        w.tank_mut(a).unwrap().vel = Vec3::new(0.0, speed, 0.0);
+        let ev = run(&mut w, 4);
+        assert!(ev.iter().any(|(_, e)| matches!(e, Event::Collided { tank, .. } if *tank == a)), "{speed}: no hit {ev:?}");
+        assert_eq!(w.get_flag(b).is_none(), drops, "{speed} m/s");
+    }
+}
+
+/// The game's only pass: a hard ram knocks the ball loose and mount(NULL)
+/// leaves it the carrier's velocity from its last tick, not the bounce.
+/// Rammed, the carrier flies off and leaves the ball to the rammer;
+/// ramming, it stops and the ball flies on over the tank it hit.
+#[test]
+fn a_hard_ram_passes_the_ball() {
+    for carrier_rams in [false, true] {
+        let data = Arc::new(medium());
+        let mut w = flat_world();
+        let a = w.add_tank(data.clone(), Vec3::ZERO, 0.0);
+        let b = w.add_tank(data, Vec3::new(0.0, 4.5, 0.0), 0.0);
+        let (carrier, other) = if carrier_rams { (a, b) } else { (b, a) };
+        let f = w.add_flag(ball(), w.tank(carrier).unwrap().pos);
+        run(&mut w, 1);
+        assert_eq!(w.get_flag(carrier), Some(f));
+        w.tank_mut(a).unwrap().vel = Vec3::new(0.0, 11.9, 0.0);
+        w.set_move(a, Move { y: 1.0, ..Move::NULL });
+        let mut before = Vec3::ZERO;
+        while w.get_flag(carrier).is_some() {
+            before = w.tank(carrier).unwrap().vel;
+            run(&mut w, 1);
+            assert!(w.time_ms < 300, "no release");
+        }
+        // A loose ball keeps the carrier's pre-ram velocity (the other tank may take it at once).
+        let fl = w.flag(f).unwrap();
+        assert!(fl.carrier.is_some() || (fl.vel.y - before.y).abs() < 0.01, "{before} {}", fl.vel);
+        run(&mut w, 30);
+        assert_eq!(w.get_flag(other), Some(f), "carrier rams: {carrier_rams}");
+    }
+}
+
 // ---------------------------------------------------------------- brains
 
 #[test]
@@ -1186,8 +1239,8 @@ fn brain_ejects_after_corpse_shake_time() {
         .iter()
         .find_map(|(t, e)| if let Event::BrainEjected { projectile, shape, .. } = e { assert!(shape.ends_with("brainjar02.dts")); Some((*t, *projectile)) } else { None })
         .unwrap();
-    // corpseTimer − 0.8 ≥ 0.5333 s first after 42 increments (t = 41·32).
-    assert_eq!(t, 41 * 32);
+    // corpseTimer ≥ 0.8 s first after 25 increments (t = 24·32): before the flip.
+    assert_eq!(t, 24 * 32);
     let p = w.projectile(pid.unwrap()).unwrap();
     assert!((p.vel - Vec3::new(0.0, 0.0, 21.0)).length() < 1e-3, "{}", p.vel);
     assert_eq!(ev.iter().filter(|(_, e)| matches!(e, Event::BrainEjected { .. })).count(), 1);

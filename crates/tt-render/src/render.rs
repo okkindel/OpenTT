@@ -1,6 +1,6 @@
 //! wgpu renderer for a [`Scene`]; draws into any colour target view.
 
-use crate::scene::{ColorVertex, Scene, SkyVertex, TerrainVertex};
+use crate::scene::{Scene, SkyVertex, TerrainVertex};
 use crate::pose::Rig;
 use crate::shapes::{Blend, InstanceData, ShapeBatch, ShapeSet, ShapeVertex, IFL_TICKS_PER_SECOND};
 use glam::{Mat4, Vec2, Vec3};
@@ -271,7 +271,9 @@ pub fn select_detail(t: &DetailTable, dist: f32, pixel_scale: f32, detail_adjust
 /// Extra per-instance settings for [`Renderer::set_dynamic_with`].
 #[derive(Clone, Debug, Default)]
 pub struct InstanceOptions {
-    /// Cast the dynamic shadow onto the terrain.
+    /// Cast the dynamic shadow onto the terrain: the shape's posed
+    /// silhouette projected along the sun onto the ground plane under it,
+    /// fading with height and with the instance's `light`.
     pub shadow: bool,
     /// IFL material times in seconds (material name, with or without
     /// `.ifl`, case-insensitive). Listed IFLs show the frame at that time;
@@ -491,11 +493,9 @@ pub struct Renderer {
     terrain_pipeline: wgpu::RenderPipeline,
     /// The terrain's depth alone (drawn before the other opaque surfaces).
     terrain_depth_pipeline: wgpu::RenderPipeline,
-    color_pipeline: wgpu::RenderPipeline,
     terrain_vb: wgpu::Buffer,
     terrain_ib: wgpu::Buffer,
     terrain_index_count: u32,
-    markers_vb: wgpu::Buffer,
     sky: Option<(wgpu::RenderPipeline, wgpu::BindGroup, wgpu::Buffer, u32)>,
     clear_pipeline: wgpu::RenderPipeline,
     shape_pipelines: ShapePipelines,
@@ -521,8 +521,7 @@ pub struct Renderer {
     sprites: crate::sprites::SpriteGpu,
     /// Sprites of [`Renderer::set_sprites`] and of the effects.
     sprite_layers: [Vec<crate::sprites::Sprite>; 2],
-    marker_count: u32,
-    /// Draw sky, terrain, markers and static shapes (false for object views).
+    /// Draw sky, terrain and static shapes (false for object views).
     world: bool,
     near: f32,
     /// Depth buffers by size (the scaled view and full-size views).
@@ -909,7 +908,6 @@ impl Renderer {
                 cache: None,
             })
         };
-        let pipeline = |vs: &str, fs: &str, buffers: &[wgpu::VertexBufferLayout]| pipeline_ext(vs, fs, buffers, true, wgpu::CompareFunction::Less, true);
         // The terrain is drawn twice: its depth first (before everything
         // else opaque), then shaded where it is the nearest surface (the
         // same invariant positions; depth test LessEqual, no depth write),
@@ -955,16 +953,6 @@ impl Renderer {
             multiview: None,
             cache: None,
         });
-        let color_pipeline = pipeline(
-            "vs_color",
-            "fs_color",
-            &[wgpu::VertexBufferLayout {
-                array_stride: std::mem::size_of::<ColorVertex>() as u64,
-                step_mode: wgpu::VertexStepMode::Vertex,
-                attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3],
-            }],
-        );
-
         let sky = (!scene.sky_faces.is_empty()).then(|| {
             let faces = texture(device, queue, crate::textures::size(), scene.sky_faces.len() as u32, wgpu::TextureFormat::Rgba8UnormSrgb, &scene.sky_faces.concat());
             // Clamped faces (their shared edges are matched on load,
@@ -1260,11 +1248,6 @@ impl Renderer {
         });
 
         let buffer = |data: &[u8], usage| device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: None, contents: data, usage });
-        let markers: &[ColorVertex] = if scene.markers.is_empty() {
-            &[ColorVertex { pos: [0.0; 3], color: [0.0; 3] }]
-        } else {
-            &scene.markers
-        };
         let f = scene.fog_color;
         // The fog colour is specified in display (sRGB) space.
         let lin = |c: f32| c.clamp(0.0, 1.0).powf(2.2) as f64;
@@ -1273,11 +1256,9 @@ impl Renderer {
             bind_group,
             terrain_pipeline,
             terrain_depth_pipeline,
-            color_pipeline,
             terrain_vb: buffer(bytemuck::cast_slice(&scene.terrain_vertices), wgpu::BufferUsages::VERTEX),
             terrain_ib: buffer(bytemuck::cast_slice(&scene.terrain_indices), wgpu::BufferUsages::INDEX),
             terrain_index_count: scene.terrain_indices.len() as u32,
-            markers_vb: buffer(bytemuck::cast_slice(markers), wgpu::BufferUsages::VERTEX),
             sky,
             clear_pipeline,
             shape_pipelines,
@@ -1301,7 +1282,6 @@ impl Renderer {
             ground: Ground { terrain: scene.terrain.clone(), origin: scene.terrain_origin, square: scene.square_size },
             sprites,
             sprite_layers: [Vec::new(), Vec::new()],
-            marker_count: scene.markers.len() as u32,
             world: true,
             near: 0.5,
             depth: Vec::new(),
@@ -1439,16 +1419,6 @@ impl Renderer {
     /// Shapes load on first use and stay cached by path.
     pub fn set_dynamic(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, instances: &[DynamicInstance]) {
         self.set_layer(device, queue, 0, instances, &[]);
-    }
-
-    /// [`Renderer::set_dynamic`] with a projected shadow on the terrain for
-    /// every instance whose entry in `shadows` is true (missing = false). The
-    /// shadow is the shape's posed silhouette projected along the sun onto
-    /// the ground plane under it; it fades with height above the ground and
-    /// with the instance's `light` (no shadow inside terrain shadow).
-    pub fn set_dynamic_shadowed(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, instances: &[DynamicInstance], shadows: &[bool]) {
-        let options: Vec<InstanceOptions> = shadows.iter().map(|&shadow| InstanceOptions { shadow, ..Default::default() }).collect();
-        self.set_layer(device, queue, 0, instances, &options);
     }
 
     /// [`Renderer::set_dynamic`] with per-instance [`InstanceOptions`]
@@ -2122,11 +2092,6 @@ impl Renderer {
                 for (caster, range) in &self.dynamic.layers[0].shadow_draws {
                     pass.draw_indexed(range.clone(), 0, *caster..*caster + 1);
                 }
-            }
-            if self.world && self.marker_count > 0 {
-                pass.set_pipeline(&self.color_pipeline);
-                pass.set_vertex_buffer(0, self.markers_vb.slice(..));
-                pass.draw(0..self.marker_count, 0..1);
             }
             if !split {
                 blended(&mut pass);

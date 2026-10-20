@@ -8,7 +8,7 @@ use glam::Vec3;
 use std::collections::{HashMap, HashSet};
 use tt_engine::{Config, Engine};
 use tt_game::TankId;
-use tt_menu::{BotSetup, BotSkill, CustomGame, MenuAction, MenuBackend, Team};
+use tt_menu::{BotSetup, BotSkill, CustomGame, MenuAction, Team};
 
 mod common;
 use common::*;
@@ -41,11 +41,7 @@ fn soak(mission: &str, bots: usize, minutes: u32) -> Stats {
     for _ in 0..30 {
         e.tick();
     }
-    {
-        let Engine { host, menu, .. } = &mut e;
-        let m = menu.as_mut().unwrap();
-        tt_engine::menu::Backend::new(host, &mut m.data).create_player("Tester").unwrap();
-    }
+    new_player(&mut e, "Tester");
     let names = ["Ann", "Bob", "Cid", "Dee", "Eve", "Fay", "Gus", "Hal"];
     let g = CustomGame {
         mission: mission.into(),
@@ -56,10 +52,7 @@ fn soak(mission: &str, bots: usize, minutes: u32) -> Stats {
         minutes: minutes + 1,
         replace_bots: true,
     };
-    {
-        let Engine { host, menu, .. } = &mut e;
-        menu.as_mut().unwrap().apply(MenuAction::StartCustom(g), host);
-    }
+    apply(&mut e, MenuAction::StartCustom(g));
     let mut st = Stats::default();
     let mut known: HashSet<TankId> = HashSet::new();
     let mut pair_ticks: HashMap<(TankId, TankId), u32> = HashMap::new();

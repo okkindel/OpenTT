@@ -415,6 +415,8 @@ pub struct ServerEntry {
     pub password: bool,
     /// Same game version: joining can work.
     pub compatible: bool,
+    /// The server's game version ("0.1.2"; empty when it does not say).
+    pub version: String,
     pub dedicated: bool,
     /// Names of the players on it.
     pub player_names: Vec<String>,
@@ -800,6 +802,12 @@ pub trait MenuBackend {
     fn set_mods(&mut self, _enabled: &[String]) {}
     /// Opens the user's mods folder in the file manager (best effort).
     fn open_mods_folder(&mut self) {}
+    /// A newer release's tag ("v0.2.0") for the main menu's notice. Default: none.
+    fn update_available(&self) -> Option<String> {
+        None
+    }
+    /// Opens the releases page in the browser (the notice's button).
+    fn open_releases(&mut self) {}
 
     // ---- text and art
     /// Credits text (`credits.hfl`, raw markup).
@@ -889,6 +897,8 @@ pub struct MockBackend {
     /// Bot names (empty: the defaults) and maps after the 12 of [`MAPS`] (previews).
     pub bot_names: Vec<String>,
     pub extra_missions: Vec<MissionInfo>,
+    /// [`MenuBackend::update_available`].
+    pub update: Option<String>,
 }
 
 /// The 12 multiplayer maps with their display names.
@@ -970,6 +980,7 @@ impl MockBackend {
             mods: Some(ModsInfo::example()),
             bot_names: Vec::new(),
             extra_missions: Vec::new(),
+            update: None,
         }
     }
 
@@ -986,6 +997,7 @@ impl MockBackend {
             ping_ms: ping,
             password: pw,
             compatible: ok,
+            version: if ok { env!("CARGO_PKG_VERSION") } else { "0.0.9" }.into(),
             dedicated: ded,
             player_names: ["Hum [Bot]", "Krevitz", "Locke", "Mal [Bot]", "Shark"].iter().take(p as usize).map(|s| s.to_string()).collect(),
             player_list: ["Hum [Bot]", "Krevitz", "Locke", "Mal [Bot]", "Shark"]
@@ -1228,6 +1240,12 @@ impl MenuBackend for MockBackend {
     }
     fn open_mods_folder(&mut self) {
         self.log.push("open mods folder".into());
+    }
+    fn update_available(&self) -> Option<String> {
+        self.update.clone()
+    }
+    fn open_releases(&mut self) {
+        self.log.push("open releases".into());
     }
     fn take_password_request(&mut self) -> Option<String> {
         self.password_request.take()

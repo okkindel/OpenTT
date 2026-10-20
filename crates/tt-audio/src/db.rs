@@ -120,7 +120,8 @@ impl SoundProfile {
 }
 
 /// ThinkTanks `MusicDef`: a track made of short Ogg segments chained by
-/// sequences.
+/// sequences. The mood weights `k1..3`, `smooth1..3`, `mood_smooth`,
+/// `mood_scale` are not read (nothing feeds the moods, [`crate::music`]).
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct MusicTrack {
     pub name: String,
@@ -130,10 +131,6 @@ pub struct MusicTrack {
     pub urgent_mood: String,
     /// `sequences[m][i]` = field `sequences<m+1>[i]`.
     pub sequences: [[String; 3]; 3],
-    pub k: [f32; 3],
-    pub smooth: [f32; 3],
-    pub mood_smooth: f32,
-    pub mood_scale: f32,
 }
 
 impl MusicTrack {
@@ -144,12 +141,8 @@ impl MusicTrack {
                 m.moods[mood][i] = f.indexed(&format!("mood{}", mood + 1), i).unwrap_or_default().to_string();
                 m.sequences[mood][i] = f.indexed(&format!("sequences{}", mood + 1), i).unwrap_or_default().to_string();
             }
-            m.k[mood] = f.float(&format!("k{}", mood + 1)).unwrap_or(0.0);
-            m.smooth[mood] = f.float(&format!("smooth{}", mood + 1)).unwrap_or(0.0);
         }
         m.urgent_mood = f.get("urgent_mood").unwrap_or_default().to_string();
-        m.mood_smooth = f.float("mood_smooth").unwrap_or(0.0);
-        m.mood_scale = f.float("mood_scale").unwrap_or(0.0);
         m
     }
 

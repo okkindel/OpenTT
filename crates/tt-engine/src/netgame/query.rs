@@ -71,6 +71,8 @@ pub struct ServerRow {
     pub dedicated: bool,
     /// Same protocol and build: joining can work.
     pub compatible: bool,
+    /// The server's game version (empty when it does not say).
+    pub version: String,
     /// The server runs mods that change the game; [`Self::mods`]: those it
     /// listed ("name version").
     pub modded: bool,
@@ -111,6 +113,7 @@ fn row(index: usize, s: &LanServer) -> ServerRow {
         password: i.password,
         dedicated: i.dedicated,
         compatible: s.compatible(),
+        version: i.version.clone(),
         modded: i.modded || !i.mods.is_empty(),
         mods: i.mods.iter().map(|m| m.label()).collect(),
         platform: i.platform().to_string(),

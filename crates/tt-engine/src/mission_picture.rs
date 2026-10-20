@@ -12,27 +12,11 @@
 //! (`tt-import --pictures`).
 
 use crate::gfx::{GameView, Lamp, TriggerAnim};
-use glam::{Mat4, Quat, Vec3};
+use glam::{Mat4, Vec3};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tt_assets::mission::SceneObject;
 use tt_render::{Camera, Renderer, Scene};
-
-fn transform(o: &SceneObject) -> Mat4 {
-    let pos = match o.floats("position").as_slice() {
-        [x, y, z] => Vec3::new(*x, *y, *z),
-        _ => Vec3::ZERO,
-    };
-    let rot = match o.floats("rotation").as_slice() {
-        [x, y, z, deg] if Vec3::new(*x, *y, *z).length_squared() > 0.0 => Quat::from_axis_angle(Vec3::new(*x, *y, *z).normalize(), -deg.to_radians()),
-        _ => Quat::IDENTITY,
-    };
-    let scale = match o.floats("scale").as_slice() {
-        [x, y, z] => Vec3::new(*x, *y, *z),
-        _ => Vec3::ONE,
-    };
-    Mat4::from_scale_rotation_translation(scale, rot, pos)
-}
 
 /// A power-up / reload arch / pad: shape, transform, the sequence it plays and its lamp.
 pub struct Trigger {
@@ -60,11 +44,10 @@ pub fn load(root: &Path, mission: &str) -> Result<(Scene, Vec<Trigger>), String>
     let objects = m.scene_objects(|c| !c.unless.1.is_empty());
     let all: Vec<&SceneObject> = objects.iter().flat_map(|o| o.walk()).collect();
     let is_trigger = |o: &SceneObject| o.class.eq_ignore_ascii_case("PowerUp") || o.class.eq_ignore_ascii_case("Boost");
-    let mut scene = Scene::from_objects_filtered(root, &dir, &all, &defs, &|o| !is_trigger(o))?;
-    scene.markers.clear();
+    let scene = Scene::from_objects_filtered(root, &dir, &all, &defs, &|o| !is_trigger(o))?;
     let mut triggers = Vec::new();
     for o in all.iter().filter(|o| is_trigger(o)) {
-        let Some(db) = o.get("def").or_else(|| o.get("def")).and_then(|n| set.get(n)) else {
+        let Some(db) = o.get("def").and_then(|n| set.get(n)) else {
             eprintln!("warning: {} {}: no def", o.class, o.name);
             continue;
         };
@@ -81,7 +64,7 @@ pub fn load(root: &Path, mission: &str) -> Result<(Scene, Vec<Trigger>), String>
             let name = db.get("state_name1").unwrap_or("");
             (if name.is_empty() { "ambient".to_string() } else { name.to_string() }, Lamp::Pad)
         };
-        triggers.push(Trigger { shape: tt_assets::resolve(root, &dir, shape), transform: transform(o), seq, lamp });
+        triggers.push(Trigger { shape: tt_assets::resolve(root, &dir, shape), transform: crate::game::object_transform(o).into(), seq, lamp });
     }
     Ok((scene, triggers))
 }
@@ -92,16 +75,7 @@ pub fn posed(triggers: &[Trigger], t: f32) -> (Vec<tt_render::DynamicInstance>, 
     let mut out = Vec::new();
     let mut anims = Vec::new();
     for tr in triggers {
-        let nodes = tt_render::pose::sequence_pose(&tr.shape, &tr.seq, t);
-        let ifl = tt_render::pose::sequence_ifl(&tr.shape, "ambient", t);
-        let (mut hidden, mut shown) = (Vec::new(), Vec::new());
-        for (obj, v) in tt_render::pose::sequence_visibility_level(&tr.shape, "ambient", t) {
-            if v >= 0.5 {
-                shown.push(obj);
-            } else {
-                hidden.push(obj);
-            }
-        }
+        let (nodes, hidden, shown, ifl) = crate::engine::trigger_pose(&tr.shape, &tr.seq, t, &[]);
         out.push(tt_render::DynamicInstance { shape: tr.shape.clone(), transform: tr.transform, nodes, hidden, shown, ..Default::default() });
         anims.push(TriggerAnim { ifl, lamp: tr.lamp });
     }
@@ -169,16 +143,7 @@ impl Pictures {
         let big = (size.0 * self.ssaa, size.1 * self.ssaa);
         let device = &self.device;
         let target = self.targets.entry(big).or_insert_with(|| {
-            let texture = device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("mission picture"),
-                size: wgpu::Extent3d { width: big.0, height: big.1, depth_or_array_layers: 1 },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: FORMAT,
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-                view_formats: &[],
-            });
+            let texture = crate::gfx::render_target(device, "mission picture", big, FORMAT);
             let view = texture.create_view(&Default::default());
             Target { texture, view }
         });

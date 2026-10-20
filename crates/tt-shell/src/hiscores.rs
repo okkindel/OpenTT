@@ -21,10 +21,8 @@ pub const DEFAULTS: [(&str, u64, u32); 10] = [
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct HiScore {
     pub name: String,
-    #[serde(deserialize_with = "crate::save::de_u64")]
     pub score: u64,
     /// At the end of the run.
-    #[serde(deserialize_with = "crate::save::de_u32")]
     pub level: u32,
 }
 

@@ -15,7 +15,7 @@ use tt_import::{InstallError, Progress, Report};
 use tt_menu::{SetupAction, SetupMode, SetupProgress, SetupReport, SetupState};
 
 /// The import's report, relative to the user data directory (rewritten by
-/// every import; next to `logs/console.log`, which gets a copy).
+/// every import; the next session's `logs/console.log` repeats it).
 pub const IMPORT_LOG: &str = "logs/import.log";
 
 /// Opens `dir` in the system's file manager (best effort).
@@ -49,14 +49,20 @@ pub fn log_text(source: &Path, target: &Path, ok: bool, lines: &[String]) -> Str
     t
 }
 
-/// The report's lines for a finished import: the counts, then the details.
-pub fn report_lines(report: &Report) -> Vec<String> {
-    let mut v = vec![format!("{}.", report.summary())];
-    if !report.tutorial_available() {
-        v.push("The install has no tutorial art: the tutorial is not offered.".into());
+/// Brings our own files in an imported asset directory (one the game's
+/// import or `tt-import` made) to this version when the game was updated
+/// since the import ([`tt_import::refresh_ours`]; the game's files are
+/// not needed).
+pub fn refresh_ours(assets: &Path) {
+    let same = |d: &Path| d.canonicalize().ok().is_some_and(|d| assets.canonicalize().is_ok_and(|a| a == d));
+    if !assets.join(tt_import::OURS_VERSION).exists() && !tt_assets::layout::imported_candidates().iter().any(|d| same(d)) {
+        return;
     }
-    v.extend(report.details());
-    v
+    match tt_import::refresh_ours(assets) {
+        Ok(true) => eprintln!("game data: our own files in {} updated to {}", assets.display(), env!("CARGO_PKG_VERSION")),
+        Ok(false) => {}
+        Err(e) => eprintln!("game data: our own files in {} not updated: {e}", assets.display()),
+    }
 }
 
 /// Settings keys of the imported data's origin (`docs/layout.md` § Settings).
@@ -241,8 +247,8 @@ impl SetupFlow {
         self.job.is_some()
     }
 
-    /// Writes the import log (and a copy to the end of the console log);
-    /// returns its path, `None` when there is no log folder or it failed.
+    /// Writes the import log (and a copy to stderr); returns its path,
+    /// `None` when there is no log folder or it failed.
     fn write_log(&self, source: &Path, ok: bool, lines: &[String]) -> Option<PathBuf> {
         let text = log_text(source, &self.target, ok, lines);
         for l in text.lines() {
@@ -252,10 +258,6 @@ impl SetupFlow {
         std::fs::create_dir_all(dir).ok()?;
         let path = dir.join(Path::new(IMPORT_LOG).file_name()?);
         std::fs::write(&path, &text).ok()?;
-        if let Ok(mut f) = std::fs::OpenOptions::new().append(true).create(true).open(dir.join("console.log")) {
-            use std::io::Write as _;
-            let _ = writeln!(f, "{}", text.lines().map(|l| format!("import: {l}")).collect::<Vec<_>>().join("\n"));
-        }
         Some(path)
     }
 
@@ -285,29 +287,25 @@ impl SetupFlow {
                 }
                 self.ui.note = None;
                 self.ui.report = None;
-                let checked = tt_import::locate::find_root(Path::new(&path)).and_then(|root| {
-                    let missing = tt_import::locate::missing_required(&root, &tt_import::mapping::Mapping::builtin());
-                    if missing.is_empty() {
-                        Ok(root)
-                    } else {
-                        self.ui.path = root.display().to_string();
-                        let mut lines = vec![format!("Missing from the install ({}):", missing.len())];
-                        lines.extend(missing.iter().map(|m| format!("  {m}")));
-                        self.failed(&root, tt_import::locate::incomplete(&root, &missing), lines);
-                        Err(String::new())
+                let root = match tt_import::locate::find_root(Path::new(&path)) {
+                    Ok(root) => root,
+                    Err(e) => {
+                        self.ui.error = Some(e);
+                        return;
                     }
-                });
-                match checked {
-                    Ok(root) => {
-                        self.ui.error = None;
-                        self.ui.path = root.display().to_string();
-                        self.ui.progress = Some(SetupProgress { phase: tt_import::Phase::Starting.label().into(), ..Default::default() });
-                        self.ui.cancelling = false;
-                        self.job = Some(ImportJob::start(options(&root, &self.target, self.pictures)));
-                    }
-                    Err(e) if e.is_empty() => {}
-                    Err(e) => self.ui.error = Some(e),
+                };
+                self.ui.path = root.display().to_string();
+                let missing = tt_import::locate::missing_required(&root, &tt_import::mapping::Mapping::builtin());
+                if !missing.is_empty() {
+                    let mut lines = vec![format!("Missing from the install ({}):", missing.len())];
+                    lines.extend(missing.iter().map(|m| format!("  {m}")));
+                    self.failed(&root, tt_import::locate::incomplete(&root, &missing), lines);
+                    return;
                 }
+                self.ui.error = None;
+                self.ui.progress = Some(SetupProgress { phase: tt_import::Phase::Starting.label().into(), ..Default::default() });
+                self.ui.cancelling = false;
+                self.job = Some(ImportJob::start(options(&root, &self.target, self.pictures)));
             }
             SetupAction::OpenLogFolder => {
                 if let Some(dir) = &self.log_dir {
@@ -382,7 +380,7 @@ impl SetupFlow {
         self.ui.cancelling = false;
         match result {
             Ok(report) => {
-                let lines = report_lines(&report);
+                let lines = report.lines();
                 let log = self.write_log(&source, true, &lines);
                 self.ui.report = Some(SetupReport { ok: true, summary: lines[0].clone(), lines: lines[1..].to_vec(), log: log.map(|p| p.display().to_string()).unwrap_or_default() });
                 self.finished = Some(Outcome::Imported { assets: self.target.clone(), source, report });

@@ -2408,6 +2408,8 @@
     "models/projectiles/mortarrocket.png",
     "models/projectiles/mortarrockethot.png",
     "models/projectiles/scatterprojectile.png",
+    "models/props/dev/devbox.dts",
+    "models/props/dev/devbox.png",
     "models/reticles/scatterreticle.png",
     "sound/voice/vocarea.ogg",
     "sound/voice/vocbounce.ogg",
@@ -2416,6 +2418,7 @@
     "sound/voice/vocreload.ogg",
     "sound/voice/vocscatter.ogg",
     "sound/voice/vocspeedy.ogg",
+    "terrain/dev/devgrid.png",
     "ui/credits.txt",
   ],
   replaced: [

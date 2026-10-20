@@ -98,10 +98,7 @@ impl SetupState {
 
     /// Draws the screen and handles its input.
     pub fn ui(&mut self, ctx: &egui::Context) -> Option<SetupAction> {
-        if !ctx.fonts(|f| f.families().contains(&crate::theme::heading_family())) {
-            crate::theme::install_fonts(ctx);
-            crate::theme::apply_style(ctx);
-            ctx.request_repaint();
+        if crate::theme::ensure(ctx) {
             return None;
         }
         let mut menu = std::mem::take(&mut self.menu);
@@ -334,29 +331,12 @@ fn report(ctx: &egui::Context, st: &mut SetupState, menu: &mut MenuState) -> Opt
     if pressed(ctx, Key::Enter) || pressed(ctx, Key::Escape) {
         action = Some(SetupAction::Continue);
     }
-    // Keys scroll the list as the wheel does.
-    let key = egui::Id::new(("tt-menu-scroll-px", "setup-report"));
-    let step = ctx.input(|i| {
-        let mut d = 0.0;
-        if i.key_pressed(Key::ArrowDown) {
-            d += REPORT_LINE;
-        }
-        if i.key_pressed(Key::ArrowUp) {
-            d -= REPORT_LINE;
-        }
-        if i.key_pressed(Key::PageDown) {
-            d += REPORT_LINE * 10.0;
-        }
-        if i.key_pressed(Key::PageUp) {
-            d -= REPORT_LINE * 10.0;
-        }
-        d
-    });
+    // Keys scroll the list as the wheel does (`Gfx::scroll_offset` clamps).
+    let keys = [(Key::ArrowDown, 1.0), (Key::ArrowUp, -1.0), (Key::PageDown, 10.0), (Key::PageUp, -10.0)];
+    let step: f32 = keys.iter().filter(|(k, _)| pressed(ctx, *k)).map(|(_, n)| n * REPORT_LINE).sum();
     if step != 0.0 {
-        ctx.data_mut(|d| {
-            let v: f32 = d.get_temp(key).unwrap_or(0.0);
-            d.insert_temp(key, (v + step).max(0.0));
-        });
+        let key = egui::Id::new(("tt-menu-scroll-px", "setup-report"));
+        ctx.data_mut(|d| d.insert_temp(key, (d.get_temp::<f32>(key).unwrap_or(0.0) + step).max(0.0)));
     }
     let clicked = frame(ctx, menu, egui::Order::Background, false, |g, _| {
         chrome(g, if r.ok { "Game data imported" } else { "Game data: not imported" });
@@ -407,7 +387,6 @@ mod tests {
     fn run(st: &mut SetupState, events: Vec<egui::Event>) -> Option<SetupAction> {
         let ctx = egui::Context::default();
         crate::theme::install_fonts(&ctx);
-        crate::theme::apply_style(&ctx);
         let mut out = None;
         for ev in [Vec::new(), events] {
             let raw = egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 720.0))), events: ev, ..Default::default() };

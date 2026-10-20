@@ -36,8 +36,9 @@ fn shapes() -> Vec<(PathBuf, u16, Vec<u8>)> {
 fn all_shapes_parse() {
     tt_assets::require_game_data!();
     let all = shapes();
-    // 48 of the game, plus OpenTT's mortarrocket.dts (examples/mortar_rocket.rs).
-    assert_eq!(all.len(), 49);
+    // 48 of the game, plus OpenTT's mortarrocket.dts (examples/mortar_rocket.rs)
+    // and devbox.dts (examples/powerup_terrain.rs).
+    assert_eq!(all.len(), 50);
     let mut parsed = 0;
     for (p, ver, data) in &all {
         let name = p.display();
@@ -105,50 +106,5 @@ fn all_shapes_parse() {
             }
         }
     }
-    assert_eq!(parsed, 48);
-}
-
-#[test]
-fn summary_table() {
-    let all = shapes();
-    let root = game();
-    println!(
-        "{:<36} {:>5} {:>6} {:>5} {:>6}  {:<44} materials",
-        "shape", "nodes", "meshes", "mats", "tris0", "detail0 bbox min .. max"
-    );
-    for (p, _, data) in &all {
-        let rel = p
-            .strip_prefix(root.join("models"))
-            .unwrap_or(p)
-            .display()
-            .to_string();
-        let s = match Shape::parse(data) {
-            Ok(s) => s,
-            Err(e) => {
-                println!("{rel:<36} ERROR {e}");
-                continue;
-            }
-        };
-        let g = s.detail0_geometry();
-        let tris: usize = g.iter().map(|r| r.triangles.len()).sum();
-        let mut b = tt_assets::dts::Bounds::EMPTY;
-        g.iter()
-            .flat_map(|r| &r.positions)
-            .for_each(|&p| b.extend(p));
-        let f = |v: [f32; 3]| format!("({:.2},{:.2},{:.2})", v[0], v[1], v[2]);
-        let mats: Vec<&str> = s.materials.iter().map(|m| m.name.as_str()).collect();
-        println!(
-            "{rel:<36} {:>5} {:>6} {:>5} {:>6}  {:<44} {}",
-            s.nodes.len(),
-            s.meshes.len(),
-            s.materials.len(),
-            tris,
-            if b.is_empty() {
-                "-".into()
-            } else {
-                format!("{} .. {}", f(b.min), f(b.max))
-            },
-            mats.join(",")
-        );
-    }
+    assert_eq!(parsed, 49);
 }

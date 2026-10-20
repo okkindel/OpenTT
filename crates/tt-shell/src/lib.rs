@@ -6,7 +6,6 @@
 //! - [`catalog`]: tanks, mission names, the Quick Play pool;
 
 pub mod banlist;
-pub mod binds;
 pub mod catalog;
 pub mod hiscores;
 pub mod legacy;

@@ -29,7 +29,6 @@ fn the_engine_migrates_before_the_boot() {
         put(&data, tt_shell::save::LEGACY_CLIENT_PREFS, tt_shell::legacy::prefs_file(&[("player.name", "Bait")]).as_bytes());
         put(&data, tt_shell::save::LEGACY_CONFIG, b"moveMap.bind(keyboard, \"f9\", moveforward);\r\n");
         put(&data, tt_shell::save::LEGACY_BANLISTS[0], tt_shell::legacy::banlist_file(&[tt_shell::banlist::Ban { guid: "0".into(), ip: "10.0.0.2".into(), until: 4000000000 }]).as_bytes());
-        put(&data, "console.log", b"before\n");
         let cfg = Config { assets: tt_assets::layout::default_dir(), data: data.clone(), args: Vec::new(), audio_output: false, echo_log: false, windowed: true };
         let mut e = Engine::new(&cfg).unwrap();
         assert!(e.boot());
@@ -45,7 +44,6 @@ fn the_engine_migrates_before_the_boot() {
         tt_engine::netgame::admin::load(&mut e.host);
         assert!(tt_engine::netgame::admin::is_banned(&e.host, "10.0.0.2"));
         assert!(!data.join("game").exists() && data.join(tt_shell::save::LEGACY_DIR).join(tt_shell::save::LEGACY_PLAYERS).exists());
-        assert_eq!(std::fs::read_to_string(data.join("legacy/console.log")).unwrap(), "before\n");
         assert!(std::fs::read_to_string(data.join("logs/console.log")).unwrap().contains("user data: imported"));
         e.shutdown();
         drop(e);

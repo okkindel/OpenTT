@@ -1,86 +1,13 @@
-//! GPU helpers: adapter/device setup, frame drawing (3D scene or a cleared
-//! canvas), offscreen screenshots.
+//! Frame drawing (3D scene or a cleared canvas) and offscreen screenshots;
+//! the adapter/device setup is [`tt_render::gpu`]'s.
 
-use glam::Vec3;
 use std::path::Path;
 use tt_render::{Camera, Renderer, Scene};
 
 /// Background when no 3D view is shown (menus).
 pub const CLEAR: wgpu::Color = wgpu::Color { r: 0.02, g: 0.02, b: 0.03, a: 1.0 };
 
-/// The wgpu instance of every window and offscreen target: all the
-/// backends of this build (Windows: DX12, Vulkan and GL; Linux: Vulkan and
-/// GL; macOS: Metal), or only those named by `WGPU_BACKEND` (`dx12`,
-/// `vulkan`, `gl`, `metal`, comma-separated) for a player whose driver
-/// misbehaves on the default choice (README § Troubleshooting).
-pub fn instance() -> wgpu::Instance {
-    wgpu::Instance::new(&wgpu::InstanceDescriptor::from_env_or_default())
-}
-
-/// The adapter, device and queue to draw with (on `compatible` when given).
-/// The adapter is wgpu's choice, else any adapter of any enabled backend
-/// that can draw there (the best kind first, [`adapter_rank`]), else the
-/// software one (WARP on Windows); the error lists what was found.
-pub async fn gpu(compatible: Option<&wgpu::Surface<'_>>, instance: &wgpu::Instance) -> Result<(wgpu::Adapter, wgpu::Device, wgpu::Queue), String> {
-    let adapter = adapter(compatible, instance).await?;
-    let info = adapter.get_info();
-    // Optional features: GPU pass timing (`TT_GPU_TIMING`) and the packed
-    // HDR scene format of the graphics extras.
-    let features = adapter.features() & (tt_render::gputime::wanted_features() | tt_render::post::OPTIONAL_FEATURES);
-    let desc = wgpu::DeviceDescriptor { required_features: features, required_limits: device_limits(&adapter.limits()), ..Default::default() };
-    let (device, queue) = adapter.request_device(&desc, None).await.map_err(|e| format!("{} ({:?}): {e}", info.name, info.backend))?;
-    Ok((adapter, device, queue))
-}
-
-/// See [`gpu`].
-async fn adapter(compatible: Option<&wgpu::Surface<'_>>, instance: &wgpu::Instance) -> Result<wgpu::Adapter, String> {
-    if let Some(a) = instance.request_adapter(&wgpu::RequestAdapterOptions { compatible_surface: compatible, ..Default::default() }).await {
-        return Ok(a);
-    }
-    let all = instance.enumerate_adapters(wgpu::Backends::all());
-    let found: Vec<String> = all.iter().map(|a| a.get_info()).map(|i| format!("{} ({:?}, {:?})", i.name, i.backend, i.device_type)).collect();
-    let usable = all.into_iter().filter(|a| compatible.is_none_or(|s| a.is_surface_supported(s))).min_by_key(|a| adapter_rank(a.get_info().device_type));
-    if let Some(a) = usable {
-        return Ok(a);
-    }
-    if let Some(a) = instance.request_adapter(&wgpu::RequestAdapterOptions { compatible_surface: compatible, force_fallback_adapter: true, ..Default::default() }).await {
-        return Ok(a);
-    }
-    let found = if found.is_empty() { "none".to_string() } else { found.join(", ") };
-    Err(format!("no graphics adapter can draw the game (adapters found: {found}); update the graphics driver, or choose another graphics backend with the environment variable WGPU_BACKEND=dx12, vulkan or gl"))
-}
-
-/// The order adapters are tried in when wgpu's own choice found none: a
-/// real GPU first, the software (CPU) ones last.
-pub fn adapter_rank(t: wgpu::DeviceType) -> u8 {
-    match t {
-        wgpu::DeviceType::DiscreteGpu => 0,
-        wgpu::DeviceType::IntegratedGpu => 1,
-        wgpu::DeviceType::VirtualGpu => 2,
-        wgpu::DeviceType::Other => 3,
-        wgpu::DeviceType::Cpu => 4,
-    }
-}
-
-/// The limits the device is asked for: wgpu's defaults (WebGPU's) when the
-/// adapter has them, else everything it has (older GPUs and GL drivers fall
-/// short of a default, which would refuse the device outright).
-pub fn device_limits(supported: &wgpu::Limits) -> wgpu::Limits {
-    let default = wgpu::Limits::default();
-    if default.check_limits(supported) {
-        default
-    } else {
-        supported.clone()
-    }
-}
-
-/// Camera above the first spawn point looking at the map centre (as tt-viewer).
-pub fn initial_camera(scene: &Scene) -> Camera {
-    let spawn = scene.spawn.unwrap_or(Vec3::new(0.0, -150.0, 100.0));
-    let pos = spawn + Vec3::new(0.0, 0.0, 40.0);
-    let to_centre = Vec3::new(-pos.x, -pos.y, 0.0);
-    Camera { pos, yaw: to_centre.x.atan2(to_centre.y), pitch: -0.3 }
-}
+pub use tt_render::gpu::{adapter_rank, device_limits, gpu, initial_camera, instance, read_rgba, render_target};
 
 pub fn clear(device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView) {
     let mut enc = device.create_command_encoder(&Default::default());
@@ -99,10 +26,6 @@ pub fn clear(device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureVie
     }
     queue.submit([enc.finish()]);
 }
-
-/// Renders one frame offscreen (scene, or a cleared canvas) and saves it as PNG.
-/// Draws over the frame after the 3D pass (device, queue, view, size, format).
-pub type Overlay<'a> = &'a mut dyn FnMut(&wgpu::Device, &wgpu::Queue, &wgpu::TextureView, (u32, u32), wgpu::TextureFormat);
 
 /// The game view: camera, horizontal FOV (degrees) and moving shapes.
 pub struct GameView {
@@ -254,70 +177,27 @@ pub fn draw_game_frame(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn screenshot(out: &Path, size: (u32, u32), scene: Option<&Scene>, camera: Option<Camera>, game: Option<&GameView>, time: f32, overlay: Option<Overlay>) -> Result<(), String> {
+/// Renders one frame offscreen (the game view, the scene from its initial
+/// camera, or a cleared canvas) and saves it as PNG.
+pub fn screenshot(out: &Path, size: (u32, u32), scene: Option<&Scene>, game: Option<&GameView>, time: f32) -> Result<(), String> {
     let instance = crate::gfx::instance();
     let (_, device, queue) = pollster::block_on(gpu(None, &instance))?;
     let (w, h) = size;
     let format = wgpu::TextureFormat::Rgba8UnormSrgb;
-    let target = device.create_texture(&wgpu::TextureDescriptor {
-        label: Some("screenshot"),
-        size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format,
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-        view_formats: &[],
-    });
+    let target = render_target(&device, "screenshot", (w, h), format);
     let view = target.create_view(&Default::default());
     match scene {
         Some(s) => {
             let mut renderer = Renderer::new(&device, &queue, format, s);
             match game {
                 Some(gv) => render_game_view(&mut renderer, s, &device, &queue, &view, (w, h), gv, None, time),
-                None => {
-                    let cam = camera.unwrap_or_else(|| initial_camera(s));
-                    renderer.render(&device, &queue, &view, w, h, &cam, time);
-                }
+                None => renderer.render(&device, &queue, &view, w, h, &initial_camera(s), time),
             }
         }
         None => clear(&device, &queue, &view),
     }
-    if let Some(o) = overlay {
-        o(&device, &queue, &view, size, format);
-    }
     let pixels = read_rgba(&device, &queue, &target, size, format);
     image::save_buffer(out, &pixels, w, h, image::ColorType::Rgba8).map_err(|e| e.to_string())
-}
-
-/// Reads a whole texture (`COPY_SRC`, 8-bit RGBA or BGRA) back as tightly
-/// packed RGBA8 rows, top row first.
-pub fn read_rgba(device: &wgpu::Device, queue: &wgpu::Queue, texture: &wgpu::Texture, size: (u32, u32), format: wgpu::TextureFormat) -> Vec<u8> {
-    let (w, h) = size;
-    let row = (w * 4).next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
-    let buf = device.create_buffer(&wgpu::BufferDescriptor { label: Some("readback"), size: (row * h) as u64, usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ, mapped_at_creation: false });
-    let mut enc = device.create_command_encoder(&Default::default());
-    enc.copy_texture_to_buffer(
-        texture.as_image_copy(),
-        wgpu::TexelCopyBufferInfo { buffer: &buf, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(row), rows_per_image: Some(h) } },
-        wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
-    );
-    queue.submit([enc.finish()]);
-    buf.slice(..).map_async(wgpu::MapMode::Read, |_| {});
-    device.poll(wgpu::Maintain::Wait);
-    let data = buf.slice(..).get_mapped_range();
-    let mut pixels = Vec::with_capacity((w * h * 4) as usize);
-    for y in 0..h {
-        let start = (y * row) as usize;
-        pixels.extend_from_slice(&data[start..start + (w * 4) as usize]);
-    }
-    if matches!(format, wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb) {
-        for p in pixels.as_chunks_mut::<4>().0 {
-            p.swap(0, 2);
-        }
-    }
-    pixels
 }
 
 /// PNG of a captured frame (RGBA8 rows; alpha is dropped, the frame is opaque).
@@ -348,16 +228,7 @@ impl Offscreen {
         let info = adapter.get_info();
         let adapter = format!("{} ({:?}, {:?})", info.name, info.device_type, info.backend);
         let format = wgpu::TextureFormat::Rgba8UnormSrgb;
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("offscreen"),
-            size: wgpu::Extent3d { width: size.0, height: size.1, depth_or_array_layers: 1 },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
+        let texture = render_target(&device, "offscreen", size, format);
         let view = texture.create_view(&Default::default());
         Ok(Offscreen { device, queue, texture, view, size, format, adapter })
     }
@@ -370,29 +241,5 @@ impl Offscreen {
     pub fn save(&self, out: &Path) -> Result<(), String> {
         let pixels = read_rgba(&self.device, &self.queue, &self.texture, self.size, self.format);
         image::save_buffer(out, &pixels, self.size.0, self.size.1, image::ColorType::Rgba8).map_err(|e| e.to_string())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn real_gpus_before_software_adapters() {
-        use wgpu::DeviceType::*;
-        let mut kinds = [Cpu, Other, VirtualGpu, IntegratedGpu, DiscreteGpu];
-        kinds.sort_by_key(|&t| adapter_rank(t));
-        assert_eq!(kinds, [DiscreteGpu, IntegratedGpu, VirtualGpu, Other, Cpu]);
-    }
-
-    #[test]
-    fn device_limits_fall_back_to_the_adapters() {
-        // An adapter with the defaults (or more) is asked for the defaults.
-        let big = wgpu::Limits { max_texture_dimension_2d: 16384, ..wgpu::Limits::default() };
-        assert_eq!(device_limits(&big), wgpu::Limits::default());
-        // One short of a default (an old GL driver) for what it has.
-        let gl = wgpu::Limits::downlevel_webgl2_defaults();
-        assert!(!wgpu::Limits::default().check_limits(&gl));
-        assert_eq!(device_limits(&gl), gl);
     }
 }

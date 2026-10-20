@@ -70,6 +70,7 @@ pub mod netgame;
 pub mod sched;
 pub mod shell;
 pub mod treads;
+pub mod update;
 pub mod userdata;
 pub mod video;
 

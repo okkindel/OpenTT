@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use tt_menu::{theme, MenuState, MockBackend, OnlineTab, Screen, SettingsTab};
+use tt_menu::{theme, MenuState, MockBackend, OnlineTab, Screen, SettingsTab, SetupMode, SetupProgress, SetupReport, SetupState};
 
 struct Gpu {
     device: wgpu::Device,
@@ -33,7 +33,6 @@ fn render(gpu: &Gpu, renderer: &mut egui_wgpu::Renderer, state: &mut MenuState, 
 fn render_with(gpu: &Gpu, renderer: &mut egui_wgpu::Renderer, size: [u32; 2], ppp: f32, t: f64, mut ui: impl FnMut(&egui::Context)) -> image::RgbaImage {
     let ctx = egui::Context::default();
     theme::install_fonts(&ctx);
-    theme::apply_style(&ctx);
     let mut output = None;
     for time in [0.0, 0.0, t, t, t] {
         let input = egui::RawInput {
@@ -165,15 +164,15 @@ fn menu_previews() {
         ("34_round_results_teams", MenuState::at(Screen::Results), [1280, 720]),
         ("35_round_results_ffa", MenuState::at(Screen::Results), [1280, 720]),
         ("36_round_results_1080p", MenuState::at(Screen::Results), [1920, 1080]),
-        ("40_online_join", { let mut s = MenuState::at(Screen::Online); s.select_server("IP:192.168.1.31:28000"); s }, [1280, 720]),
+        ("40_online_join", { let mut s = MenuState::at(Screen::Online); s.join_sel = Some("IP:192.168.1.31:28000".into()); s }, [1280, 720]),
         ("41_online_join_empty", MenuState::at(Screen::Online), [1280, 720]),
-        ("42_online_password", { let mut s = MenuState::at(Screen::Online); s.show_password_dialog("IP:192.168.1.31:28000"); s }, [1280, 720]),
-        ("43_online_host", { let mut s = MenuState::at(Screen::Online); s.set_online_tab(OnlineTab::Host); s }, [1280, 720]),
+        ("42_online_password", { let mut s = MenuState::at(Screen::Online); s.password = Some(("IP:192.168.1.31:28000".into(), String::new())); s }, [1280, 720]),
+        ("43_online_host", { let mut s = MenuState::at(Screen::Online); s.online_tab = OnlineTab::Host; s }, [1280, 720]),
         ("44_online_connecting", MenuState::at(Screen::Loading), [1280, 720]),
         ("45_online_error", MenuState::at(Screen::Online), [1280, 720]),
         ("46_online_join_1080p", MenuState::at(Screen::Online), [1920, 1080]),
-        ("47_main_menu_online", { let mut s = MenuState::at(Screen::MainMenu); s.focus_main(3); s }, [1280, 720]),
-        ("48_online_players", { let mut s = MenuState::at(Screen::Online); s.select_server("IP:192.168.1.31:28000"); s.show_server_players(true); s }, [1280, 720]),
+        ("47_main_menu_online", { let mut s = MenuState::at(Screen::MainMenu); s.focus = 3; s }, [1280, 720]),
+        ("48_online_players", { let mut s = MenuState::at(Screen::Online); s.join_sel = Some("IP:192.168.1.31:28000".into()); s.show_players = true; s }, [1280, 720]),
         ("49_online_internet_no_master", { let mut s = MenuState::at(Screen::Online); s.set_server_source(tt_menu::ServerSource::Internet); s }, [1280, 720]),
         ("50_online_internet", { let mut s = MenuState::at(Screen::Online); s.set_server_source(tt_menu::ServerSource::Internet); s }, [1280, 720]),
     ];
@@ -190,6 +189,7 @@ fn menu_previews() {
         }
         if name.contains("long_name") {
             backend.current = Some("Krevitzinator the Unrelenting Destroyer".into());
+            backend.update = Some("v0.2.0".into());
         }
         if *name == "14_loading" {
             backend.loading = Some(tt_menu::Loading { map: "Greymatter Gorge".into(), phase: "Loading objects".into(), progress: 0.62 });
@@ -311,10 +311,10 @@ fn layout_previews() {
         ("71_graphics", Box::new(|| { let mut s = MenuState::at(Screen::Settings); s.set_settings_tab(SettingsTab::Graphics); s })),
         ("72_controls", Box::new(|| { let mut s = MenuState::at(Screen::Settings); s.set_settings_tab(SettingsTab::Controls); s })),
         ("73_mods", Box::new(|| { let mut s = MenuState::at(Screen::Settings); s.set_settings_tab(SettingsTab::Mods); s })),
-        ("74_join_full", Box::new(|| { let mut s = MenuState::at(Screen::Online); s.select_server("IP:203.0.113.77:28000"); s })),
-        ("75_join_players", Box::new(|| { let mut s = MenuState::at(Screen::Online); s.select_server("IP:203.0.113.77:28000"); s.show_server_players(true); s })),
-        ("76_custom_game", Box::new({ let game = game.clone(); move || { let mut s = MenuState::at(Screen::CustomGame); s.set_custom_game(game.clone()); s } })),
-        ("77_host", Box::new({ let game = game.clone(); move || { let mut s = MenuState::at(Screen::Online); s.set_online_tab(OnlineTab::Host); s.set_host_game(HostGame { game: game.clone(), name: "Alice's game".into(), max_players: 16, password: String::new(), port: 28000, port_mapping: false, public: true }); s } })),
+        ("74_join_full", Box::new(|| { let mut s = MenuState::at(Screen::Online); s.join_sel = Some("IP:203.0.113.77:28000".into()); s })),
+        ("75_join_players", Box::new(|| { let mut s = MenuState::at(Screen::Online); s.join_sel = Some("IP:203.0.113.77:28000".into()); s.show_players = true; s })),
+        ("76_custom_game", Box::new({ let game = game.clone(); move || { let mut s = MenuState::at(Screen::CustomGame); s.custom = Some(game.clone()); s } })),
+        ("77_host", Box::new({ let game = game.clone(); move || { let mut s = MenuState::at(Screen::Online); s.online_tab = OnlineTab::Host; s.host = Some(HostGame { game: game.clone(), name: "Alice's game".into(), max_players: 16, password: String::new(), port: 28000, port_mapping: false, public: true }); s } })),
         ("78_help", Box::new(|| MenuState::at(Screen::Help))),
         ("79_credits", Box::new(|| MenuState::at(Screen::Credits))),
     ];
@@ -384,5 +384,59 @@ fn example_hud() -> tt_menu::hud::HudView {
             kda: true,
             ping: false,
         }),
+    }
+}
+
+/// The first-run screen ("Locate your ThinkTanks installation"), drawn with
+/// no game data at all. The PNG goes to `$TT_SETUP_PREVIEW` (a file path),
+/// else `<tmp>/tt-menu-preview/setup.png`; with
+/// `TT_SETUP_PREVIEW_STAGE=progress` the import progress is drawn instead,
+/// with `=report` the import report.
+#[test]
+fn setup_screen_preview() {
+    let Some(gpu) = gpu() else {
+        eprintln!("no GPU adapter; skipping the preview");
+        return;
+    };
+    let mut st = SetupState::new(SetupMode::FirstRun);
+    st.path = "/home/player/Games/ThinkTanks".into();
+    st.target = format!("/home/player/.local/share/{}/gamedata", tt_assets::product::DATA_DIR);
+    st.error = Some("No ThinkTanks installation in /home/player/Games/ThinkTanks: it has no \"game\" folder. Choose the folder ThinkTanks was installed to (it holds the \"game\" and \"common\" folders).".into());
+    if std::env::var("TT_SETUP_PREVIEW_STAGE").as_deref() == Ok("progress") {
+        st.error = None;
+        st.progress = Some(SetupProgress { phase: "Converting textures".into(), done: 212, total: 467, file: "models/tanks/tank01.png".into() });
+    }
+    // The report of an import of an edition without the tutorial slides.
+    if std::env::var("TT_SETUP_PREVIEW_STAGE").as_deref() == Ok("report") {
+        st.error = None;
+        let mut lines = vec!["The install has no tutorial art: the tutorial is not offered.".to_string(), "Skipped (9):".to_string()];
+        lines.extend((1..=8).map(|n| format!("  ui/backgrounds/marquee{n}.png: optional, not found: tutorial disabled")));
+        lines.push("  ui/backgrounds/marqueebackground.png: optional, not found: tutorial disabled".into());
+        lines.push("Not found in the install (17):".into());
+        lines.extend((1..=8).flat_map(|n| [format!("  game/client/ui/backgrounds/Marquee{n}.jpg"), format!("  game/client/ui/backgrounds/Marquee{n}.alpha.jpg")]));
+        lines.push("Warnings (1):".into());
+        lines.push("  game/data/missions/TT3_2.mis: decoded from UTF-16 (little-endian)".into());
+        st.report = Some(SetupReport { ok: true, summary: "325 files imported, 9 skipped, 17 optional files not found in the install, 1 warning.".into(), lines, log: format!("/home/player/.local/share/{}/logs/import.log", tt_assets::product::DATA_DIR) });
+    }
+    let mut renderer = egui_wgpu::Renderer::new(&gpu.device, FORMAT, None, 1, false);
+    for size in [[1280u32, 720u32], [1600, 900], [1920, 1080], [1280, 800]] {
+        let ppp = theme::pixels_per_point([size[0] as f32, size[1] as f32]);
+        let img = render_with(&gpu, &mut renderer, size, ppp, 1.0, |ctx| {
+            let _ = st.ui(ctx);
+        });
+        // Something was drawn: the screen is not one flat colour.
+        let first = *img.get_pixel(0, 0);
+        assert!(img.pixels().any(|p| *p != first), "the setup screen drew nothing");
+        // 1280x720 at the path given; other sizes beside it (`setup_<w>x<h>.png`).
+        let mut path = std::env::var_os("TT_SETUP_PREVIEW").map(PathBuf::from).unwrap_or_else(|| std::env::temp_dir().join("tt-menu-preview").join("setup.png"));
+        if size != [1280, 720] {
+            let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("setup").to_string();
+            path.set_file_name(format!("{stem}_{}x{}.png", size[0], size[1]));
+        }
+        if let Some(d) = path.parent() {
+            std::fs::create_dir_all(d).unwrap();
+        }
+        img.save(&path).unwrap();
+        eprintln!("setup screen preview: {}", path.display());
     }
 }

@@ -72,6 +72,22 @@ stage_mods() {
     done
 }
 
+# Packs the folder $DIST/$1 into $DIST/$1.zip (zip, 7z or python3) and
+# removes the folder.
+zip_dist() {
+    if command -v zip >/dev/null; then
+        (cd "$DIST" && zip -qr "$1.zip" "$1")
+    elif command -v 7z >/dev/null; then
+        (cd "$DIST" && 7z a -tzip -bso0 "$1.zip" "$1")
+    elif command -v python3 >/dev/null; then
+        (cd "$DIST" && python3 -m zipfile -c "$1.zip" "$1")
+    else
+        die "no zip, 7z or python3 to write the archive"
+    fi
+    rm -rf "${DIST:?}/$1"
+    echo "wrote $DIST/$1.zip"
+}
+
 # The cargo build of the game (release, the lock file as it is).
 build_game() {
     (cd "$ROOT" && cargo build --release --locked -p tt-engine --bin "$BIN" "$@")

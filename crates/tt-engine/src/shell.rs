@@ -57,14 +57,6 @@ pub struct LoadingInfo {
     pub progress: f32,
 }
 
-/// The finished run of the last game over.
-#[derive(Debug, Clone, PartialEq)]
-pub struct GameOver {
-    pub rank: Option<usize>,
-    pub score: f64,
-    pub level: u32,
-}
-
 /// tt-shell state of the running game.
 pub struct Shell {
     pub players: Players,
@@ -77,8 +69,8 @@ pub struct Shell {
     pub run: Option<SoloRun>,
     /// Tally of the last finished level.
     pub last_tally: Option<Tally>,
-    /// The last game over (rank in the top 10), for the high-score screen.
-    pub last_game_over: Option<GameOver>,
+    /// The rank in the top 10 of the last game over, for the high-score screen.
+    pub last_rank: Option<usize>,
     /// A game over is waiting to be shown (cleared by the menu).
     pub game_over: bool,
     pub message: Option<ShellMessage>,
@@ -107,7 +99,7 @@ impl Shell {
             levels: None,
             run: None,
             last_tally: None,
-            last_game_over: None,
+            last_rank: None,
             game_over: false,
             message: None,
             loading: LoadingInfo::default(),
@@ -340,11 +332,6 @@ pub fn mission_name(h: &mut EngineHost, id: &str) -> String {
 
 // ---- the solo run and the local client's record ----------------------------------
 
-/// The game server's state (between its own calls).
-fn server(h: &EngineHost) -> &tt_gameplay::server::Server {
-    h.srv.state()
-}
-
 /// A solo run is being played or is between levels (connected to the solo server).
 pub fn in_run(h: &EngineHost) -> bool {
     h.shell.run.is_some() && h.net.server_connection().is_some() && h.net.server.is_some_and(|s| h.net.alive.contains(&s)) && h.srv.get().is_some_and(|s| s.setup.single_player())
@@ -366,7 +353,7 @@ fn pull_run(run: &mut SoloRun, h: &mut EngineHost) {
     run.deaths = r.deaths.unwrap_or(0);
     run.boss_tank_killed = r.boss_tank_killed.unwrap_or(0);
     run.score = r.spscore.unwrap_or(0.0);
-    let c = &server(h).campaign;
+    let c = &h.srv.state().campaign;
     run.mission_seq = c.mission_seq.unwrap_or(0);
     run.mission_seq_total = c.mission_seq_total.unwrap_or(0);
 }
@@ -400,7 +387,7 @@ pub fn new_run_at(h: &mut EngineHost, position: u32) -> bool {
     let sh = &mut h.shell;
     sh.run = Some(run);
     sh.last_tally = None;
-    sh.last_game_over = None;
+    sh.last_rank = None;
     sh.game_over = false;
     true
 }
@@ -635,12 +622,11 @@ pub fn solo_end_game(h: &mut EngineHost) {
     };
     pull_run(&mut run, h);
     let sh = &mut h.shell;
-    let score = run.score;
     let rank = run.end_run(&mut sh.players, &mut sh.hiscores, &name);
     // A mid-campaign start counts; its row shows the start level.
     let table = sh.hiscores.entries().unwrap_or_default();
     sh.progress.record_hiscore(rank.and_then(|r| table.get(r)), run.start_level, &table);
-    sh.last_game_over = Some(GameOver { rank, score, level: run.mission_seq_total });
+    sh.last_rank = rank;
     sh.game_over = true;
     sh.run = Some(run);
     save_players(h);
@@ -747,10 +733,17 @@ pub fn next_sp_mission(h: &mut EngineHost, fresh: bool) -> Option<CampaignStep> 
         return None;
     }
     let mut level = h.shell.run.as_mut().and_then(|r| r.advance_level().cloned())?;
-    // A level whose mission the import left out (an unreadable
-    // mission file of the install) is passed over.
+    // A level whose mission the import left out (an unreadable mission
+    // file of the install) is passed over. The campaign's last slot
+    // jumps back to level 2, so at most one lap of it is tried.
+    let mut tries = h.shell.run.as_ref().map_or(0, |r| r.table.levels.len());
     while !h.fs.exists(&tt_assets::layout::mission(&level.mission)) {
         h.log.warn(&format!("solo: {} is not in the game data; level {} skipped", tt_assets::layout::mission(&level.mission), level.index));
+        if tries == 0 {
+            h.log.warn("solo: no level of the campaign is in the game data");
+            return None;
+        }
+        tries -= 1;
         level = h.shell.run.as_mut().and_then(|r| r.advance_level().cloned())?;
     }
     let (seq, total) = h.shell.run.as_ref().map(|r| (r.mission_seq, r.mission_seq_total)).unwrap_or_default();

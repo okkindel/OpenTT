@@ -396,9 +396,6 @@ pub struct MemLink {
     addr: SocketAddr,
 }
 
-impl MemLink {
-}
-
 impl Datagram for MemLink {
     fn send_to(&mut self, data: &[u8], addr: SocketAddr) -> io::Result<()> {
         self.net.lock().submit(self.addr, addr, data);

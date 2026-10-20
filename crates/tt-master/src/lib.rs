@@ -68,6 +68,8 @@ pub struct Master<T: Datagram> {
     servers: HashMap<SocketAddr, Entry>,
     flood: HashMap<IpAddr, (f64, Duration)>,
     pub stats: MasterStats,
+    /// List changes not yet printed (servers added, restarted, dropped).
+    log: Vec<String>,
 }
 
 /// Cookie validity bucket (a cookie is accepted in its bucket and the next).
@@ -76,7 +78,7 @@ const COOKIE_BUCKET: u64 = 30;
 impl<T: Datagram> Master<T> {
     pub fn new(transport: T, limits: Limits) -> Self {
         let mut rng = Rng::from_entropy();
-        Master { transport, key: (rng.next_u64(), rng.next_u64()), limits, servers: HashMap::new(), flood: HashMap::new(), stats: MasterStats::default() }
+        Master { transport, key: (rng.next_u64(), rng.next_u64()), limits, servers: HashMap::new(), flood: HashMap::new(), stats: MasterStats::default(), log: Vec::new() }
     }
 
     pub fn local_addr(&self) -> SocketAddr {
@@ -88,6 +90,11 @@ impl<T: Datagram> Master<T> {
         let mut v: Vec<SocketAddr> = self.servers.keys().copied().collect();
         v.sort();
         v
+    }
+
+    /// The list changes since the last call (one line each, no timestamp).
+    pub fn drain_log(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.log)
     }
 
     fn cookie(&self, addr: SocketAddr, bucket: u64) -> u64 {
@@ -136,7 +143,14 @@ impl<T: Datagram> Master<T> {
                 Err(_) => self.stats.malformed += 1,
             }
         }
-        self.servers.retain(|_, e| now.saturating_sub(e.last_seen) <= ENTRY_LIFETIME);
+        let log = &mut self.log;
+        self.servers.retain(|a, e| {
+            let keep = now.saturating_sub(e.last_seen) <= ENTRY_LIFETIME;
+            if !keep {
+                log.push(format!("dropped {a} (id {:016x}): no heartbeat for {}s", e.server_id, ENTRY_LIFETIME.as_secs()));
+            }
+            keep
+        });
         self.flood.retain(|_, (_, t)| now.saturating_sub(*t) < Duration::from_secs(10));
     }
 
@@ -153,7 +167,9 @@ impl<T: Datagram> Master<T> {
                     return self.send(&MasterPacket::HeartbeatChallenge { nonce, cookie }, from);
                 }
                 if closing {
-                    self.servers.remove(&from);
+                    if let Some(e) = self.servers.remove(&from) {
+                        self.log.push(format!("dropped {from} (id {:016x}): server closed", e.server_id));
+                    }
                     return;
                 }
                 if !self.servers.contains_key(&from) {
@@ -163,6 +179,9 @@ impl<T: Datagram> Master<T> {
                         return;
                     }
                     self.stats.registrations += 1;
+                    self.log.push(format!("added {from} (id {server_id:016x})"));
+                } else if self.servers[&from].server_id != server_id {
+                    self.log.push(format!("restarted {from} (id {server_id:016x})"));
                 }
                 let rate = self.limits.introductions_per_server;
                 let e = self.servers.entry(from).or_insert(Entry { server_id, last_seen: now, intro: (rate, now) });
@@ -242,15 +261,31 @@ pub fn run(o: &Options) -> std::io::Result<()> {
     let mut m = Master::new(t, Limits::default());
     println!("{} master server on UDP {addr}", tt_net::PRODUCT_NAME);
     let start = std::time::Instant::now();
+    let stamp = || utc_stamp(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs()));
     let mut last_status = Duration::ZERO;
     loop {
         let now = start.elapsed();
         m.update(now);
+        for l in m.drain_log() {
+            println!("{} [master] {l}", stamp());
+        }
         if !o.status_every.is_zero() && now.saturating_sub(last_status) >= o.status_every {
             last_status = now;
             let s = &m.stats;
-            println!("[master] {} servers; {} heartbeats, {} registrations, {} lists, {} introductions, {} dropped, {} malformed", m.servers.len(), s.heartbeats, s.registrations, s.list_requests, s.introductions, s.dropped, s.malformed);
+            println!("{} [master] {} servers; {} heartbeats, {} registrations, {} lists, {} introductions, {} dropped, {} malformed", stamp(), m.servers.len(), s.heartbeats, s.registrations, s.list_requests, s.introductions, s.dropped, s.malformed);
         }
         std::thread::sleep(Duration::from_millis(5));
     }
+}
+
+/// `YYYY-MM-DD HH:MM:SS UTC` of a Unix time (H. Hinnant's days-to-civil).
+pub fn utc_stamp(secs: u64) -> String {
+    let (days, rem) = ((secs / 86400) as i64 + 719_468, secs % 86400);
+    let (era, doe) = (days.div_euclid(146_097), days.rem_euclid(146_097));
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let (d, m) = (doy - (153 * mp + 2) / 5 + 1, if mp < 10 { mp + 3 } else { mp - 9 });
+    let y = yoe + era * 400 + i64::from(m <= 2);
+    format!("{y:04}-{m:02}-{d:02} {:02}:{:02}:{:02} UTC", rem / 3600, rem % 3600 / 60, rem % 60)
 }

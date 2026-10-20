@@ -17,7 +17,7 @@ pub fn atob(s: &str) -> bool {
     s.trim().eq_ignore_ascii_case("true") || atof(s) != 0.0
 }
 
-/// Case-insensitive field map of one def (inherited fields merged).
+/// Case-insensitive field map of one def.
 #[derive(Debug, Clone, Default)]
 pub struct Fields {
     pub name: String,
@@ -65,8 +65,9 @@ impl Fields {
     }
 }
 
-/// All defs from one or more compiled scripts, with parent
-/// (`def X(Name : Parent)`) inheritance resolved across files.
+/// All defs by name (case-insensitive). The defs come with their fields
+/// already merged (`tt_assets::data::defs::DefSet`, which copies a
+/// parent's fields when a def is declared).
 #[derive(Debug, Default, Clone)]
 pub struct Defs {
     blocks: Vec<SceneObject>,
@@ -100,43 +101,16 @@ impl Defs {
         self.by_name.get(&name.to_ascii_lowercase()).map(|&i| &self.blocks[i])
     }
 
-    /// One field of `name` as [`Defs::fields`] would give it (the
-    /// nearest ancestor's that has it, its last assignment), without
-    /// copying the field map.
+    /// One field of `name` (its last assignment), without copying the
+    /// field map.
     pub fn field(&self, name: &str, field: &str) -> Option<&str> {
-        let mut cur = self.object(name)?;
-        for _ in 0..64 {
-            if let Some((_, v)) = cur.fields.iter().rev().find(|(k, _)| k.eq_ignore_ascii_case(field)) {
-                return Some(v);
-            }
-            match cur.parent.as_deref().and_then(|p| self.object(p)) {
-                Some(p) if !std::ptr::eq(p, cur) => cur = p,
-                _ => return None,
-            }
-        }
-        None
+        self.object(name)?.fields.iter().rev().find(|(k, _)| k.eq_ignore_ascii_case(field)).map(|(_, v)| v.as_str())
     }
 
-    /// Fields of `name` with every ancestor's fields underneath (child wins).
+    /// The fields of `name`.
     pub fn fields(&self, name: &str) -> Option<Fields> {
-        let mut chain = Vec::new();
-        let mut cur = self.object(name)?;
-        loop {
-            chain.push(cur);
-            let parent = cur.parent.as_deref().and_then(|p| self.object(p));
-            match parent {
-                Some(p) if chain.len() < 64 && !std::ptr::eq(p, cur) => cur = p,
-                _ => break,
-            }
-        }
-        let leaf = chain[0];
-        let mut merged = Fields::new(&leaf.name, &leaf.class, std::iter::empty());
-        for o in chain.iter().rev() {
-            for (k, v) in &o.fields {
-                merged.map.insert(k.to_ascii_lowercase(), v.clone());
-            }
-        }
-        Some(merged)
+        let o = self.object(name)?;
+        Some(Fields::new(&o.name, &o.class, o.fields.iter().cloned()))
     }
 }
 
@@ -145,23 +119,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn field_is_the_merged_fields_value() {
-        let obj = |name: &str, parent: Option<&str>, fields: &[(&str, &str)]| SceneObject {
-            class: "TankFxDef".into(),
-            name: name.into(),
-            def: true,
-            parent: parent.map(String::from),
-            fields: fields.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
-            children: Vec::new(),
-        };
+    fn field_is_the_fields_value() {
         let mut db = Defs::new();
-        db.add([obj("Base", None, &[("a", "1"), ("b", "2"), ("A", "3")]), obj("Child", Some("base"), &[("b", "4"), ("c", "5")])]);
-        for name in ["Base", "child"] {
-            let merged = db.fields(name).unwrap();
-            for f in ["a", "B", "c", "d"] {
-                assert_eq!(db.field(name, f), merged.get(f), "{name}.{f}");
-            }
+        let fields = [("a", "1"), ("b", "2"), ("A", "3")].iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+        db.add([SceneObject { class: "TankFxDef".into(), name: "Base".into(), def: true, parent: None, fields, children: Vec::new() }]);
+        let merged = db.fields("base").unwrap();
+        for f in ["a", "B", "c"] {
+            assert_eq!(db.field("BASE", f), merged.get(f), "{f}");
         }
+        assert_eq!(merged.get("a"), Some("3"));
         assert_eq!(db.field("nothing", "a"), None);
     }
 
@@ -179,24 +145,5 @@ mod tests {
         assert_eq!(atoi("x"), 0);
         assert!(atob("TRUE") && atob("1") && atob("0.5"));
         assert!(!atob("0") && !atob("false") && !atob(""));
-    }
-
-    #[test]
-    fn inheritance_across_files() {
-        let mk = |name: &str, parent: Option<&str>, f: &[(&str, &str)]| SceneObject {
-            class: "ProjectileDef".into(),
-            name: name.into(),
-            def: true,
-            parent: parent.map(String::from),
-            fields: f.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect(),
-            children: vec![],
-        };
-        let mut db = Defs::new();
-        db.add([mk("Zero", Some("Base"), &[("rounds", "0")])]);
-        db.add([mk("base", None, &[("rounds", "145"), ("velocity", "85")])]);
-        let f = db.fields("ZERO").unwrap();
-        assert_eq!(f.get("Rounds"), Some("0"));
-        assert_eq!(f.get("velocity"), Some("85"));
-        assert_eq!(f.name, "Zero");
     }
 }

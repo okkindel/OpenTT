@@ -7,14 +7,11 @@
 //!   settings, the player list, the high scores and the level-select
 //!   progress.
 //! * The old ban list files.
-//! * `settings.ron` files of earlier builds, whose untyped entries (`other`)
-//!   are keyed by those names ([`migrate_settings`]).
 //!
 //! Nothing else in the workspace knows the old names: the game keys its
 //! settings `section.field` ([`crate::settings`]).
 
 use crate::banlist::{ip_of, Ban, BanList};
-use crate::settings::Settings;
 use crate::vars::{collapse_escape, expand_escape, VarFile, VarValue};
 use tt_game::fmt::format_g;
 
@@ -25,10 +22,7 @@ pub const LEGACY_PROGRESS: &str = "game/client/progress.cs";
 pub const LEGACY_CLIENT_PREFS: &str = "game/client/prefs.cs";
 pub const LEGACY_SERVER_PREFS: &str = "game/server/prefs.cs";
 pub const LEGACY_CONFIG: &str = "game/client/config.cs";
-/// Earlier builds' files at the old relative paths.
-pub const LEGACY_BINDS: &str = "game/client/binds.ron";
 pub const LEGACY_BANLISTS: [&str; 2] = ["game/server/banlist.cs", "common/server/banlist.cs"];
-pub const LEGACY_CONSOLE_LOG: &str = "console.log";
 
 /// Old name -> settings key, for every setting whose key is not the plain
 /// rule of [`key`] or that the game reads.
@@ -355,23 +349,6 @@ pub fn prefs_file(settings: &[(&str, &str)]) -> String {
     export(&v, "")
 }
 
-/// A `settings.ron` of an earlier build: its untyped entries by their old
-/// names get their keys (and land in the typed fields where they fit).
-pub fn migrate_settings(s: Settings) -> Settings {
-    if !s.other.keys().any(|k| k.starts_with('$')) {
-        return s;
-    }
-    let all = s.to_vars();
-    let mut v = VarFile::new();
-    for n in all.names() {
-        let k = if n.starts_with('$') { key(n) } else { Some(n.to_string()) };
-        if let (Some(k), Some(val)) = (k, all.value(n)) {
-            v.set_value(&k, val.clone());
-        }
-    }
-    Settings::from_vars(&v)
-}
-
 /// The old prefs files (client, then server: later values win) as keys,
 /// with the old mouse slider turned into the new one.
 pub fn import_prefs(client: &str, server: &str) -> VarFile {
@@ -433,18 +410,5 @@ mod tests {
         let mut c = BanList::default();
         import_banlist(&mut c, &banlist_file(&b.bans));
         assert_eq!(c, b);
-    }
-
-    #[test]
-    fn earlier_settings_files_migrate() {
-        let mut s = Settings::default();
-        s.video.max_fps = Some(60);
-        s.other.insert("$pref::OpenGL::maxTextureDim".into(), crate::settings::PrefValue::Int(512));
-        s.other.insert("$pref::Input::invertMouse".into(), crate::settings::PrefValue::Int(1));
-        let m = migrate_settings(s);
-        assert_eq!(m.video.max_fps, Some(60));
-        assert_eq!(m.input.invert_mouse, Some(true));
-        assert_eq!(m.other.get("opengl.max_texture_dim"), Some(&crate::settings::PrefValue::Int(512)));
-        assert_eq!(m.other.len(), 1);
     }
 }

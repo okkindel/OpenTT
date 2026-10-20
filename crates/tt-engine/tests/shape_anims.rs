@@ -3,13 +3,14 @@
 //! - a projectile shape's first sequence (the ejected brain jar's `rocket`
 //!   lights its exhaust flame);
 //! - the scrum ball's first sequence (`ambient`, looping);
-//! - a corpse's death thread over the tread IFLs (`death3`).
+//! - a corpse's death thread over the tread IFLs (`death3`), and its
+//!   shake and flip (the drawn transform follows `codeFlip`).
 
 use glam::{Mat4, Vec3};
 use std::path::Path;
 use tt_engine::Engine;
 use tt_game::Event;
-use tt_menu::{CustomGame, MenuAction, MenuBackend, Team};
+use tt_menu::{CustomGame, MenuAction, Team};
 
 mod common;
 use common::*;
@@ -38,27 +39,10 @@ fn start(root: &Path, tag: &str) -> Engine {
     let mut e = Engine::new(&cfg).unwrap();
     assert!(e.boot());
     steps(&mut e, 1000);
-    {
-        let Engine { host, menu, .. } = &mut e;
-        let m = menu.as_mut().unwrap();
-        tt_engine::menu::Backend::new(host, &mut m.data).create_player("Tester").unwrap();
-    }
+    new_player(&mut e, "Tester");
     let g = CustomGame { mission: MISSION.into(), mode: 0, bots: Vec::new(), player_tank: 1, player_team: Team::Green, minutes: 10, replace_bots: true };
-    {
-        let Engine { host, menu, .. } = &mut e;
-        menu.as_mut().unwrap().apply(MenuAction::StartCustom(g), host);
-    }
-    for i in 0..3000 {
-        e.tick();
-        if i % 60 == 0 {
-            e.key("space", true, None);
-            e.key("space", false, None);
-        }
-        if me(&e).is_some() {
-            break;
-        }
-    }
-    assert!(me(&e).is_some(), "the player did not spawn");
+    apply(&mut e, MenuAction::StartCustom(g));
+    until_spawned(&mut e, |e| e.tick());
     steps(&mut e, 1000);
     e
 }
@@ -218,6 +202,40 @@ fn death3_drives_the_tread_ifls() {
         for (m, v) in &want {
             let last = ifl[i].iter().rev().find(|(n, _)| n == m).map(|x| x.1);
             assert_eq!(last, Some(*v), "{m}: the death thread's time wins");
+        }
+        let _ = std::fs::remove_dir_all(e.host.fs.data_dir());
+    });
+}
+
+/// A corpse shakes for `corpse_shake_time`, then its death sequence flips
+/// it over: the drawn transform follows the animated `codeFlip` node (T ·
+/// codeFlip · tankall⁻¹).
+#[test]
+fn corpse_shakes_then_flips_over() {
+    tt_assets::require_game_data!();
+    let root = assets();
+    big_stack(move || {
+        let mut e = start(&root, "flip");
+        let id = me(&e).unwrap();
+        e.host.game.as_mut().unwrap().world.apply_damage(id, 10_000.0, None);
+        e.tick();
+        let g = e.host.game.as_mut().unwrap();
+        assert!(g.world.is_corpse(id));
+        let shape = tt_render::pose::shape(&root.join(&g.world.tank(id).unwrap().data.shape_file)).unwrap();
+        let mut drawn = |timer: f32, seq: Option<usize>| {
+            let t = g.world.tank_mut(id).unwrap();
+            t.corpse_timer = timer;
+            t.death_sequence = seq.map(|k| (k, t.data.death_sequences[k]));
+            let mut inst = tt_render::DynamicInstance::default();
+            tt_engine::game::pose_tank(g, g.world.tank(id).unwrap(), 1.0, &shape, &mut inst);
+            inst.transform
+        };
+        let tilt = |m: Mat4| m.transform_vector3(Vec3::Z).angle_between(Vec3::Z);
+        let shake = (0..25).map(|i| tilt(drawn(i as f32 * 0.03, None))).fold(0.0f32, f32::max);
+        assert!(shake > 0.05 && shake < 0.25, "the corpse shakes a little: {shake}");
+        for k in 0..3 {
+            let flip = (0..40).map(|i| tilt(drawn(0.8 + i as f32 * 0.02, Some(k)))).fold(0.0f32, f32::max);
+            assert!(flip > 1.5, "death{} flips the tank over: {flip}", k + 1);
         }
         let _ = std::fs::remove_dir_all(e.host.fs.data_dir());
     });

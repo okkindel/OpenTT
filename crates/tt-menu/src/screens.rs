@@ -70,6 +70,41 @@ fn pressed(ctx: &egui::Context, k: Key) -> bool {
     ctx.input(|i| i.key_pressed(k))
 }
 
+/// The keys a text field acts on, pressed this frame.
+#[derive(Default)]
+struct Typed {
+    enter: bool,
+    escape: bool,
+    tab: bool,
+}
+
+/// Typing into `text` this frame: printable characters (up to `max` of
+/// them) and Backspace; returns the Enter, Escape and Tab presses.
+fn edit_text(ctx: &egui::Context, text: &mut String, max: usize) -> Typed {
+    let mut k = Typed::default();
+    ctx.input(|i| {
+        for e in &i.events {
+            match e {
+                egui::Event::Text(t) => {
+                    for c in t.chars().filter(|c| !c.is_control()) {
+                        if text.chars().count() < max {
+                            text.push(c);
+                        }
+                    }
+                }
+                egui::Event::Key { key: Key::Backspace, pressed: true, .. } => {
+                    text.pop();
+                }
+                egui::Event::Key { key: Key::Enter, pressed: true, .. } => k.enter = true,
+                egui::Event::Key { key: Key::Escape, pressed: true, .. } => k.escape = true,
+                egui::Event::Key { key: Key::Tab, pressed: true, .. } => k.tab = true,
+                _ => {}
+            }
+        }
+    });
+    k
+}
+
 /// Drawing/interaction context for one frame.
 pub(crate) struct Gfx<'a> {
     ui: &'a mut egui::Ui,
@@ -1127,6 +1162,14 @@ fn main_menu(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend) -> Option
     if g.plate_button("play", play, "Play", true, false, true, 32.0).clicked() {
         chosen = Some(st.focus);
     }
+    // A newer release (the update check): a small steel plate under the list.
+    if let Some(tag) = b.update_available() {
+        let r = Rect::from_min_size(Pos2::new(g.stage.left() + 40.0, play.top() + 8.0), Vec2::new(250.0, 42.0));
+        g.text(Pos2::new(r.right() + 16.0, r.center().y), "A new version is out", 20.0, pal::SAND_MUTED, Align2::LEFT_CENTER);
+        if g.plate_button("update", r, &format!("Get {tag}"), false, false, true, 22.0).clicked() {
+            b.open_releases();
+        }
+    }
     match chosen? {
         0 => st.open(Screen::Solo),
         1 => return Some(MenuAction::QuickPlay),
@@ -1228,26 +1271,7 @@ fn player_select(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend) -> Op
 
 fn new_player_dialog(ctx: &egui::Context, st: &mut MenuState, b: &mut dyn MenuBackend) -> Option<MenuAction> {
     let mut name = st.new_player.take().unwrap_or_default();
-    let (mut create, mut cancel) = (false, false);
-    ctx.input(|i| {
-        for e in &i.events {
-            match e {
-                egui::Event::Text(t) => {
-                    for c in t.chars().filter(|c| !c.is_control()) {
-                        if name.chars().count() < 16 {
-                            name.push(c);
-                        }
-                    }
-                }
-                egui::Event::Key { key: Key::Backspace, pressed: true, .. } => {
-                    name.pop();
-                }
-                egui::Event::Key { key: Key::Enter, pressed: true, .. } => create = true,
-                egui::Event::Key { key: Key::Escape, pressed: true, .. } => cancel = true,
-                _ => {}
-            }
-        }
-    });
+    let Typed { enter: mut create, escape: mut cancel, .. } = edit_text(ctx, &mut name, 16);
     let msg = st.message.clone();
     frame(ctx, st, egui::Order::Foreground, false, |g, _| {
         let (inner, y) = g.dialog(Vec2::new(660.0, 330.0), "New player");

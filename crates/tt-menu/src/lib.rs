@@ -3,8 +3,8 @@
 //! Flow changes (start a game, resume, quit) are returned from
 //! [`MenuState::ui`] as [`MenuAction`]s.
 //!
-//! Integration (engine side): call [`theme::install_fonts`] and
-//! [`theme::apply_style`] once, set `pixels_per_point` from
+//! Integration (engine side): call [`theme::install_fonts`] once, set
+//! `pixels_per_point` from
 //! [`theme::pixels_per_point`] each frame, run `MenuState::ui` inside the
 //! egui frame, and translate gamepad input to arrow keys / Enter / Escape.
 
@@ -116,11 +116,14 @@ pub enum SettingsTab {
 }
 
 /// Menu state machine. Create with [`MenuState::new`] for the shell or
-/// [`MenuState::pause`] for the in-game menu.
+/// [`MenuState::pause`] for the in-game menu. The public fields are set
+/// directly only by the previews. ([`Default`] is the bare state the
+/// constructors start from: no screen stack, which shows the player screen.)
+#[derive(Default)]
 pub struct MenuState {
     stack: Vec<Screen>,
     /// Keyboard/gamepad focus index in the current screen's main list.
-    pub(crate) focus: usize,
+    pub focus: usize,
     pub(crate) player_sel: usize,
     pub(crate) new_player: Option<String>,
     pub(crate) confirm_delete: Option<String>,
@@ -132,7 +135,7 @@ pub struct MenuState {
     pub(crate) mods_sel: Option<String>,
     /// The backend has mods (asked once).
     pub(crate) mods_supported: Option<bool>,
-    pub(crate) custom: Option<CustomGame>,
+    pub custom: Option<CustomGame>,
     pub(crate) player_init: bool,
     /// Interface sounds requested this frame (played through the backend).
     pub(crate) sounds: Vec<UiSound>,
@@ -147,17 +150,17 @@ pub struct MenuState {
     /// highest unlocked one when the screen opens).
     pub(crate) solo_level: Option<u32>,
     // ---- online
-    pub(crate) online_tab: OnlineTab,
+    pub online_tab: OnlineTab,
     /// Selected server (by address, so it survives refreshes).
-    pub(crate) join_sel: Option<String>,
+    pub join_sel: Option<String>,
     /// Sort column of the server list and ascending.
     pub(crate) sort: (usize, bool),
     /// The "Join by address" text.
     pub(crate) address: String,
     pub(crate) field: Option<Field>,
     /// The password prompt: (address, typed password).
-    pub(crate) password: Option<(String, String)>,
-    pub(crate) host: Option<HostGame>,
+    pub password: Option<(String, String)>,
+    pub host: Option<HostGame>,
     /// A LAN query was started on entering the screen.
     pub(crate) queried: bool,
     /// The join list's source (LAN / Internet).
@@ -167,15 +170,9 @@ pub struct MenuState {
     /// The master server address being edited (`None`: not loaded yet).
     pub(crate) master: Option<String>,
     /// The server details show the player list instead of the info.
-    pub(crate) show_players: bool,
+    pub show_players: bool,
     /// Escape was used by the screen (leaving a text field).
     pub(crate) esc_eaten: bool,
-}
-
-impl Default for MenuState {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl MenuState {
@@ -191,45 +188,7 @@ impl MenuState {
 
     /// Start at a given screen (previews, returning from a game to the main menu).
     pub fn at(screen: Screen) -> MenuState {
-        MenuState {
-            stack: vec![screen],
-            focus: 0,
-            player_sel: 0,
-            new_player: None,
-            confirm_delete: None,
-            message: None,
-            settings: None,
-            settings_tab: SettingsTab::Display,
-            mods: None,
-            mods_sel: None,
-            mods_supported: None,
-            custom: None,
-            player_init: false,
-            sounds: Vec::new(),
-            hover_now: None,
-            hover_last: None,
-            tally: Default::default(),
-            slides: Default::default(),
-            solo_level: None,
-            online_tab: OnlineTab::Join,
-            join_sel: None,
-            sort: (0, true),
-            address: String::new(),
-            field: None,
-            password: None,
-            host: None,
-            queried: false,
-            server_source: ServerSource::Lan,
-            join_team: Team::Auto,
-            master: None,
-            show_players: false,
-            esc_eaten: false,
-        }
-    }
-
-    /// Select the Online sub-tab (previews).
-    pub fn set_online_tab(&mut self, tab: OnlineTab) {
-        self.online_tab = tab;
+        MenuState { stack: vec![screen], sort: (0, true), ..Default::default() }
     }
 
     /// The join list's source (previews).
@@ -237,38 +196,8 @@ impl MenuState {
         self.server_source = source;
     }
 
-    /// Show the selected server's player list instead of its info (previews).
-    pub fn show_server_players(&mut self, on: bool) {
-        self.show_players = on;
-    }
-
-    /// Open the password prompt for `address` (previews, the engine).
-    pub fn show_password_dialog(&mut self, address: &str) {
-        self.password = Some((address.to_string(), String::new()));
-    }
-
-    /// Put the keyboard focus on main-menu entry `i` (previews).
-    pub fn focus_main(&mut self, i: usize) {
-        self.focus = i;
-    }
-
-    /// Select a server of the join list by address (previews).
-    pub fn select_server(&mut self, address: &str) {
-        self.join_sel = Some(address.to_string());
-    }
-
-    /// The Custom Game screen's setup (previews).
-    pub fn set_custom_game(&mut self, cg: CustomGame) {
-        self.custom = Some(cg);
-    }
-
-    /// The Host page's setup (previews).
-    pub fn set_host_game(&mut self, hg: HostGame) {
-        self.host = Some(hg);
-    }
-
     pub fn screen(&self) -> Screen {
-        *self.stack.last().expect("screen stack is never empty")
+        self.stack.last().copied().unwrap_or(Screen::PlayerSelect)
     }
 
     /// Go to a screen (pushes it; Escape / Back returns).
@@ -316,12 +245,9 @@ impl MenuState {
     /// Draw the current screen and handle input. Returns a flow change for
     /// the engine, if any.
     pub fn ui(&mut self, ctx: &egui::Context, backend: &mut dyn MenuBackend) -> Option<MenuAction> {
-        // Fonts/style not installed by the host yet: install the defaults;
+        // Fonts not installed by the host yet: install them;
         // they take effect on the next frame.
-        if !ctx.fonts(|f| f.families().contains(&theme::heading_family())) {
-            theme::install_fonts(ctx);
-            theme::apply_style(ctx);
-            ctx.request_repaint();
+        if theme::ensure(ctx) {
             return None;
         }
         let action = screens::ui(self, ctx, backend);
@@ -655,6 +581,20 @@ mod tests {
             a = frame_at(ctx, s, b, 1.0, Vec::new());
         }
         a
+    }
+
+    #[test]
+    fn update_notice_opens_the_releases_page() {
+        let ctx = egui::Context::default();
+        let mut b = MockBackend::new();
+        let mut s = MenuState::at(Screen::MainMenu);
+        let button = egui::pos2(165.0, 669.0);
+        frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
+        click(&mut s, &mut b, &ctx, button);
+        assert!(!b.log.iter().any(|l| l == "open releases"));
+        b.update = Some("v0.2.0".into());
+        click(&mut s, &mut b, &ctx, button);
+        assert_eq!((s.screen(), b.log.iter().filter(|l| *l == "open releases").count()), (Screen::MainMenu, 1));
     }
 
     #[test]

@@ -259,8 +259,7 @@ impl Frontend {
         let built = crate::mission::build_scene(&engine.host, &self.root, !self.free_fly);
         drop(sp);
         match built {
-            Some(Ok(mut s)) => {
-                s.markers.clear();
+            Some(Ok(s)) => {
                 engine.host.log.info(&format!("Scene built: {} ({} terrain vertices)", s.name, s.terrain_vertices.len()));
                 if self.scene.is_none() {
                     self.camera = gfx::initial_camera(&s);
@@ -325,10 +324,9 @@ impl Frontend {
             let v = engine.host.shell.prefs.get("graphics.show_fps");
             self.show_fps = v.trim().eq_ignore_ascii_case("true") || tt_game::fmt::atof(&v) != 0.0;
             let v = engine.host.shell.prefs.get("graphics.dynamic_lights");
-            let ls = engine.host.shell.prefs.get("graphics.dynamic_light_strength");
-            self.dynamic_light_strength = if ls.is_empty() { 1.0 } else { (tt_game::fmt::atof(&ls) as f32).clamp(0.0, 2.0) };
-            let s = engine.host.shell.prefs.get("graphics.hud_scale");
-            self.hud_scale = if s.is_empty() { tt_shell::prefs::HUD_SCALE_DEFAULT } else { (tt_game::fmt::atof(&s) as f32).clamp(0.5, 1.5) };
+            let prefs = &engine.host.shell.prefs;
+            self.dynamic_light_strength = crate::engine::pref_f32(prefs, "graphics.dynamic_light_strength", 1.0).clamp(0.0, 2.0);
+            self.hud_scale = crate::engine::pref_f32(prefs, "graphics.hud_scale", tt_shell::prefs::HUD_SCALE_DEFAULT).clamp(0.5, 1.5);
             self.dynamic_lights = if v.is_empty() { tt_shell::prefs::GRAPHICS_DEFAULTS.dynamic_lights } else { v.trim().eq_ignore_ascii_case("true") || tt_game::fmt::atof(&v) != 0.0 };
         }
         self.fps_pref_in -= 1;

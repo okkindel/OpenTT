@@ -47,6 +47,22 @@ use tt_net::{Client, ClientConfig, ClientEvent, ConnId, Datagram, DisconnectReas
 /// Opens a transport on a port (0 = ephemeral). Tests plug in `MemNet` links.
 pub type TransportFactory = Box<dyn FnMut(u16) -> std::io::Result<Box<dyn Datagram>>>;
 
+/// Transports on `net` at `ip` (port 0 = the next free one from 40000):
+/// the in-memory network of the golden runs and the tests.
+pub fn mem_factory(net: &tt_net::MemNet, ip: [u8; 4]) -> TransportFactory {
+    let net = net.clone();
+    let mut next = 40000u16;
+    Box::new(move |port| {
+        let port = if port == 0 {
+            next += 1;
+            next
+        } else {
+            port
+        };
+        Ok(Box::new(net.endpoint(std::net::SocketAddr::from((ip, port)))) as Box<dyn Datagram>)
+    })
+}
+
 pub const DEFAULT_PORT: u16 = tt_net::DEFAULT_PORT;
 /// Ports tried upwards from the requested one (`portInit`).
 const PORT_TRIES: u16 = 10;

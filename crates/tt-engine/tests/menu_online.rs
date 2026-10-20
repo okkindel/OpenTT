@@ -6,7 +6,7 @@
 use std::net::SocketAddr;
 use std::path::Path;
 use std::time::Duration;
-use tt_engine::menu::{Backend, Mode};
+use tt_engine::menu::Mode;
 use tt_engine::{Config, Engine};
 use tt_menu::{BotSetup, BotSkill, CustomGame, HostGame, MenuAction, MenuBackend, Screen, Team};
 use tt_net::MemNet;
@@ -22,8 +22,7 @@ fn engine(root: &Path, net: &MemNet, tag: &str, ip: [u8; 4], player: &str) -> En
     e.host.virtual_clock_ms = Some(0.0);
     e.host.netgame.factory = Some(mem_factory(net, ip));
     assert!(e.boot());
-    let Engine { host, menu, .. } = &mut e;
-    Backend::new(host, &mut menu.as_mut().unwrap().data).create_player(player).unwrap();
+    new_player(&mut e, player);
     e
 }
 
@@ -61,12 +60,6 @@ impl World {
     }
 }
 
-fn backend<R>(e: &mut Engine, f: impl FnOnce(&mut Backend) -> R) -> R {
-    let Engine { host, menu, .. } = e;
-    let mut b = Backend::new(host, &mut menu.as_mut().unwrap().data);
-    f(&mut b)
-}
-
 fn in_game(e: &Engine) -> bool {
     e.menu.as_ref().unwrap().data.mode == Mode::InGame
 }
@@ -76,7 +69,7 @@ fn screen(e: &Engine) -> Screen {
 }
 
 fn message(e: &mut Engine) -> Option<String> {
-    backend(e, |b| b.script_message().map(|m| m.text))
+    backend_do(e, |b| b.script_message().map(|m| m.text))
 }
 
 fn humans(e: &Engine) -> usize {
@@ -119,16 +112,16 @@ fn host_and_join_through_the_menus() {
         w.run_until(&mut [&mut host], 600, "the host plays", |e| in_game(e[0]));
         assert_eq!(tt_engine::netgame::server_addr(&host.host), Some(SocketAddr::from(([10, 0, 0, 1], 28000))));
         // The client opens Online/Join: the LAN query finds the server.
-        backend(&mut client, |b| b.refresh_servers());
+        backend_do(&mut client, |b| b.refresh_servers());
         w.run_until(&mut [&mut host, &mut client], 200, "LAN list", |e| !tt_engine::netgame::query::rows(&e[1].host).is_empty());
-        let servers = backend(&mut client, |b| b.lan_servers());
+        let servers = backend_do(&mut client, |b| b.lan_servers());
         assert_eq!(servers.len(), 1, "{servers:?}");
         let s = &servers[0];
         assert_eq!((s.name.as_str(), s.map.as_str(), s.password, s.compatible, s.dedicated), ("Hoster's arena", "Medulla Mesa", false, true, false));
         assert!(s.players >= 2 && s.max_players == 16 && s.bots >= 1, "{s:?}");
         apply(&mut client, MenuAction::Join { address: s.address.clone(), password: String::new(), team: Team::Auto });
         assert_eq!(screen(&client), Screen::Loading);
-        assert!(backend(&mut client, |b| b.loading()).is_some_and(|l| l.phase.contains("Connecting to 10.0.0.1:28000")));
+        assert!(backend_do(&mut client, |b| b.loading()).is_some_and(|l| l.phase.contains("Connecting to 10.0.0.1:28000")));
         w.run_until(&mut [&mut host, &mut client], 900, "the client plays", |e| in_game(e[1]));
         assert_eq!(humans(&host), 2);
         // The ping column (2 s ping list) on both sides.
@@ -146,9 +139,9 @@ fn host_and_join_through_the_menus() {
         assert_eq!(screen(&client), Screen::Online);
         assert!(in_game(&host));
         // Remembered: the host settings and the address joined.
-        let hs = backend(&mut host, |b| b.host_settings()).unwrap();
+        let hs = backend_do(&mut host, |b| b.host_settings()).unwrap();
         assert_eq!((hs.name.as_str(), hs.max_players, hs.port, hs.game.bots.len()), ("Hoster's arena", 16, 28000, 1));
-        assert_eq!(backend(&mut client, |b| b.recent_addresses()).first().map(String::as_str), Some("10.0.0.1:28000"));
+        assert_eq!(backend_do(&mut client, |b| b.recent_addresses()).first().map(String::as_str), Some("10.0.0.1:28000"));
         // The host leaves: the server closes.
         apply(&mut host, MenuAction::LeaveGame);
         w.run_until(&mut [&mut host, &mut client], 100, "host left", |e| !in_game(e[0]));
@@ -168,9 +161,9 @@ fn password_and_error_dialogs() {
         let mut client = engine(&root, &net, "pwclient", [10, 0, 0, 2], "Joiner");
         apply(&mut host, MenuAction::Host(host_game("Locked", "secret", 16)));
         w.run_until(&mut [&mut host], 600, "host plays", |e| in_game(e[0]));
-        backend(&mut client, |b| b.refresh_servers());
+        backend_do(&mut client, |b| b.refresh_servers());
         w.run_until(&mut [&mut host, &mut client], 200, "LAN list", |e| !tt_engine::netgame::query::rows(&e[1].host).is_empty());
-        let s = backend(&mut client, |b| b.lan_servers()).remove(0);
+        let s = backend_do(&mut client, |b| b.lan_servers()).remove(0);
         assert!(s.password, "the lock icon");
         // Joining by address without a password: refused, the menu asks for one.
         let addr = "10.0.0.1".to_string();
@@ -182,7 +175,7 @@ fn password_and_error_dialogs() {
                     return None;
                 }
                 if let Some(m) = message(client) {
-                    backend(client, |b| b.answer_script_message(true));
+                    backend_do(client, |b| b.answer_script_message(true));
                     for _ in 0..5 {
                         w.step(&mut [host, client]);
                     }
@@ -192,7 +185,7 @@ fn password_and_error_dialogs() {
             panic!("no answer");
         };
         assert_eq!(attempt(&mut w, &mut host, &mut client, "").as_deref(), Some("That server requires a password."));
-        assert_eq!(backend(&mut client, |b| b.take_password_request()).as_deref(), Some("IP:10.0.0.1:28000"));
+        assert_eq!(backend_do(&mut client, |b| b.take_password_request()).as_deref(), Some("IP:10.0.0.1:28000"));
         assert_eq!(screen(&client), Screen::Online, "back on the join screen after the dialog");
         assert_eq!(attempt(&mut w, &mut host, &mut client, "guess").as_deref(), Some("That password is incorrect."));
         assert_eq!(attempt(&mut w, &mut host, &mut client, "secret"), None);
@@ -238,7 +231,7 @@ fn join_and_answer(w: &mut World, host: &mut Engine, client: &mut Engine, addres
             return None;
         }
         if let Some(m) = message(client) {
-            backend(client, |b| b.answer_script_message(true));
+            backend_do(client, |b| b.answer_script_message(true));
             for _ in 0..5 {
                 w.step(&mut [host, client]);
             }
@@ -269,9 +262,9 @@ fn team_choice_player_list_and_version_errors() {
         let hc = tt_engine::gameplay::server_host::local_client(&host.host).unwrap();
         tt_engine::gameplay::server_host::with_record(&mut host.host, hc, |r| r.score = Some(7.0));
         tt_engine::gameplay::server_host::with_server(&mut host.host, |s, b| s.refresh_player_list(b));
-        backend(&mut client, |b| b.refresh_servers());
+        backend_do(&mut client, |b| b.refresh_servers());
         w.run_until(&mut [&mut host, &mut client], 200, "LAN list", |e| !tt_engine::netgame::query::rows(&e[1].host).is_empty());
-        let s = backend(&mut client, |b| b.lan_servers()).remove(0);
+        let s = backend_do(&mut client, |b| b.lan_servers()).remove(0);
         assert!(s.team_game(), "{}", s.mode);
         assert!(s.player_list.len() >= 3, "{:?}", s.player_list);
         let me = s.player_list.iter().find(|p| p.name == "Hoster").unwrap_or_else(|| panic!("{:?}", s.player_list));
@@ -296,9 +289,9 @@ fn team_choice_player_list_and_version_errors() {
         // build, so the joining client runs the other build instead.)
         host.host.netgame.build_override = Some(0x1234);
         client.host.netgame.build_override = Some(0x1234);
-        backend(&mut client, |b| b.refresh_servers());
+        backend_do(&mut client, |b| b.refresh_servers());
         w.run_until(&mut [&mut host, &mut client], 200, "LAN list", |e| tt_engine::netgame::query::rows(&e[1].host).first().is_some_and(|r| !r.compatible));
-        assert!(!backend(&mut client, |b| b.lan_servers())[0].compatible);
+        assert!(!backend_do(&mut client, |b| b.lan_servers())[0].compatible);
         assert_eq!(join_and_answer(&mut w, &mut host, &mut client, "10.0.0.1", Team::Auto).as_deref(), Some("Incompatible protocol version: Your game version is not compatible with this server."));
         assert_eq!(screen(&client), Screen::Online);
         host.host.netgame.build_override = None;
@@ -325,7 +318,7 @@ fn internet_list_through_the_master_and_simulated_lag() {
         let mut master = tt_master::Master::new(net.endpoint(SocketAddr::from(([10, 0, 0, 50], 28100))), Default::default());
         let mut host = engine(&root, &net, "mshost", [10, 0, 0, 1], "Hoster");
         let mut client = engine(&root, &net, "msclient", [10, 0, 0, 2], "Joiner");
-        backend(&mut host, |b| b.set_master_server("10.0.0.50"));
+        backend_do(&mut host, |b| b.set_master_server("10.0.0.50"));
         let mut g = host_game("Listed", "", 16);
         g.public = true;
         apply(&mut host, MenuAction::Host(g));
@@ -343,7 +336,7 @@ fn internet_list_through_the_master_and_simulated_lag() {
         assert!(st.registered, "{st:?}");
         assert_eq!(st.public_addr, Some(SocketAddr::from(([10, 0, 0, 1], 28000))));
         // The client's Internet source.
-        backend(&mut client, |b| {
+        backend_do(&mut client, |b| {
             b.set_master_server("10.0.0.50:28100");
             b.set_server_source(tt_menu::ServerSource::Internet);
             b.refresh_servers();
@@ -351,7 +344,7 @@ fn internet_list_through_the_master_and_simulated_lag() {
         for _ in 0..120 {
             step(&mut w, &mut host, &mut client);
         }
-        let list = backend(&mut client, |b| b.lan_servers());
+        let list = backend_do(&mut client, |b| b.lan_servers());
         assert_eq!(list.len(), 1, "{list:?}");
         assert_eq!(list[0].name, "Listed");
         assert_eq!(client.var("net.master_server"), "10.0.0.50:28100");

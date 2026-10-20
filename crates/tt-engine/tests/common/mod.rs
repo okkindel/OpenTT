@@ -1,13 +1,12 @@
 //! Helpers shared by the engine's integration tests (`mod common;` in each).
 #![allow(dead_code)]
 
-use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use tt_engine::{Config, Engine};
 use tt_menu::{MenuAction, MenuBackend};
-use tt_net::{Datagram, MemNet};
+use tt_net::MemNet;
 
 /// The asset directory: all game data.
 pub fn assets() -> PathBuf {
@@ -53,20 +52,8 @@ pub fn client_engine(root: &Path, tag: &str) -> Engine {
     c
 }
 
-/// Transports on `net` at `ip` (port 0 = the next free one from 40000).
-pub fn mem_factory(net: &MemNet, ip: [u8; 4]) -> tt_engine::netgame::TransportFactory {
-    let net = net.clone();
-    let mut next = 40000u16;
-    Box::new(move |port| {
-        let port = if port == 0 {
-            next += 1;
-            next
-        } else {
-            port
-        };
-        Ok(Box::new(net.endpoint(SocketAddr::from((ip, port)))) as Box<dyn Datagram>)
-    })
-}
+#[allow(unused_imports)]
+pub use tt_engine::netgame::mem_factory;
 
 /// One tick of a virtual-clock engine (the clock advances by a tick first).
 pub fn tick(e: &mut Engine) {
@@ -121,6 +108,23 @@ pub fn player(e: &Engine) -> Option<(tt_gameplay::EntityId, tt_game::TankId)> {
     let id = g.tank_of(o)?;
     g.world.tank(id).filter(|t| !t.deleted && !t.is_corpse)?;
     Some((o, id))
+}
+
+/// Runs `step` (one tick) until the player's tank is in the world,
+/// pressing SPACE (respawn, like a player) every 60 ticks; panics when it
+/// has not spawned after 3000 ticks.
+pub fn until_spawned(e: &mut Engine, mut step: impl FnMut(&mut Engine)) {
+    for i in 0..3000 {
+        step(e);
+        if i % 60 == 0 {
+            e.key("space", true, None);
+            e.key("space", false, None);
+        }
+        if player(e).is_some() {
+            return;
+        }
+    }
+    panic!("the player did not spawn");
 }
 
 /// The world's trigger (power-up, pad) named `name`.

@@ -61,10 +61,6 @@ impl OrderedSender {
         self.unacked_bytes
     }
 
-    pub fn is_idle(&self) -> bool {
-        self.queue.is_empty()
-    }
-
     /// Queues a message. `budget_used` is the other lane's unacked bytes.
     pub fn push(&mut self, msg: &[u8], other_unacked: usize) -> Result<(), PushError> {
         if msg.len() > MAX_MESSAGE_SIZE {
@@ -384,7 +380,7 @@ mod tests {
         for id in ids {
             tx.ack(id);
         }
-        assert!(tx.is_idle());
+        assert!(tx.queue.is_empty());
         assert_eq!(tx.unacked_bytes(), 0);
     }
 

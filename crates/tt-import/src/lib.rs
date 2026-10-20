@@ -24,7 +24,7 @@ pub mod names;
 pub mod sound;
 pub mod verify;
 
-pub use import::{import, install, InstallError, Options, Phase, PictureFn, PictureJob, Progress, ProgressFn, Report, Skipped, CANCELLED, PICTURE_SIZE, TUTORIAL_DISABLED};
+pub use import::{import, install, InstallError, Options, Phase, PictureFn, PictureJob, Progress, ProgressFn, refresh_ours, Report, Skipped, CANCELLED, OURS_VERSION, PICTURE_SIZE};
 
 include!(concat!(env!("OUT_DIR"), "/ours.rs"));
 

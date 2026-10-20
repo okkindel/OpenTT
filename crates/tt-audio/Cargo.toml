@@ -19,8 +19,3 @@ tt-assets = { path = "../tt-assets" }
 lewton = "0.10"
 hound = "3.5"
 cpal = { version = "0.15", optional = true }
-
-[[bin]]
-name = "tt-audio-play"
-path = "src/bin/tt-audio-play.rs"
-required-features = ["output"]

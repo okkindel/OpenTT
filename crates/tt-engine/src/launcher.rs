@@ -211,7 +211,7 @@ impl Launcher {
                 self.start_game(el, window, &assets, Some(&source));
                 // The new session's console log has the import's report too.
                 if let Phase::Game(app) = &mut self.phase {
-                    for l in crate::gamedata::report_lines(&report) {
+                    for l in report.lines() {
                         app.engine.host.log.info(&format!("import: {l}"));
                     }
                 }

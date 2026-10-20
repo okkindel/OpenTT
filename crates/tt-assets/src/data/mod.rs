@@ -10,20 +10,16 @@
 //!
 //! * [`defs`] – the game's defs, the solo level table and the power-up
 //!   weapons;
-//! * [`mission`] – mission files (object trees);
-//! * [`legacy`] – data files written with the names of earlier versions
-//!   still load (with a deprecation note, [`take_notes`]).
+//! * [`mission`] – mission files (object trees).
 //!
 //! The importer (`tt-import`) writes the files of the maps it converts.
 
 pub mod defs;
-pub mod legacy;
 pub mod mission;
 
 use ron::value::RawValue;
 pub use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::sync::Mutex;
 
 /// One field of a declaration: `name` (with `index` for an entry of a
 /// list field, else empty) and its text.
@@ -459,46 +455,18 @@ pub fn to_ron<T: Serialize>(header: &str, value: &T) -> Result<String, String> {
     Ok(out)
 }
 
-/// Reads a data file's text (names of earlier versions are read too,
-/// [`legacy::migrate`]; [`from_ron_noted`] also returns the notes).
+/// Reads a data file's text.
 pub fn from_ron<T: DeserializeOwned>(text: &str) -> Result<T, String> {
-    from_ron_noted(text).map(|(v, _)| v)
-}
-
-/// [`from_ron`], with a note per name of an earlier version the text uses.
-pub fn from_ron_noted<T: DeserializeOwned>(text: &str) -> Result<(T, Vec<String>), String> {
-    let (text, notes) = legacy::migrate(text);
-    let v = ron::Options::default().with_default_extension(extensions()).from_str(&text).map_err(|e| e.to_string())?;
-    Ok((v, notes))
-}
-
-/// Deprecation notes of the data files loaded so far ([`take_notes`]).
-static NOTES: Mutex<Vec<String>> = Mutex::new(Vec::new());
-
-/// The deprecation notes of the data files [`load`] read since the last
-/// call (each: the file and the old and new name), for the caller's log.
-pub fn take_notes() -> Vec<String> {
-    NOTES.lock().map(|mut n| std::mem::take(&mut *n)).unwrap_or_default()
+    ron::Options::default().with_default_extension(extensions()).from_str(text).map_err(|e| e.to_string())
 }
 
 /// Reads the data file `path` (a mod's file when an enabled mod replaces
-/// it, [`crate::mods`]: the whole file). Names of earlier versions are
-/// read and noted ([`take_notes`]).
+/// it, [`crate::mods`]: the whole file).
 pub fn load<T: DeserializeOwned>(path: &std::path::Path) -> Result<T, String> {
     let redirected = crate::mods::redirect(path);
     let path = redirected.as_deref().unwrap_or(path);
     let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let (v, notes) = from_ron_noted(&text).map_err(|e| format!("{}: {e}", path.display()))?;
-    if !notes.is_empty() {
-        let mut all = NOTES.lock().unwrap_or_else(|e| e.into_inner());
-        for n in notes {
-            let n = format!("{}: {n}", path.display());
-            if !all.contains(&n) {
-                all.push(n);
-            }
-        }
-    }
-    Ok(v)
+    from_ron(&text).map_err(|e| format!("{}: {e}", path.display()))
 }
 
 /// The header comment lines of a data file (what [`to_ron`] wrote).

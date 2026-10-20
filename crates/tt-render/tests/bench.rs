@@ -7,11 +7,8 @@ use std::time::Instant;
 use tt_render::{Camera, Renderer, Scene};
 
 fn gpu() -> Option<(wgpu::Device, wgpu::Queue, String)> {
-    let instance = wgpu::Instance::default();
-    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions::default()))?;
-    let name = format!("{:?}", adapter.get_info().name);
-    let (device, queue) = pollster::block_on(adapter.request_device(&Default::default(), None)).ok()?;
-    Some((device, queue, name))
+    let (adapter, device, queue) = pollster::block_on(tt_render::gpu::gpu(None, &tt_render::gpu::instance())).ok()?;
+    Some((device, queue, format!("{:?}", adapter.get_info().name)))
 }
 
 /// Milliseconds per frame (GPU-complete) over `frames` frames.
@@ -73,12 +70,12 @@ fn render_benchmark() {
             ..Default::default()
         })
         .collect();
-    let shadows = vec![true; tanks.len()];
+    let shadows = vec![tt_render::InstanceOptions { shadow: true, ..Default::default() }; tanks.len()];
     let mut r = Renderer::new(&device, &queue, format, &scene);
     let empty = time_frames(&device, &queue, &mut r, &view, (w, h), &cam, 60);
     r.set_dynamic(&device, &queue, &tanks);
     let tanks_ms = time_frames(&device, &queue, &mut r, &view, (w, h), &cam, 60);
-    r.set_dynamic_shadowed(&device, &queue, &tanks, &shadows);
+    r.set_dynamic_with(&device, &queue, &tanks, &shadows);
     let shadow_ms = time_frames(&device, &queue, &mut r, &view, (w, h), &cam, 60);
     r.set_sprites(&sprites);
     let full = time_frames(&device, &queue, &mut r, &view, (w, h), &cam, 60);
@@ -90,7 +87,7 @@ fn render_benchmark() {
     }
     for aniso in [4u16, 1] {
         let mut r = Renderer::new_with_settings(&device, &queue, format, &scene, tt_render::RenderSettings { render_scale: 1.0, anisotropy: aniso, ..Default::default() });
-        r.set_dynamic_shadowed(&device, &queue, &tanks, &shadows);
+        r.set_dynamic_with(&device, &queue, &tanks, &shadows);
         r.set_sprites(&sprites);
         let ms = time_frames(&device, &queue, &mut r, &view, (w, h), &cam, 60);
         eprintln!("[{name}] full load, anisotropy {aniso}: {ms:.2} ms/frame");
@@ -99,7 +96,7 @@ fn render_benchmark() {
     if let Some(dir) = std::env::var_os("TT_RENDER_OUT") {
         let dir = PathBuf::from(dir);
         let mut r = Renderer::new(&device, &queue, format, &scene);
-        r.set_dynamic_shadowed(&device, &queue, &tanks, &shadows);
+        r.set_dynamic_with(&device, &queue, &tanks, &shadows);
         let mut flat = sprites[..3].to_vec();
         // Reticle-style quads: one upright across the view, one on the ground.
         let p0 = tanks[2].transform.w_axis.truncate() + fwd * 3.0;
@@ -124,33 +121,10 @@ fn render_benchmark() {
 
 fn snapshot(device: &wgpu::Device, queue: &wgpu::Queue, r: &mut Renderer, cam: &Camera, path: PathBuf) {
     let (w, h) = (960u32, 540u32);
-    let tex = device.create_texture(&wgpu::TextureDescriptor {
-        label: None,
-        size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Rgba8UnormSrgb,
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-        view_formats: &[],
-    });
+    let format = wgpu::TextureFormat::Rgba8UnormSrgb;
+    let tex = tt_render::gpu::render_target(device, "snapshot", (w, h), format);
     r.render(device, queue, &tex.create_view(&Default::default()), w, h, cam, 0.5);
-    let row = (w * 4).next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
-    let buf = device.create_buffer(&wgpu::BufferDescriptor { label: None, size: (row * h) as u64, usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ, mapped_at_creation: false });
-    let mut enc = device.create_command_encoder(&Default::default());
-    enc.copy_texture_to_buffer(
-        tex.as_image_copy(),
-        wgpu::TexelCopyBufferInfo { buffer: &buf, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(row), rows_per_image: Some(h) } },
-        wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
-    );
-    queue.submit([enc.finish()]);
-    buf.slice(..).map_async(wgpu::MapMode::Read, |_| {});
-    device.poll(wgpu::Maintain::Wait);
-    let data = buf.slice(..).get_mapped_range();
-    let mut px = Vec::with_capacity((w * h * 4) as usize);
-    for y in 0..h {
-        px.extend_from_slice(&data[(y * row) as usize..][..(w * 4) as usize]);
-    }
+    let px = tt_render::gpu::read_rgba(device, queue, &tex, (w, h), format);
     image::save_buffer(&path, &px, w, h, image::ColorType::Rgba8).unwrap();
     eprintln!("wrote {}", path.display());
 }

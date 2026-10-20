@@ -121,7 +121,7 @@ impl<T: Datagram> Datagram for SimLink<T> {
             match s.per_addr.get(&addr).cloned().or_else(|| s.default.clone()) {
                 None => false,
                 Some(c) => {
-                    if c.loss > 0.0 && s.rng.chance(c.loss) {
+                    if s.rng.chance(c.loss) {
                         s.dropped += 1;
                         return Ok(());
                     }

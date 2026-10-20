@@ -6,7 +6,7 @@ Every file of this mod is our own work, made for this project.
 |---|---|
 | `mod.ron` | written for this project |
 | `README.md` | written for this project |
-| `models/tanks/tank01.png` | generated from scratch for this project by `tools/mods/make_desert_camo.py`: a sand, dark earth and olive drab camouflage with baked shading and weathering; uses the tank model's UV layout and geometry (`tank01.dts`), no pixel of the game's textures |
+| `models/tanks/tank01.png` | generated from scratch for this project by a one-off script: a sand, dark earth and olive drab camouflage with baked shading and weathering; uses the tank model's UV layout and geometry (`tank01.dts`), no pixel of the game's textures |
 | `models/tanks/tank02.png` | generated from scratch for this project, as above (`tank02.dts`); uses the tank model's UV layout and geometry, no pixel of the game's textures |
 | `models/tanks/tank03.png` | generated from scratch for this project, as above (`tank03.dts`); uses the tank model's UV layout and geometry, no pixel of the game's textures |
 | `models/tanks/tank04.png` | generated from scratch for this project, as above (`tank04.dts`); uses the tank model's UV layout and geometry, no pixel of the game's textures |

@@ -9,6 +9,17 @@ use std::path::PathBuf;
 
 pub const TICK_MS: u32 = 32;
 
+/// A numeric pref (C `atof`), `default` when it is unset or empty.
+pub fn pref_f32(prefs: &tt_shell::Prefs, name: &str, default: f32) -> f32 {
+    let v = prefs.get(name);
+    if v.is_empty() {
+        default
+    } else {
+        tt_game::fmt::atof(&v) as f32
+    }
+}
+
+#[derive(Clone)]
 pub struct Config {
     /// The asset directory (`assets/`, [`tt_assets::layout`]): all game data.
     pub assets: PathBuf,
@@ -365,7 +376,7 @@ impl Engine {
                 .flatten();
             // Tread IFLs: the `LTread` / `RTread` threads at their positions.
             let mut treads = Vec::new();
-            if let Some(tr) = g.render_treads(t) {
+            if let Some(tr) = g.treads.get(&t.id) {
                 for (seq, time) in crate::treads::SEQUENCES.iter().zip(tr.sequence_times(self.render_alpha)) {
                     if let Some(time) = time {
                         treads.extend(tt_render::pose::sequence_ifl(&path, seq, time));
@@ -619,14 +630,7 @@ impl Engine {
     }
 
     pub fn render_settings(&self) -> tt_render::render::RenderSettings {
-        let pref = |n: &str, d: f32| {
-            let v = self.host.shell.prefs.get(n);
-            if v.is_empty() {
-                d
-            } else {
-                tt_game::fmt::atof(&v) as f32
-            }
-        };
+        let pref = |n: &str, d: f32| pref_f32(&self.host.shell.prefs, n, d);
         let scale = pref("video.render_scale", 1.0).clamp(0.25, 1.0);
         let aniso = pref("video.anisotropy", 1.0).clamp(0.0, 1.0);
         tt_render::render::RenderSettings { render_scale: scale, anisotropy: (1.0 + aniso * 15.0).round() as u16, detail: self.detail_settings(), extras: self.graphics_extras() }
@@ -634,14 +638,7 @@ impl Engine {
 
     /// Unset = the defaults of tt-shell's `Prefs`.
     pub fn graphics_extras(&self) -> tt_render::Extras {
-        let num = |n: &str, d: f32| {
-            let v = self.host.shell.prefs.get(n);
-            if v.is_empty() {
-                d
-            } else {
-                tt_game::fmt::atof(&v) as f32
-            }
-        };
+        let num = |n: &str, d: f32| pref_f32(&self.host.shell.prefs, n, d);
         let d = tt_shell::Prefs::defaults();
         tt_render::Extras {
             glass: num("graphics.glass_jar", d.glass_jar() as u8 as f32) != 0.0,
@@ -657,14 +654,7 @@ impl Engine {
 
     /// The detail prefs `setThinkTanksDetailLevel` sets.
     pub fn detail_settings(&self) -> tt_render::render::Detail {
-        let pref = |n: &str, d: f32| {
-            let v = self.host.shell.prefs.get(n);
-            if v.is_empty() {
-                d
-            } else {
-                tt_game::fmt::atof(&v) as f32
-            }
-        };
+        let pref = |n: &str, d: f32| pref_f32(&self.host.shell.prefs, n, d);
         let level = |n: &str| pref(n, 0.0).clamp(0.0, 8.0) as u32;
         tt_render::render::Detail {
             ts_detail_adjust: pref("shapes.detail_adjust", 1.0).clamp(0.01, 10.0),
@@ -677,12 +667,7 @@ impl Engine {
     }
 
     pub fn particle_detail(&self) -> f32 {
-        let v = self.host.shell.prefs.get("particle.detail_adjust");
-        if v.is_empty() {
-            1.0
-        } else {
-            tt_game::fmt::atof(&v) as f32
-        }
+        pref_f32(&self.host.shell.prefs, "particle.detail_adjust", 1.0)
     }
 
     /// Sizes of everything that could accumulate during a match (leak checks).

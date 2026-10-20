@@ -6,7 +6,8 @@
 //! named by id (`tt1_1`) where a name is enough ([`mission`]).
 //!
 //! The game's paths (`game/data/missions/TT1_1.mis`) are gone;
-//! [`migrate_mission`] reads the ones a save of an older build may hold.
+//! [`migrate_mission`] reads them where a player may type one (`--mission`,
+//! the console's `map`).
 //!
 //! The asset directory is `$TT_ASSETS`, else the imported game data
 //! (`gamedata/`, [`imported_candidates`]), else `./assets` when it holds
@@ -33,10 +34,9 @@ pub fn mission_id(file: &str) -> String {
     name.rsplit_once('.').map_or(name, |(stem, _)| stem).to_ascii_lowercase()
 }
 
-/// A mission named the way an older build saved it (the game's path,
-/// `game/data/missions/TT1_1.mis`, or `~/data/missions/TT1_1.mis`) as a
-/// mission file of this layout (`missions/tt1_1.ron`); `None` if `old` is
-/// not such a path.
+/// A mission named by the game's path (`game/data/missions/TT1_1.mis`, or
+/// `~/data/missions/TT1_1.mis`) as a mission file of this layout
+/// (`missions/tt1_1.ron`); `None` if `old` is not such a path.
 pub fn migrate_mission(old: &str) -> Option<String> {
     let p = old.trim().replace('\\', "/");
     let p = p.trim_start_matches("./").trim_start_matches('/');
@@ -47,13 +47,17 @@ pub fn migrate_mission(old: &str) -> Option<String> {
 }
 
 /// (asset-relative path, file) of every file under the asset directory
-/// `root`, sorted.
+/// `root`, sorted; hidden files (`.name`: `.ours-version`, `.DS_Store`) left out.
 pub fn files(root: &Path) -> Vec<(String, PathBuf)> {
     fn walk(dir: &Path, rel: &str, out: &mut Vec<(String, PathBuf)>) {
         let Ok(rd) = std::fs::read_dir(dir) else { return };
         for e in rd.flatten() {
             let p = e.path();
-            let r = format!("{rel}{}", e.file_name().to_string_lossy());
+            let name = e.file_name().to_string_lossy().into_owned();
+            if name.starts_with('.') {
+                continue;
+            }
+            let r = format!("{rel}{name}");
             if p.is_dir() {
                 walk(&p, &format!("{r}/"), out);
             } else {
@@ -90,13 +94,6 @@ pub fn source_checkout() -> Option<PathBuf> {
 /// platform's variables are unset: `./<DATA_DIR>-data`.
 pub fn user_data_dir() -> PathBuf {
     user_data_base().map(|b| b.join(crate::product::DATA_DIR)).unwrap_or_else(|| PathBuf::from(format!("{}-data", crate::product::DATA_DIR)))
-}
-
-/// Where the user data was under the product's earlier name
-/// ([`crate::product::OLD_DATA_DIR`] next to [`user_data_dir`]); `None`
-/// without a platform data dir.
-pub fn old_user_data_dir() -> Option<PathBuf> {
-    user_data_base().map(|b| b.join(crate::product::OLD_DATA_DIR))
 }
 
 /// The platform data dir (see [`user_data_dir`]).

@@ -1,8 +1,8 @@
 name: Release
 
 # A tag v<version> (the workspace version of Cargo.toml) builds the
-# packages on Linux, Windows and macOS and publishes them as a GitHub
-# release. The scripts are in packaging/ (packaging/README.md).
+# packages on Linux, Windows and macOS (and the standalone master server)
+# and publishes them as a GitHub release. The scripts are in packaging/ (packaging/README.md).
 
 on:
   push:
@@ -54,6 +54,7 @@ jobs:
           echo "APPIMAGETOOL=$RUNNER_TEMP/bin/appimagetool" >>"$GITHUB_ENV"
       - run: desktop-file-validate packaging/linux/*.desktop
       - run: packaging/package-linux.sh
+      - run: packaging/package-master.sh
       - uses: actions/upload-artifact@v4
         with:
           name: linux
@@ -73,6 +74,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - shell: bash
         run: packaging/package-windows.sh
+      - shell: bash
+        run: packaging/package-master.sh
       - uses: actions/upload-artifact@v4
         with:
           name: windows
@@ -90,10 +93,13 @@ jobs:
           targets: aarch64-apple-darwin, x86_64-apple-darwin
       - uses: Swatinem/rust-cache@v2
       - run: packaging/package-macos.sh --universal
+      - run: packaging/package-master.sh
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: target/dist/*.dmg
+          path: |
+            target/dist/*.dmg
+            target/dist/*.tar.gz
           if-no-files-found: error
 
   publish:
@@ -117,6 +123,8 @@ jobs:
           body: |
             OpenTT ${{ needs.version.outputs.version }}.
 
+            What's new: [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md).
+
             OpenTT does not include the game's content: on the first start it
             asks for the folder of your own copy of ThinkTanks and imports it.
 
@@ -127,3 +135,6 @@ jobs:
               is not signed: the first time, open it from Finder with
               right-click → Open (or System Settings → Privacy & Security →
               Open Anyway).
+            * Master server only (to host a list of internet games):
+              `opentt-master-*` (Linux and macOS `.tar.gz`, Windows `.zip`);
+              usage in its `README.txt`.

@@ -63,13 +63,6 @@ impl BitWriter {
         self.write_bits(v as u64, bits);
     }
 
-    /// Quantises `v` from `[min, max]` to `bits` bits (clamped; NaN → `min`).
-    pub fn write_quant(&mut self, v: f32, min: f32, max: f32, bits: u32) {
-        let steps = ((1u64 << bits) - 1) as f32;
-        let t = if v.is_nan() { 0.0 } else { ((v - min) / (max - min)).clamp(0.0, 1.0) };
-        self.write_bits((t * steps).round() as u64, bits);
-    }
-
     /// LEB128-style: 7 data bits + 1 continuation bit per group.
     pub fn write_varint(&mut self, mut v: u64) {
         loop {
@@ -162,12 +155,6 @@ impl<'a> BitReader<'a> {
         Ok(((v << shift) as i64) >> shift)
     }
 
-    pub fn read_quant(&mut self, min: f32, max: f32, bits: u32) -> Result<f32, DecodeError> {
-        let steps = ((1u64 << bits) - 1) as f32;
-        let q = self.read_bits(bits)? as f32;
-        Ok(min + q / steps * (max - min))
-    }
-
     pub fn read_varint(&mut self) -> Result<u64, DecodeError> {
         let mut out = 0u64;
         for i in 0..10 {
@@ -231,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn signed_varint_bytes_quant() {
+    fn signed_varint_bytes() {
         let mut w = BitWriter::new();
         w.write_bool(true);
         w.write_signed(-5, 7);
@@ -245,9 +232,6 @@ mod tests {
             });
         }
         w.write_bytes(b"hello");
-        w.write_quant(0.3, -1.0, 1.0, 11);
-        w.write_quant(f32::NAN, -1.0, 1.0, 11);
-        w.write_quant(5.0, -1.0, 1.0, 11);
         let bytes = w.finish();
         let mut r = BitReader::new(&bytes);
         assert!(r.read_bool().unwrap());
@@ -257,23 +241,6 @@ mod tests {
             assert_eq!(r.read_varint().unwrap(), v);
         }
         assert_eq!(r.read_bytes(5).unwrap(), b"hello");
-        let q = r.read_quant(-1.0, 1.0, 11).unwrap();
-        assert!((q - 0.3).abs() <= 1.0 / 2047.0, "{q}");
-        assert_eq!(r.read_quant(-1.0, 1.0, 11).unwrap(), -1.0);
-        assert_eq!(r.read_quant(-1.0, 1.0, 11).unwrap(), 1.0);
-    }
-
-    #[test]
-    fn quant_error_within_half_step() {
-        let mut rng = Rng::new(3);
-        for _ in 0..1000 {
-            let v = (rng.next_f64() * 8192.0 - 4096.0) as f32;
-            let mut w = BitWriter::new();
-            w.write_quant(v, -4096.0, 4096.0, 19);
-            let b = w.finish();
-            let d = BitReader::new(&b).read_quant(-4096.0, 4096.0, 19).unwrap();
-            assert!((d - v).abs() <= 8192.0 / ((1 << 19) - 1) as f32 * 0.5 + 1e-3);
-        }
     }
 
     #[test]

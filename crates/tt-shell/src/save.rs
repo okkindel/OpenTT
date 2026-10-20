@@ -5,8 +5,7 @@
 //! |---|---|---|
 //!
 //! [`load`] reads a RON file when it exists. Solo scores and levels are plain numbers (players' best,
-//! high scores, progress); files of earlier versions wrote them as strings ("083080"), which still read
-//! ([`de_u64`]) and are written back as numbers on the next save.
+//! high scores, progress).
 
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +29,7 @@ pub const SCREENSHOTS: &str = "screenshots";
 /// Files of an older layout kept as backups (never read by the game).
 pub const LEGACY_DIR: &str = "legacy";
 
-pub use crate::legacy::{LEGACY_BANLISTS, LEGACY_BINDS, LEGACY_CLIENT_PREFS, LEGACY_CONFIG, LEGACY_CONSOLE_LOG, LEGACY_HISCORES, LEGACY_PLAYERS, LEGACY_PROGRESS, LEGACY_SERVER_PREFS};
+pub use crate::legacy::{LEGACY_BANLISTS, LEGACY_CLIENT_PREFS, LEGACY_CONFIG, LEGACY_HISCORES, LEGACY_PLAYERS, LEGACY_PROGRESS, LEGACY_SERVER_PREFS};
 
 /// Pretty RON as the save files are written (`implicit_some`: optional
 /// fields are written as plain values), with a comment line after the
@@ -82,7 +81,7 @@ pub struct PlayerRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub games: Option<u32>,
     /// Best solo score.
-    #[serde(skip_serializing_if = "Option::is_none", deserialize_with = "de_opt_u64")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub solo_best: Option<u64>,
 }
 
@@ -92,40 +91,6 @@ pub struct PlayersFile {
     /// Index into `players` of the current one.
     pub last_selection: usize,
     pub players: Vec<PlayerRecord>,
-}
-
-/// A whole number written as a number, or as text by earlier versions
-/// ("083080", "52000"; anything else reads as 0).
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum NumOrText {
-    Num(f64),
-    Text(String),
-}
-
-impl NumOrText {
-    fn value(self) -> Option<f64> {
-        let v = match self {
-            NumOrText::Num(v) => v,
-            NumOrText::Text(t) => t.trim().parse::<f64>().ok()?,
-        };
-        (v.is_finite() && v >= 0.0).then(|| v.round())
-    }
-}
-
-/// [`NumOrText`] as a `u64` (serde `deserialize_with`).
-pub fn de_u64<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u64, D::Error> {
-    Ok(NumOrText::deserialize(d)?.value().unwrap_or(0.0) as u64)
-}
-
-/// [`NumOrText`] as a `u32`.
-pub fn de_u32<'de, D: serde::Deserializer<'de>>(d: D) -> Result<u32, D::Error> {
-    Ok(NumOrText::deserialize(d)?.value().unwrap_or(0.0).min(u32::MAX as f64) as u32)
-}
-
-/// An optional [`NumOrText`] (text that is no number: None).
-pub fn de_opt_u64<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<u64>, D::Error> {
-    Ok(Option::<NumOrText>::deserialize(d)?.and_then(NumOrText::value).map(|v| v as u64))
 }
 
 /// A decoded stat as a count when it is one exactly as the game writes it.
@@ -343,43 +308,6 @@ mod tests {
         let q: HiScoresFile = ron::from_str(&text).unwrap();
         assert_eq!(q.hiscores(), h);
         assert_eq!(HiScoresFile::default().hiscores().entries(), None);
-    }
-
-    /// Files of earlier versions wrote the solo scores and levels as
-    /// strings: they read as the same numbers and are written back plain.
-    #[test]
-    fn string_scores_of_older_saves_migrate() {
-        let old = r#"#![enable(implicit_some)]
-HiScoresFile(entries: [
-    HiScore(name: "Jonny", score: "498720", level: "31"),
-    HiScore(name: "Krevitz", score: "410010", level: "34"),
-    HiScore(name: "Shark", score: "310220", level: "27"),
-    HiScore(name: "Locke", score: "121700", level: "15"),
-    HiScore(name: "Patton", score: "083080", level: "12"),
-    HiScore(name: "Ribbit", score: "045070", level: "10"),
-    HiScore(name: "Mack", score: "025030", level: "8"),
-    HiScore(name: "Rascal", score: "018640", level: "8"),
-    HiScore(name: "Artiz", score: "007320", level: "5"),
-    HiScore(name: "Mike", score: "003170", level: "3"),
-])"#;
-        let h = ron::from_str::<HiScoresFile>(old).unwrap().hiscores();
-        let mut d = HiScores::default();
-        d.set_defaults();
-        assert_eq!(h, d);
-        assert!(save_hiscores_text(&h).contains("score: 83080,"));
-        let old = r#"#![enable(implicit_some)]
-PlayersFile(last_selection: 0, players: [PlayerRecord(name: "Bait", solo_best: "52000"), PlayerRecord(name: "Rook", kills: 1, deaths: 2, games: 1, solo_best: "---")])"#;
-        let f: PlayersFile = ron::from_str(old).unwrap();
-        assert_eq!(f.players[0].solo_best, Some(52000));
-        assert_eq!(f.players[1].solo_best, None);
-        let p = f.players();
-        assert_eq!(p.solo_hiscore(0), "52000");
-        assert!(save_players_text(&p).contains("solo_best: 52000"));
-        let old = r#"#![enable(implicit_some)]
-Progress(reached: [("Bait", 9)], starts: [HiScoreStart(name: "Bait", score: "52000", level: "9", start: 7)])"#;
-        let q: Progress = ron::from_str(old).unwrap();
-        assert_eq!((q.starts[0].score, q.starts[0].level), (52000, 9));
-        assert!(save_progress_text(&q).contains("score: 52000,"));
     }
 
     #[test]

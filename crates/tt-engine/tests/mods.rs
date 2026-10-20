@@ -109,35 +109,6 @@ fn overlay_and_map_list() {
     });
 }
 
-/// A mod written before the data vocabulary changed still loads: the old
-/// names are read as the new ones, each noted in the log as deprecated.
-#[test]
-fn old_names_in_a_mod_still_load() {
-    tt_assets::require_game_data!();
-    big_stack(|| {
-        let game = std::fs::read_to_string(assets().join("data/weapons.ron")).unwrap();
-        let mut old = game.replace("ProjectileDef(", "ProjectileData(").replace("ReticleDef(", "ReticleData(").replace("blast_radius:", "splash_area:").replace("rounds:", "count:").replace("volley_size:", "burst_count:");
-        old = old.replacen("splash_area: 11,", "splash_area: 7,", 1);
-        assert!(old.contains("ProjectileData(") && old.contains("splash_area: 7,"));
-        let map = String::from_utf8(mod_map()).unwrap().replace("Group(", "SimGroup(").replace("Prop(", "TSStatic(").replace("def: \"", "data_block: \"");
-        assert!(map.contains("TSStatic(") || map.contains("data_block:"));
-        let mods: Vec<ModSpec> = vec![("old", vec![("mod.ron", text("(name: \"Old Mod\", version: \"1\", author: \"Tester\")")), ("data/weapons.ron", old.into_bytes()), ("missions/OldArena.ron", map.into_bytes())])];
-        let mut e = modded_engine("old", &mods, &["old"], &[]);
-        assert!(tt_engine::gameplay::defs::load_server_set(&mut e.host, "weapons"));
-        let mortar = e.host.defs.get("MortarProjectile").expect("the mod's mortar");
-        assert_eq!(mortar.class, "ProjectileDef");
-        assert_eq!(mortar.get("blast_radius"), Some("7"));
-        assert_eq!(mortar.get("rounds"), Some("6"));
-        assert!(mortar.get("splash_area").is_none());
-        assert!(log_has(&e, "deprecated name, still read") && log_has(&e, "field `splash_area` (in ProjectileDef) is now `blast_radius`"), "the deprecation notes");
-        assert!(log_has(&e, "class `ProjectileData` is now `ProjectileDef`"));
-        assert!(tt_engine::mission::exec_mission(&mut e.host, "missions/OldArena.ron"));
-        assert!(log_has(&e, "class `SimGroup` is now `Group`"));
-        let load = e.host.mission_load.as_ref().expect("the old mission loaded");
-        assert!(load.nodes.iter().any(|(_, o)| o.class == "PowerUp" && o.get("def").is_some()));
-    });
-}
-
 /// A dedicated server on tt1_1 at 10.0.0.1 with `mods`, all enabled.
 fn server(net: &MemNet, tag: &str, mods: &[ModSpec]) -> Engine {
     let ids: Vec<&str> = mods.iter().map(|m| m.0).collect();

@@ -25,7 +25,7 @@ pub mod output;
 
 pub use db::{AudioDb, SoundDesc, SoundProfile, MusicTrack};
 pub use decode::Pcm;
-pub use mixer::{AlParam, DistanceModel, Handle, Mixer, SharedMixer, NULL_HANDLE};
+pub use mixer::{AlParam, Handle, Mixer, SharedMixer, NULL_HANDLE};
 pub use music::MusicPlayer;
 
 use std::fmt;

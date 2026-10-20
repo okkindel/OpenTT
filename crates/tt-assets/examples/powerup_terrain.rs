@@ -1,96 +1,121 @@
-//! Generates `assets/missions/poweruptest.ter`, the terrain of the "Power-up Test"
-//! mission: a flat grass floor (100 m) about 200 m across, a gentle sand rim rising 22
-//! m that keeps tanks in, and a rocky plateau with low hills out to the block edge
-//! (the block repeats every 1024 m, so everything outside the rim is the same
-//! plateau).
+//! Generates the "Power-up Test" dev map's own files under the asset
+//! directory: `missions/poweruptest.ter` (a flat square floor at 100 m,
+//! 200 m across, in a square bowl: the walls rise 22 m at a moderate slope
+//! and keep tanks in, then a flat plateau to the block edge; the block
+//! repeats every 1024 m), its one terrain texture `terrain/dev/devgrid.png`
+//! (an orange dev grid: 1 m minor lines, 8 m major lines on 8 m checker
+//! tiles; the texture covers one 32 m material tile) and the grey box prop
+//! `models/props/dev/devbox.dts` + `devbox.png` (4 x 4 x 2 m, solid).
 //!
 //! ```sh
-//! cargo run -p tt-assets --example powerup_terrain -- assets/missions/poweruptest.ter
+//! cargo run -p tt-assets --example powerup_terrain -- assets
 //! ```
 
-use std::f32::consts::TAU;
+use std::path::PathBuf;
+use tt_assets::dts::{Material, Shape};
 use tt_assets::terrain::Terrain;
+
+#[path = "shared/dts_writer.rs"]
+mod dts_writer;
+use dts_writer::{write_dts, Mesh};
 
 const SHIFT: u8 = 7;
 const SIZE: usize = 1 << SHIFT;
 const SQUARE: f32 = 8.0;
 const FLOOR: f32 = 100.0;
 const RIM: f32 = 22.0;
-/// Rounded-square distance where the rim starts and ends.
+/// Square distance (the larger of |x|, |y|) where the walls start and end.
 const RIM_IN: f32 = 100.0;
 const RIM_OUT: f32 = 148.0;
+/// Pixels of `devgrid.png`: one 32 m material tile (`params.w` of the
+/// terrain shader), 32 px per metre.
+const GRID_PX: u32 = 1024;
+/// The box's half extents (m); it stands on its origin.
+const BOX: [f32; 3] = [2.0, 2.0, 1.0];
 
 fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
     let t = ((x - a) / (b - a)).clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
 }
 
-/// Periodic over the 1024 m block so the edges match when it repeats.
-fn wave(x: f32, y: f32, kx: f32, ky: f32, phase: f32) -> f32 {
-    let p = SIZE as f32 * SQUARE;
-    (TAU * (kx * x + ky * y) / p + phase).sin()
+/// Distance in pixels from `p` (a pixel centre) to the nearest line every `step` pixels.
+fn line(p: u32, step: u32) -> u32 {
+    let r = p % step;
+    r.min(step - 1 - r)
 }
 
-/// Rounded square distance from the centre (a superellipse, n = 4).
-fn dist(x: f32, y: f32) -> f32 {
-    (x.powi(4) + y.powi(4)).powf(0.25)
+fn png(px: u32, f: impl Fn(u32, u32) -> [u8; 3]) -> image::RgbImage {
+    image::RgbImage::from_fn(px, px, |x, y| image::Rgb(f(x, y)))
 }
 
-fn height(x: f32, y: f32) -> f32 {
-    let d = dist(x, y);
-    let rim = smoothstep(RIM_IN, RIM_OUT, d);
-    let hills = (wave(x, y, 3.0, 1.0, 0.3) + 0.7 * wave(x, y, -2.0, 5.0, 1.1) + 0.5 * wave(x, y, 7.0, 4.0, 2.0)) * 4.0 * smoothstep(RIM_OUT, RIM_OUT + 80.0, d);
-    // A gentle mound in the north-west corner of the floor.
-    let m = ((x + 60.0).powi(2) + (y - 60.0).powi(2)).sqrt();
-    let mound = 2.5 * (1.0 - smoothstep(0.0, 22.0, m));
-    FLOOR + RIM * rim + hills + mound
+/// The six faces, wound clockwise seen from outside (as DTS meshes are).
+fn box_mesh() -> Mesh {
+    let mut m = Mesh::default();
+    let [hx, hy, hz] = BOX;
+    let (x, y, z, centre) = ([hx, 0.0, 0.0], [0.0, hy, 0.0], [0.0, 0.0, hz], [0.0, 0.0, hz]);
+    let neg = |v: [f32; 3]| v.map(|c| -c);
+    // (normal, u, v) with u x v along the normal.
+    for (n, u, v) in [(x, y, z), (neg(x), z, y), (y, z, x), (neg(y), x, z), (z, x, y), (neg(z), y, x)] {
+        let len = |a: [f32; 3]| a.iter().map(|c| c.abs()).sum::<f32>();
+        let k = m.verts.len() as u16;
+        for (su, sv) in [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)] {
+            m.verts.push(std::array::from_fn(|i| centre[i] + n[i] + su * u[i] + sv * v[i]));
+            m.normals.push(n.map(|c| if c == 0.0 { 0.0 } else { c.signum() }));
+            // 4 m of the face per texture tile.
+            m.uvs.push([(su + 1.0) * len(u) / 4.0, (sv + 1.0) * len(v) / 4.0]);
+        }
+        m.tris[0].extend([[k, k + 2, k + 1], [k, k + 3, k + 2]]);
+    }
+    m
 }
 
 fn main() {
-    let out = std::env::args().nth(1).unwrap_or_else(|| "assets/missions/poweruptest.ter".into());
+    let root = PathBuf::from(std::env::args().nth(1).unwrap_or_else(|| "assets".into()));
     let origin = -(SIZE as f32) * SQUARE / 2.0;
-    let n = SIZE * SIZE;
-    let mut heights = Vec::with_capacity(n);
-    let (mut sand, mut flowers, mut grass, mut rocks) = (vec![0u8; n], vec![0u8; n], vec![0u8; n], vec![0u8; n]);
-    for j in 0..SIZE {
-        for i in 0..SIZE {
-            let (x, y) = (origin + i as f32 * SQUARE, origin + j as f32 * SQUARE);
-            let h = height(x, y);
-            heights.push(h);
-            let d = dist(x, y);
-            // Weights: grass floor with flower patches, sand on the rim
-            // slope, rocky sand on the plateau.
-            let rock = smoothstep(RIM_OUT - 12.0, RIM_OUT + 20.0, d);
-            let slope = smoothstep(RIM_IN - 10.0, RIM_IN + 10.0, d) * (1.0 - rock);
-            let floor = 1.0 - slope - rock;
-            let patch = smoothstep(0.55, 0.9, 0.5 + 0.5 * wave(x, y, 9.0, 5.0, 0.0) * wave(x, y, -4.0, 11.0, 0.7));
-            let w = [slope, floor * patch * 0.8, floor * (1.0 - patch * 0.8), rock];
-            let sum: f32 = w.iter().sum();
-            let mut q: Vec<u8> = w.iter().map(|v| (v / sum * 255.0).round() as u8).collect();
-            // Exact sum of 255 in the dominant slot.
-            let total: i32 = q.iter().map(|&v| v as i32).sum();
-            let k = (0..4).max_by(|&a, &b| w[a].partial_cmp(&w[b]).unwrap()).unwrap();
-            q[k] = (q[k] as i32 + 255 - total) as u8;
-            let idx = j * SIZE + i;
-            sand[idx] = q[0];
-            flowers[idx] = q[1];
-            grass[idx] = q[2];
-            rocks[idx] = q[3];
-        }
-    }
-    let mut t = Terrain::new(
-        SHIFT,
-        &heights,
-        &[
-            ("terrain/green/fterrain01.png", sand),
-            ("terrain/green/fterrain02.png", flowers),
-            ("terrain/green/fterrain03.png", grass),
-            ("terrain/green/fterrain04.png", rocks),
-        ],
-    );
+    let heights: Vec<f32> = (0..SIZE * SIZE)
+        .map(|k| {
+            let (x, y) = (origin + (k % SIZE) as f32 * SQUARE, origin + (k / SIZE) as f32 * SQUARE);
+            FLOOR + RIM * smoothstep(RIM_IN, RIM_OUT, x.abs().max(y.abs()))
+        })
+        .collect();
+    let mut t = Terrain::new(SHIFT, &heights, &[("terrain/dev/devgrid.png", vec![255u8; SIZE * SIZE])]);
     t.heightfield_script = "Generated by crates/tt-assets/examples/powerup_terrain.rs".into();
     let bytes = t.to_bytes().expect("terrain bytes");
     assert_eq!(Terrain::parse(&bytes).expect("round trip").heights, t.heights);
-    std::fs::write(&out, &bytes).unwrap_or_else(|e| panic!("{out}: {e}"));
-    println!("{out}: {} bytes, {SIZE}x{SIZE} at {SQUARE} m, floor {FLOOR} m, rim +{RIM} m at {RIM_IN}..{RIM_OUT} m", bytes.len());
+    let ter = root.join("missions/poweruptest.ter");
+    std::fs::write(&ter, &bytes).unwrap_or_else(|e| panic!("{}: {e}", ter.display()));
+    // The floor grid: 8 m checker tiles in two oranges, 1 m lines darker,
+    // 8 m lines dark grey.
+    let grid = png(GRID_PX, |x, y| {
+        let (m, major) = (GRID_PX / 32, GRID_PX / 4);
+        if line(x, major) < 2 || line(y, major) < 2 {
+            [64, 58, 54]
+        } else if line(x, m) < 1 || line(y, m) < 1 {
+            [168, 96, 42]
+        } else if (x / major + y / major) % 2 == 0 {
+            [226, 138, 62]
+        } else {
+            [204, 120, 50]
+        }
+    });
+    std::fs::create_dir_all(root.join("terrain/dev")).unwrap();
+    grid.save(root.join("terrain/dev/devgrid.png")).unwrap();
+    // The box: light grey, 1 m lines, a dark edge (one 4 m tile per face).
+    let tile = png(256, |x, y| {
+        if x.min(255 - x).min(y).min(255 - y) < 4 {
+            [70, 70, 72]
+        } else if line(x, 64) < 1 || line(y, 64) < 1 {
+            [128, 128, 130]
+        } else {
+            [178, 178, 174]
+        }
+    });
+    let dir = root.join("models/props/dev");
+    std::fs::create_dir_all(&dir).unwrap();
+    tile.save(dir.join("devbox.png")).unwrap();
+    let dts = write_dts(&box_mesh(), "Box", &[("DevBox", Material::S_WRAP | Material::T_WRAP | Material::NEVER_ENV_MAP)], true);
+    let shape = Shape::parse(&dts).expect("the written shape parses");
+    assert_eq!(shape.detail0_geometry().iter().map(|r| r.triangles.len()).sum::<usize>(), 12);
+    std::fs::write(dir.join("devbox.dts"), &dts).unwrap();
+    println!("{}: {} bytes, {SIZE}x{SIZE} at {SQUARE} m, floor {FLOOR} m, walls +{RIM} m at {RIM_IN}..{RIM_OUT} m; devgrid.png, devbox.dts", ter.display(), bytes.len());
 }

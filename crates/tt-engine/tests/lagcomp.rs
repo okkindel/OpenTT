@@ -35,7 +35,6 @@ use std::time::Duration;
 use glam::{Mat3, Vec3};
 use tt_engine::Engine;
 use tt_game::TankParams;
-use tt_menu::MenuBackend;
 use tt_net::{LinkConditions, MemNet};
 
 mod common;
@@ -88,11 +87,7 @@ impl Game {
         for i in 0..clients {
             let mut c = engine(root, &format!("{tag}-client{i}"), &[]);
             assert!(c.boot());
-            {
-                let Engine { host, menu, .. } = &mut c;
-                let m = menu.as_mut().unwrap();
-                tt_engine::menu::Backend::new(host, &mut m.data).create_player(&format!("Player{i}")).unwrap();
-            }
+            new_player(&mut c, &format!("Player{i}"));
             c.host.netgame.factory = Some(mem_factory(&net, [10, 0, 1, i as u8 + 1]));
             tt_engine::net::connect_to(&mut c.host, "10.0.0.1:28000", "", &format!("Player{i}"), "");
             cl.push(c);

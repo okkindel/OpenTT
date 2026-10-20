@@ -760,7 +760,7 @@ impl MenuBackend for Backend<'_> {
     }
 
     fn last_run_rank(&self) -> Option<usize> {
-        self.sh(|s| s.last_game_over.as_ref().and_then(|g| g.rank))
+        self.sh(|s| s.last_rank)
     }
 
     fn round_results(&self) -> Option<tt_menu::RoundResults> {
@@ -853,6 +853,7 @@ impl MenuBackend for Backend<'_> {
                 ping_ms: r.ping_ms,
                 password: r.password,
                 compatible: r.compatible,
+                version: r.version,
                 dedicated: r.dedicated,
                 player_names: r.player_list.iter().map(|(_, n)| n.clone()).collect(),
                 player_list: r.player_list.iter().enumerate().map(|(i, (t, n))| ServerPlayer::new(t, n, r.player_scores.get(i).copied().unwrap_or(0))).collect(),
@@ -1151,6 +1152,16 @@ impl MenuBackend for Backend<'_> {
 
     fn open_mods_folder(&mut self) {
         crate::mods::open_folder(&mut self.host.borrow_mut());
+    }
+
+    fn update_available(&self) -> Option<String> {
+        crate::update::available().map(str::to_string)
+    }
+
+    fn open_releases(&mut self) {
+        if let Err(e) = crate::gamedata::open_folder(std::path::Path::new(crate::update::RELEASES)) {
+            self.host.borrow_mut().log.warn(&format!("update: {e}"));
+        }
     }
 
     fn art(&mut self, ctx: &egui::Context, art: &Art) -> Option<egui::TextureHandle> {

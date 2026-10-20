@@ -8,7 +8,7 @@
 //! `HEALTH_LOG=1` prints the per-map numbers.
 
 use tt_engine::{Config, Engine};
-use tt_menu::{BotSetup, BotSkill, CustomGame, MenuAction, MenuBackend, Team};
+use tt_menu::{BotSetup, BotSkill, CustomGame, MenuAction, Team};
 
 mod common;
 use common::*;
@@ -57,11 +57,7 @@ fn soak(mission: &str, min: u32, minutes: u32, warmup_s: u32, seed: u32) -> Stat
     for _ in 0..30 {
         e.tick();
     }
-    {
-        let Engine { host, menu, .. } = &mut e;
-        let m = menu.as_mut().unwrap();
-        tt_engine::menu::Backend::new(host, &mut m.data).create_player("Tester").unwrap();
-    }
+    new_player(&mut e, "Tester");
     e.set_var("server.min_health_packs", min.to_string().as_str());
     let names = ["Ann", "Bob", "Cid", "Dee", "Eve", "Fay"];
     let g = CustomGame {
@@ -73,10 +69,7 @@ fn soak(mission: &str, min: u32, minutes: u32, warmup_s: u32, seed: u32) -> Stat
         minutes: minutes + 2,
         replace_bots: true,
     };
-    {
-        let Engine { host, menu, .. } = &mut e;
-        menu.as_mut().unwrap().apply(MenuAction::StartCustom(g), host);
-    }
+    apply(&mut e, MenuAction::StartCustom(g));
     let mut st = Stats { min: usize::MAX, min_weapon_typed: usize::MAX, ..Default::default() };
     // Until the mission is in (the world's clock starts with it).
     let mut start = None;

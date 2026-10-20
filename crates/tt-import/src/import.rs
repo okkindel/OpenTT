@@ -2,8 +2,7 @@
 //! ([`Options::game`]), the mapping ([`crate::mapping`]) and OpenTT's own
 //! files ([`Options::ours`], among them the game's data tables `data/`).
 //!
-//! Order: OpenTT's own files are copied; the optional upscaler runs on the
-//! textures the repository has upscaled; then the files made from imported
+//! Order: OpenTT's own files are copied; then the files made from imported
 //! ones (OpenTT's recoloured textures, its sounds, the normal maps) and the
 //! mission pictures.
 
@@ -98,6 +97,30 @@ pub type PictureFn = Arc<dyn Fn(&Path, &PictureJob) -> Result<(), String> + Send
 /// The error text of a cancelled import ([`Options::cancel`]).
 pub const CANCELLED: &str = "import cancelled";
 
+/// The file of an imported asset directory naming the version of the
+/// program whose own files it has ([`refresh_ours`]).
+pub const OURS_VERSION: &str = ".ours-version";
+
+/// Rewrites our own built-in files ([`crate::OURS`]) in the imported asset
+/// directory `out` when they are another version's (the game was updated
+/// since the import); returns whether it did.
+pub fn refresh_ours(out: &Path) -> Result<bool, String> {
+    let version = env!("CARGO_PKG_VERSION");
+    if std::fs::read_to_string(out.join(OURS_VERSION)).is_ok_and(|v| v.trim() == version) {
+        return Ok(false);
+    }
+    for (asset, bytes) in crate::OURS {
+        let Some(b) = bytes else { continue };
+        let p = out.join(asset);
+        if let Some(d) = p.parent() {
+            std::fs::create_dir_all(d).map_err(|e| format!("{}: {e}", d.display()))?;
+        }
+        std::fs::write(&p, b).map_err(|e| format!("{}: {e}", p.display()))?;
+    }
+    std::fs::write(out.join(OURS_VERSION), version).map_err(|e| format!("{OURS_VERSION}: {e}"))?;
+    Ok(true)
+}
+
 /// What to import and how.
 #[derive(Clone)]
 pub struct Options {
@@ -113,10 +136,6 @@ pub struct Options {
     /// Renders the mission pictures; `None`: the pictures of the install
     /// are converted and our own maps get a placeholder.
     pub pictures: Option<PictureFn>,
-    /// External upscaler for the textures the repository has upscaled
-    /// (`{in}` / `{out}` placeholders), e.g.
-    /// `realesrgan-ncnn-vulkan -i {in} -o {out} -n realesrgan-x4plus`.
-    pub upscale_cmd: Option<String>,
     /// ffmpeg for our sounds made from the game's (`ffmpeg`; empty: do not
     /// run it). Without it the built-in mixer makes them ([`crate::sound`]).
     pub ffmpeg: String,
@@ -136,7 +155,6 @@ impl std::fmt::Debug for Options {
             .field("ours", &self.ours)
             .field("normal_maps", &self.normal_maps)
             .field("pictures", &self.pictures.is_some())
-            .field("upscale_cmd", &self.upscale_cmd)
             .field("ffmpeg", &self.ffmpeg)
             .field("verbose", &self.verbose)
             .finish_non_exhaustive()
@@ -145,7 +163,7 @@ impl std::fmt::Debug for Options {
 
 impl Options {
     pub fn new(game: impl Into<PathBuf>, out: impl Into<PathBuf>) -> Options {
-        Options { game: game.into(), out: out.into(), ours: None, normal_maps: true, pictures: None, upscale_cmd: None, ffmpeg: "ffmpeg".into(), verbose: false, progress: None, cancel: None }
+        Options { game: game.into(), out: out.into(), ours: None, normal_maps: true, pictures: None, ffmpeg: "ffmpeg".into(), verbose: false, progress: None, cancel: None }
     }
 
     fn cancelled(&self) -> bool {
@@ -159,9 +177,6 @@ pub struct Skipped {
     pub asset: String,
     pub reason: String,
 }
-
-/// The reason given for the tutorial's slide art when the install has none.
-pub const TUTORIAL_DISABLED: &str = "optional, not found: tutorial disabled";
 
 /// What the import did.
 #[derive(Debug, Default, Clone)]
@@ -182,36 +197,21 @@ impl Report {
         !self.skipped.iter().any(|s| crate::mapping::tutorial_slide(&s.asset))
     }
 
-    /// One line: the counts.
-    pub fn summary(&self) -> String {
-        let mut s = format!("{} files imported", self.written);
-        if !self.skipped.is_empty() {
-            s.push_str(&format!(", {} skipped", self.skipped.len()));
+    /// The report, a line each (the import screen, the import log): the
+    /// counts, then the skipped assets, the files not found, the warnings.
+    pub fn lines(&self) -> Vec<String> {
+        let count = |n: usize, what: &str| if n == 0 { String::new() } else { format!(", {n} {what}") };
+        let warnings = if self.warnings.len() == 1 { "warning" } else { "warnings" };
+        let mut v = vec![format!("{} files imported{}{}{}.", self.written, count(self.skipped.len(), "skipped"), count(self.missing.len(), "optional files not found in the install"), count(self.warnings.len(), warnings))];
+        if !self.tutorial_available() {
+            v.push("The install has no tutorial art: the tutorial is not offered.".into());
         }
-        if !self.missing.is_empty() {
-            s.push_str(&format!(", {} optional files not found in the install", self.missing.len()));
-        }
-        if !self.warnings.is_empty() {
-            s.push_str(&format!(", {} warning{}", self.warnings.len(), if self.warnings.len() == 1 { "" } else { "s" }));
-        }
-        s
-    }
-
-    /// The details, a line each: the skipped assets, the files not found,
-    /// the warnings (for the import screen and the import log).
-    pub fn details(&self) -> Vec<String> {
-        let mut v = Vec::new();
-        if !self.skipped.is_empty() {
-            v.push(format!("Skipped ({}):", self.skipped.len()));
-            v.extend(self.skipped.iter().map(|s| format!("  {}: {}", s.asset, s.reason)));
-        }
-        if !self.missing.is_empty() {
-            v.push(format!("Not found in the install ({}):", self.missing.len()));
-            v.extend(self.missing.iter().map(|m| format!("  {m}")));
-        }
-        if !self.warnings.is_empty() {
-            v.push(format!("Warnings ({}):", self.warnings.len()));
-            v.extend(self.warnings.iter().map(|w| format!("  {w}")));
+        let skipped = self.skipped.iter().map(|s| format!("{}: {}", s.asset, s.reason)).collect();
+        for (title, items) in [("Skipped", skipped), ("Not found in the install", self.missing.clone()), ("Warnings", self.warnings.clone())] {
+            if !items.is_empty() {
+                v.push(format!("{title} ({}):", items.len()));
+                v.extend(items.iter().map(|i| format!("  {i}")));
+            }
         }
         v
     }
@@ -237,8 +237,6 @@ pub struct Importer<'a> {
     pub mapping: &'a Mapping,
     index: HashMap<String, String>,
     report: Report,
-    /// Warnings noted while converting (behind `&self`).
-    notes: std::cell::RefCell<Vec<String>>,
     /// Files done and the total, for [`Options::progress`].
     done: usize,
     total: usize,
@@ -258,7 +256,7 @@ impl<'a> Importer<'a> {
         for (game_file, asset) in &mapping.replaced {
             index.insert(game_file.to_ascii_lowercase(), asset.clone());
         }
-        Importer { opts, mapping, index, report: Report::default(), notes: Default::default(), done: 0, total: 0 }
+        Importer { opts, mapping, index, report: Report::default(), done: 0, total: 0 }
     }
 
     /// Reports the next file (`file` of `phase`); `Err` when cancelled.
@@ -330,21 +328,6 @@ impl<'a> Importer<'a> {
         }
     }
 
-    /// The converted text of a text entry; `None` for other kinds.
-    fn convert_text(&self, e: &Entry) -> Result<Option<String>, String> {
-        let paths = |v: &str, dir: &str| self.reference(v, dir);
-        Ok(Some(match &e.how {
-            How::Mission(f) => {
-                let (text, notes) = convert::mission_file_notes(f, &self.read_game_file(f)?, &paths)?;
-                self.notes.borrow_mut().extend(notes.into_iter().map(|n| format!("{f}: {n}")));
-                text
-            }
-            How::Ifl(f) => self.ifl(f)?,
-            How::Dml { from, keep } => self.dml(from, *keep)?,
-            _ => return Ok(None),
-        }))
-    }
-
     fn file_name(asset: &str) -> &str {
         asset.rsplit('/').next().unwrap_or(asset)
     }
@@ -395,7 +378,7 @@ impl<'a> Importer<'a> {
         t.to_bytes().map_err(|e| format!("{from}: {e}"))
     }
 
-    fn image(&mut self, asset: &str, from: &str, alpha: Option<&str>, upscaled: bool) -> Result<(), String> {
+    fn image(&mut self, asset: &str, from: &str, alpha: Option<&str>) -> Result<(), String> {
         let color = images::open(&self.game_file(from)?)?;
         let mask = match alpha {
             Some(a) => match self.game_file(a) {
@@ -415,10 +398,6 @@ impl<'a> Importer<'a> {
         let img = match mask {
             Some(m) => image::DynamicImage::ImageRgba8(images::merge_alpha(&color, &m)),
             None => images::normalized(color),
-        };
-        let img = match (&self.opts.upscale_cmd, upscaled) {
-            (Some(cmd), true) => images::upscale(cmd, &img, asset.starts_with("terrain/"), &self.opts.out.join(".upscale"))?,
-            _ => img,
         };
         images::save_png(&img, &self.out(asset))?;
         self.wrote(asset);
@@ -460,19 +439,15 @@ impl<'a> Importer<'a> {
 
     fn picture(&mut self, asset: &str, mission: &str, game_file: Option<&str>) -> Result<(), String> {
         // The install's picture, when it has it; else as for our own maps.
-        let game_file = game_file.filter(|o| {
-            let found = crate::locate::game_file(&self.opts.game, o).is_some();
-            if !found {
+        let found = game_file.and_then(|o| {
+            let p = crate::locate::game_file(&self.opts.game, o);
+            if p.is_none() {
                 self.report.not_found(o);
             }
-            found
+            p
         });
-        if let Some(o) = game_file {
-            let img = images::normalized(images::open(&self.game_file(o)?)?);
-            let img = match &self.opts.upscale_cmd {
-                Some(cmd) => images::upscale(cmd, &img, false, &self.opts.out.join(".upscale"))?,
-                None => img,
-            };
+        if let Some(p) = found {
+            let img = images::normalized(images::open(&p)?);
             images::save_png(&img, &self.out(asset))?;
         } else {
             // OpenTT's own map: its terrain, shaded, tinted by its world.
@@ -487,8 +462,7 @@ impl<'a> Importer<'a> {
             } else {
                 [0.55, 0.9, 0.5]
             };
-            let (w, h) = if self.opts.upscale_cmd.is_some() { (PICTURE_SIZE.0, PICTURE_SIZE.1) } else { (PICTURE_SIZE.0 / 4, PICTURE_SIZE.1 / 4) };
-            images::save_png(&images::terrain_picture(&t, tint, w, h), &self.out(asset))?;
+            images::save_png(&images::terrain_picture(&t, tint, PICTURE_SIZE.0 / 4, PICTURE_SIZE.1 / 4), &self.out(asset))?;
             if self.opts.pictures.is_none() {
                 self.report.warnings.push(format!("{asset}: placeholder picture (the shaded terrain); the game's import renders it"));
             }
@@ -508,7 +482,7 @@ impl<'a> Importer<'a> {
                 let b = self.terrain(f)?;
                 self.write(asset, &b)
             }
-            How::Image { from, alpha, upscaled } => self.image(asset, from, alpha.as_deref(), *upscaled),
+            How::Image { from, alpha, .. } => self.image(asset, from, alpha.as_deref()),
             How::Recolour { from, hue, min_saturation, value, thicken, at_width } => {
                 let src = images::open(&self.out(from))?;
                 let img = images::recolour(&src, *hue, *min_saturation, *value, *thicken, *at_width);
@@ -545,10 +519,19 @@ impl<'a> Importer<'a> {
                 Ok(())
             }
             How::Picture { mission, game_file, .. } => self.picture(asset, mission, game_file.as_deref()),
-            _ => match self.convert_text(e)? {
-                Some(text) => self.write(asset, text.as_bytes()),
-                None => Err(format!("{asset}: nothing to do")),
-            },
+            How::Mission(f) => {
+                let (text, notes) = convert::mission_file(f, &self.read_game_file(f)?, &|v: &str, dir: &str| self.reference(v, dir))?;
+                self.report.warnings.extend(notes.into_iter().map(|n| format!("{f}: {n}")));
+                self.write(asset, text.as_bytes())
+            }
+            How::Ifl(f) => {
+                let text = self.ifl(f)?;
+                self.write(asset, text.as_bytes())
+            }
+            How::Dml { from, keep } => {
+                let text = self.dml(from, *keep)?;
+                self.write(asset, text.as_bytes())
+            }
         }
     }
 
@@ -573,7 +556,7 @@ impl<'a> Importer<'a> {
             std::fs::write(&p, b).map_err(|e| format!("{}: {e}", p.display()))?;
             self.wrote(asset);
         }
-        Ok(())
+        std::fs::write(self.opts.out.join(OURS_VERSION), env!("CARGO_PKG_VERSION")).map_err(|e| format!("{OURS_VERSION}: {e}"))
     }
 
     /// Required files that are missing are not skipped (the import fails
@@ -590,30 +573,14 @@ impl<'a> Importer<'a> {
         if !e.optional() || matches!(e.how, How::Picture { .. }) {
             return None;
         }
-        let absent: Vec<String> = e.how.required_files().into_iter().filter(|f| crate::locate::game_file(&self.opts.game, f).is_none()).collect();
-        if absent.is_empty() {
+        let required = e.how.required_files();
+        let absent: Vec<String> = e.how.game_files().into_iter().filter(|f| crate::locate::game_file(&self.opts.game, f).is_none()).collect();
+        if !absent.iter().any(|f| required.contains(f)) {
             return None;
         }
-        for f in &e.how.game_files() {
-            if crate::locate::game_file(&self.opts.game, f).is_none() {
-                self.report.not_found(f);
-            }
-        }
-        let slides = crate::mapping::tutorial_slide(&e.asset) || e.asset == "ui/backgrounds/marqueebackground.png";
-        Some(if slides { TUTORIAL_DISABLED.to_string() } else { format!("optional, not found: {}", absent.join(", ")) })
-    }
-
-    /// Why the mission of entry `e` was left out (its conversion failed
-    /// with `err`), naming the compiled script next to it if there is
-    /// one.
-    fn unreadable_mission(&self, e: &Entry, err: &str) -> String {
-        let How::Mission(f) = &e.how else { return err.to_string() };
-        let dso = crate::locate::game_file(&self.opts.game, &format!("{f}.dso")).is_some();
-        let mut r = format!("mission left out, its file could not be read ({err})");
-        if dso {
-            r.push_str(&format!("; the install also has {f}.dso, a compiled copy the import does not read"));
-        }
-        r
+        absent.iter().for_each(|f| self.report.not_found(f));
+        let absent: Vec<&str> = absent.iter().filter(|f| required.contains(f)).map(String::as_str).collect();
+        Some(if crate::mapping::tutorial_slide(&e.asset) { "optional, not found: tutorial disabled".into() } else { format!("optional, not found: {}", absent.join(", ")) })
     }
 
     /// Runs the whole import.
@@ -657,27 +624,19 @@ impl<'a> Importer<'a> {
                     }
                     _ => self.one(e),
                 };
-                match r {
-                    // A mission that cannot be read: left out (the game
-                    // lists the missions it has), the import goes on.
-                    Err(err) if matches!(e.how, How::Mission(_)) => {
-                        let reason = self.unreadable_mission(e, &err);
-                        self.report.skip(&e.asset, reason);
+                match (r, &e.how) {
+                    // A mission that cannot be read: left out (the game lists the
+                    // missions it has), the import goes on; a compiled copy next
+                    // to it is not read.
+                    (Err(err), How::Mission(f)) => {
+                        let dso = crate::locate::game_file(&self.opts.game, &format!("{f}.dso")).map_or(String::new(), |_| format!("; the install also has {f}.dso, a compiled copy the import does not read"));
+                        self.report.skip(&e.asset, format!("mission left out, its file could not be read ({err}){dso}"));
                     }
-                    Err(err) => errors.push(err),
-                    Ok(()) => {}
+                    (Err(err), _) => errors.push(err),
+                    (Ok(()), _) => {}
                 }
-                let notes = std::mem::take(&mut *self.notes.borrow_mut());
-                self.report.warnings.extend(notes);
             }
         }
-        // The backdrop of the tutorial alone: the slides still show.
-        if self.report.tutorial_available() {
-            for s in self.report.skipped.iter_mut().filter(|s| s.reason == TUTORIAL_DISABLED) {
-                s.reason = "optional, not found: the tutorial slides show without their backdrop".into();
-            }
-        }
-        let _ = std::fs::remove_dir_all(self.opts.out.join(".upscale"));
         if errors.is_empty() {
             Ok(self.report)
         } else {
@@ -759,4 +718,22 @@ pub fn install(opts: &Options) -> Result<Report, InstallError> {
     }
     let _ = std::fs::remove_dir_all(&old);
     Ok(report)
+}
+
+#[cfg(test)]
+mod tests {
+    /// An import of an older version gets this version's own files once.
+    #[test]
+    fn refresh_ours_rewrites_an_older_versions_files() {
+        let out = std::env::temp_dir().join(format!("tt-refresh-ours-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&out);
+        std::fs::create_dir_all(&out).unwrap();
+        std::fs::write(out.join(super::OURS_VERSION), "0.1.2").unwrap();
+        let (asset, bytes) = crate::OURS.iter().find_map(|(a, b)| b.map(|b| (*a, b))).unwrap();
+        assert!(super::refresh_ours(&out).unwrap());
+        assert_eq!(std::fs::read(out.join(asset)).unwrap(), bytes);
+        assert_eq!(std::fs::read_to_string(out.join(super::OURS_VERSION)).unwrap(), env!("CARGO_PKG_VERSION"));
+        assert!(!super::refresh_ours(&out).unwrap(), "up to date: nothing written");
+        let _ = std::fs::remove_dir_all(&out);
+    }
 }

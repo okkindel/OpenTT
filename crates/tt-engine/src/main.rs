@@ -52,7 +52,7 @@
 //! * `--cmd TICK:COMMAND` (repeatable): runs a console command at that tick.
 //! * `--keys TICK:TEXT` (repeatable): types TEXT at that tick; `{name}`
 //!   sends a named key, e.g. `--keys 300:Bait{return}`, `{click:X,Y}` a left
-//!   click, `{move:X,Y}` a mouse move and `{wheel:X,Y,DY}` a wheel turn (120
+//!   click and `{wheel:X,Y,DY}` a wheel turn (120
 //!   per notch) at canvas coordinates; `{down:KEY}` / `{up:KEY}` hold and
 //!   release a key; `{axis:x,DX}` a mouse axis motion (to the action maps);
 //!   in the window `{mouse:x,RATE}` moves the mouse steadily at RATE counts
@@ -200,17 +200,21 @@ fn run(a: Args) -> Result<(), String> {
     if let Some(source) = &a.import {
         return import(&a, source, &target);
     }
+    if windowed_run(&a) {
+        tt_engine::update::start();
+    }
     let a = std::rc::Rc::new(a);
     let factory_args = a.clone();
     let factory: launcher::AppFactory = Box::new(move |assets: &Path| {
-        let engine = boot_engine(&factory_args, assets)?;
-        window_app(&factory_args, engine, assets)
+        let mut engine = boot_engine(&factory_args, assets)?;
+        load_mission(&factory_args, &mut engine, assets)?;
+        Ok(window_app_loaded(&factory_args, engine, assets))
     });
-    #[cfg(feature = "dev")]
-    let offline = a.dev.offline();
-    #[cfg(not(feature = "dev"))]
-    let offline = false;
+    let offline = offline(&a);
     let present = gamedata::present(&a.cfg.assets);
+    if present {
+        gamedata::refresh_ours(&a.cfg.assets);
+    }
     // Runs without a window cannot show the import screen: they start on
     // what there is (our own maps; the engine needs `missions/`).
     if !present && (a.dedicated || offline) {
@@ -221,23 +225,12 @@ fn run(a: Args) -> Result<(), String> {
         if a.dedicated {
             return dedicated(&mut engine);
         }
+        load_mission(&a, &mut engine, &a.cfg.assets)?;
         #[cfg(feature = "dev")]
-        {
-            if let Some(m) = &a.mission {
-                let rel = mission::game_relative(&a.cfg.assets, m)?;
-                mission::load_dev_mission(&mut engine, &rel)?;
-            }
-            if let Some(r) = devtools::run_offline(&mut engine, &a.dev, &a.cfg.assets, a.mission.as_deref()) {
-                return r;
-            }
-            let app = window_app_loaded(&a, engine, &a.cfg.assets);
-            launcher::Launcher::game(app, target, factory)
+        if let Some(r) = devtools::run_offline(&mut engine, &a.dev, &a.cfg.assets, a.mission.as_deref()) {
+            return r;
         }
-        #[cfg(not(feature = "dev"))]
-        {
-            let app = window_app(&a, engine, &a.cfg.assets)?;
-            launcher::Launcher::game(app, target, factory)
-        }
+        launcher::Launcher::game(window_app_loaded(&a, engine, &a.cfg.assets), target, factory)
     } else {
         launcher::Launcher::first_run(a.cfg.assets.clone(), target, factory)
     };
@@ -264,7 +257,7 @@ fn no_game_data(assets: &Path) -> String {
 
 /// A booted engine on `assets` with the command line's settings.
 fn boot_engine(a: &Args, assets: &Path) -> Result<Engine, String> {
-    let cfg = Config { assets: assets.to_path_buf(), data: a.cfg.data.clone(), args: a.cfg.args.clone(), audio_output: a.cfg.audio_output, echo_log: a.cfg.echo_log, windowed: a.cfg.windowed };
+    let cfg = Config { assets: assets.to_path_buf(), ..a.cfg.clone() };
     let mut engine = Engine::new(&cfg)?;
     engine.host.debug = a.debug;
     engine.host.netgame.port_override = a.port;
@@ -284,16 +277,15 @@ fn boot_engine(a: &Args, assets: &Path) -> Result<Engine, String> {
     Ok(engine)
 }
 
-/// The window's game state for a booted `engine` (loads `--mission`).
-fn window_app(a: &Args, mut engine: Engine, assets: &Path) -> Result<App, String> {
+/// Loads `--mission` into a booted `engine`.
+fn load_mission(a: &Args, engine: &mut Engine, assets: &Path) -> Result<(), String> {
     if let Some(m) = &a.mission {
-        let rel = mission::game_relative(assets, m)?;
-        mission::load_dev_mission(&mut engine, &rel)?;
+        mission::load_dev_mission(engine, &mission::game_relative(assets, m)?)?;
     }
-    Ok(window_app_loaded(a, engine, assets))
+    Ok(())
 }
 
-/// [`window_app`] with `--mission` already loaded.
+/// The window's game state for a booted `engine` with `--mission` loaded.
 fn window_app_loaded(a: &Args, engine: Engine, assets: &Path) -> App {
     #[allow(unused_mut)]
     let mut app = App::new(engine, assets.to_path_buf(), a.mission.is_some());
@@ -367,11 +359,16 @@ fn dedicated(engine: &mut Engine) -> Result<(), String> {
 /// Whether the run shows the window (fatal errors then also go to a message
 /// box): not a server, an import or a developer run without a window.
 fn windowed_run(a: &Args) -> bool {
+    !(a.dedicated || a.master || a.import.is_some() || offline(a))
+}
+
+/// A developer run without a window (`--headless`, `--screenshot`, `--bench`).
+#[cfg_attr(not(feature = "dev"), allow(unused_variables))]
+fn offline(a: &Args) -> bool {
     #[cfg(feature = "dev")]
-    let offline = a.dev.offline();
+    return a.dev.offline();
     #[cfg(not(feature = "dev"))]
-    let offline = false;
-    !(a.dedicated || a.master || a.import.is_some() || offline)
+    false
 }
 
 /// Whether a fatal error of a windowed run goes to a message box as well:
@@ -418,11 +415,6 @@ fn main() -> ExitCode {
     // server without one opens one.
     let console = tt_engine::crash::attach_console(has("--dedicated") || has("--master"));
     tt_engine::crash::install(&tt_engine::fs::default_data_dir());
-    // The default data directory of the earlier product name becomes the
-    // current one, before the defaults below look into it (not with `--data`).
-    if !has("--data") {
-        tt_engine::userdata::move_default_data_dir();
-    }
     let args = match parse_args() {
         Ok(a) => a,
         Err(e) => {

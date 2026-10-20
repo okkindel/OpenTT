@@ -391,8 +391,3 @@ pub fn apply_auto_turn(mv: &mut Move, tank: &Tank) {
         mv.x = tank.yaw_n.signum();
     }
 }
-
-/// Barrel elevation above the hull, degrees.
-pub fn barrel_elevation_deg(data: &TankParams, pitch_n: f32) -> f32 {
-    data.turret_pitch_center - data.turret_pitch_range * pitch_n
-}

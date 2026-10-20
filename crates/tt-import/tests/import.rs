@@ -89,7 +89,7 @@ fn import_reproduces_the_assets() {
     for w in &report.warnings {
         eprintln!("warning: {w}");
     }
-    let mismatches = verify::compare(&out, &tt_import::repo_assets(), &m, false);
+    let mismatches = verify::compare(&out, &tt_import::repo_assets(), &m);
     for l in verify::summary(&mismatches) {
         eprintln!("{l}");
     }
@@ -149,14 +149,13 @@ fn other_editions_import() {
     opts.normal_maps = false;
     opts.ffmpeg = String::new();
     let r = tt_import::import(&opts).unwrap();
-    eprintln!("{}", r.summary());
-    for l in r.details() {
+    for l in r.lines() {
         eprintln!("{l}");
     }
     assert!(!r.tutorial_available());
-    let slides: Vec<_> = r.skipped.iter().filter(|s| s.asset.starts_with("ui/backgrounds/") && s.asset.contains("marquee")).collect();
-    assert_eq!(slides.len(), 9, "{slides:?}");
-    assert!(slides.iter().all(|s| s.reason == tt_import::TUTORIAL_DISABLED));
+    let slides: Vec<_> = r.skipped.iter().filter(|s| mapping::tutorial_slide(&s.asset)).collect();
+    assert_eq!(slides.len(), 8, "{slides:?}");
+    assert!(slides.iter().all(|s| s.reason.ends_with("tutorial disabled")));
     assert_eq!(r.missing.iter().filter(|m| m.to_ascii_lowercase().contains("marquee")).count(), 17);
     let bad = r.skipped.iter().find(|s| s.asset == "missions/tt2_1.ron").expect("tt2_1 skipped");
     assert!(bad.reason.contains("TT2_1.mis.dso"), "{}", bad.reason);

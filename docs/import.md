@@ -29,7 +29,6 @@ crate, built into the binary.
 | `--out DIR` | the asset directory to write (required; created, files overwritten) |
 | `--ours DIR` | where our own files are (default: the copies built into the program from the repository's `assets/`, `tt_import::OURS`) |
 | `--normal-maps` / `--no-normal-maps` | make the `*.normal.png` of the "normal maps" option (default on) |
-| `--upscale-cmd CMD` | run an external upscaler on the textures the repository has upscaled (below) |
 | `--ffmpeg PATH` | ffmpeg for OpenTT's sounds made from the game's (default `ffmpeg` on `PATH`; `""`: not used). Without it the built-in mixer makes them (below) |
 | `-v` | list every file written |
 
@@ -37,7 +36,7 @@ Developer commands:
 
 | Command | |
 |---|---|
-| `tt-import compare --out DIR [--assets assets] [--upscaled]` | compares an imported directory with `assets/` (§ Verification) |
+| `tt-import compare --out DIR [--assets assets]` | compares an imported directory with `assets/` (§ Verification) |
 | `tt-import mapping [--check]` | writes `mapping.ron` from `assets/*/SOURCES.md` |
 
 ## OpenTT's own files and the derived ones
@@ -94,26 +93,13 @@ again replaces it with the lowercase names.
 An import writes only the asset directory: the mods (`mods/` of the user
 data directory, `docs/modding.md`) are never touched.
 
-Order: OpenTT's own files (the data tables among them); the upscaler; the recoloured textures
-and the sounds; the normal maps; the pictures.
+Order: OpenTT's own files (the data tables among them); the recoloured textures and the sounds;
+the normal maps; the pictures.
 
 ## Upscaling
 
 The repository's textures are 4x Real-ESRGAN upscales (`docs/layout.md` §
-Provenance); they cannot be redistributed or reproduced bit for bit.
-`--upscale-cmd` runs a local upscaler on each of the 145 textures marked
-`upscaled`:
-
-```sh
-tt-import --game ... --out ... \
-  --upscale-cmd "realesrgan-ncnn-vulkan -i {in} -o {out} -n realesrgan-x4plus"
-```
-
-`{in}` / `{out}` are PNG files; the command is split on whitespace (no
-shell). As for the repository's: the alpha channel is upscaled separately
-as a greyscale image, terrain textures are wrap-padded (1/8 of a side) so
-they tile, the result must be an integer multiple of the input. The
-recoloured textures and normal maps are made after the upscale. The game
+Provenance); they cannot be redistributed or reproduced bit for bit. The game
 draws either resolution (the renderer resamples its texture layers).
 
 ## Verification
@@ -148,8 +134,7 @@ that the files are converted on this computer and stay there.
 * The folder is checked first (`tt_import::locate::resolve`): the install
   root (with `game/data/missions` and `game/server/scripts`), the folder
   above it, its `game/` folder or one inside it, or a file in it, are all
-  taken, and so is a Mac application bundle (`<name>.app/Contents/Resources`);
-  then every file the game cannot run without must be there
+  taken; then every file the game cannot run without must be there
   (`tt_import::locate::missing_required`, in any accepted form, § Optional
   files). Otherwise the screen says what is missing (no `game` folder;
   `game/server/scripts` missing; "incomplete: 3 of the files the game
@@ -174,7 +159,7 @@ that the files are converted on this computer and stay there.
   counts, a scrollable list of what was skipped, not found or warned
   about, **Open log folder** and **Continue** (into the game) or **Back**.
   The full report is written to `<user data>/logs/import.log`
-  (`tt_engine::gamedata::IMPORT_LOG`) and appended to `logs/console.log`;
+  (`tt_engine::gamedata::IMPORT_LOG`);
   the new session's console log repeats it. A failure's message names
   the log.
 * On success (after Continue) the game boots on the new data without a restart; the

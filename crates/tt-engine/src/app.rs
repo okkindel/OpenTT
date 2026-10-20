@@ -613,16 +613,7 @@ fn capture_frame(engine: &mut Engine, g: &mut Gfx, frame: &wgpu::Texture, size: 
     let pixels = if frame.usage().contains(wgpu::TextureUsages::COPY_SRC) {
         crate::gfx::read_rgba(&g.device, &g.queue, frame, size, g.config.format)
     } else {
-        let texture = g.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("screenshot"),
-            size: wgpu::Extent3d { width: size.0, height: size.1, depth_or_array_layers: 1 },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: g.config.format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-            view_formats: &[],
-        });
+        let texture = crate::gfx::render_target(&g.device, "screenshot", size, g.config.format);
         let view = texture.create_view(&Default::default());
         g.fe.draw(engine, &g.device, &g.queue, &view, size, 0.0);
         crate::gfx::read_rgba(&g.device, &g.queue, &texture, size, g.config.format)

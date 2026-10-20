@@ -34,24 +34,7 @@ pub enum AlParam {
     Gain,
     GainLinear,
     Pitch,
-    Looping,
-    ReferenceDistance,
-    MaxDistance,
-    RolloffFactor,
-    ConeInnerAngle,
-    ConeOuterAngle,
-    ConeOuterGain,
     Position,
-    Direction,
-    Velocity,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum DistanceModel {
-    /// OpenAL `AL_INVERSE_DISTANCE_CLAMPED` (the OpenAL default).
-    #[default]
-    InverseClamped,
-    Linear,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -94,9 +77,7 @@ struct Source {
     gain: f32,
     pitch: f32,
     looping: bool,
-    rolloff: f32,
     position: [f32; 3],
-    direction: [f32; 3],
     data: Data,
     rate: u32,
     channels: u16,
@@ -115,7 +96,6 @@ pub struct Mixer {
     buffers: HashMap<PathBuf, Arc<Pcm>>,
     channel_volume: [f32; NUM_AUDIO_TYPES],
     listener: Listener,
-    distance_model: DistanceModel,
     music: MusicPlayer,
     music_handle: Handle,
     errors: Vec<String>,
@@ -149,29 +129,18 @@ fn normalize(a: [f32; 3]) -> Option<[f32; 3]> {
     (l > 1e-6).then(|| [a[0] / l, a[1] / l, a[2] / l])
 }
 
-/// Distance attenuation for a 3D source (0 when culled).
-pub fn distance_gain(model: DistanceModel, dist: f32, reference: f32, max: f32, rolloff: f32) -> f32 {
+/// Distance attenuation for a 3D source (0 when culled): OpenAL's
+/// `AL_INVERSE_DISTANCE_CLAMPED` with rolloff factor 1.
+pub fn distance_gain(dist: f32, reference: f32, max: f32) -> f32 {
     if dist >= max {
         return 0.0;
     }
     let reference = reference.max(0.0);
-    match model {
-        DistanceModel::InverseClamped => {
-            let d = dist.clamp(reference, max.max(reference));
-            let denom = reference + rolloff * (d - reference);
-            if denom <= 0.0 {
-                1.0
-            } else {
-                (reference / denom).clamp(0.0, 1.0)
-            }
-        }
-        DistanceModel::Linear => {
-            if dist < reference || max <= reference {
-                1.0
-            } else {
-                1.0 - (dist - reference) / (max - reference)
-            }
-        }
+    let d = dist.clamp(reference, max.max(reference));
+    if d <= 0.0 {
+        1.0
+    } else {
+        (reference / d).clamp(0.0, 1.0)
     }
 }
 
@@ -192,7 +161,6 @@ impl Mixer {
             buffers: HashMap::new(),
             channel_volume: [1.0; NUM_AUDIO_TYPES],
             listener: Listener::default(),
-            distance_model: DistanceModel::default(),
             music: MusicPlayer::default(),
             music_handle: NULL_HANDLE,
             errors: Vec::new(),
@@ -303,9 +271,7 @@ impl Mixer {
             gain: desc.volume,
             pitch: 1.0,
             looping: desc.is_looping,
-            rolloff: 1.0,
             position: pos.unwrap_or(self.listener.position),
-            direction: desc.cone_vector,
             desc,
             data,
             rate,
@@ -412,24 +378,14 @@ impl Mixer {
         match param {
             AlParam::Gain | AlParam::GainLinear => s.gain = v.max(0.0),
             AlParam::Pitch => s.pitch = v.clamp(0.01, 16.0),
-            AlParam::Looping => s.looping = v != 0.0,
-            AlParam::ReferenceDistance => s.desc.reference_distance = v,
-            AlParam::MaxDistance => s.desc.max_distance = v,
-            AlParam::RolloffFactor => s.rolloff = v.max(0.0),
-            AlParam::ConeInnerAngle => s.desc.cone_inside_angle = v,
-            AlParam::ConeOuterAngle => s.desc.cone_outside_angle = v,
-            AlParam::ConeOuterGain => s.desc.cone_outside_volume = v,
-            AlParam::Position | AlParam::Direction | AlParam::Velocity => {}
+            AlParam::Position => {}
         }
     }
 
-    /// `alxSource3f(handle, param, x, y, z)` (position, direction).
+    /// `alxSource3f(handle, param, x, y, z)` (position).
     pub fn source_3f(&mut self, h: Handle, param: AlParam, v: [f32; 3]) {
-        let Some(s) = self.sources.get_mut(&h) else { return };
-        match param {
-            AlParam::Position => s.position = v,
-            AlParam::Direction => s.direction = v,
-            _ => {}
+        if let (Some(s), AlParam::Position) = (self.sources.get_mut(&h), param) {
+            s.position = v;
         }
     }
 
@@ -457,21 +413,12 @@ impl Mixer {
         }
     }
 
-    pub fn set_listener_position(&mut self, p: [f32; 3]) {
-        self.listener.position = p;
-    }
-
-    /// `AL_ORIENTATION`: forward and up vectors.
-    pub fn set_listener_orientation(&mut self, at: [f32; 3], up: [f32; 3]) {
-        if let (Some(at), Some(up)) = (normalize(at), normalize(up)) {
+    pub fn set_listener_transform(&mut self, pos: [f32; 3], forward: [f32; 3], up: [f32; 3]) {
+        self.listener.position = pos;
+        if let (Some(at), Some(up)) = (normalize(forward), normalize(up)) {
             self.listener.at = at;
             self.listener.up = up;
         }
-    }
-
-    pub fn set_listener_transform(&mut self, pos: [f32; 3], forward: [f32; 3], up: [f32; 3]) {
-        self.set_listener_position(pos);
-        self.set_listener_orientation(forward, up);
     }
 
     // ---- music -------------------------------------------------------------
@@ -509,13 +456,11 @@ impl Mixer {
         self.music_handle
     }
 
-    /// Per-frame update: music mood smoothing, and — when no output device
-    /// is pulling audio (nothing called [`render`](Self::render) for
-    /// 500 ms) — advancing all playing sources by the wall-clock time since
+    /// Per-frame update: when no output device is pulling audio (nothing
+    /// called [`render`](Self::render) for 500 ms), advances all playing sources by the wall-clock time since
     /// the previous call, so finished one-shots are released headless too.
     /// With a device, `render` advances and releases sources itself.
     pub fn update(&mut self) {
-        self.music.update();
         let now = Instant::now();
         let since = self.clock.replace(now);
         let rendering = self.last_render.is_some_and(|t| now.duration_since(t) < RENDER_TIMEOUT);
@@ -573,10 +518,10 @@ impl Mixer {
         }
         let rel = sub(s.position, self.listener.position);
         let dist = len(rel);
-        let mut g = base * distance_gain(self.distance_model, dist, s.desc.reference_distance, s.desc.max_distance, s.rolloff);
+        let mut g = base * distance_gain(dist, s.desc.reference_distance, s.desc.max_distance);
         let (inner, outer) = (s.desc.cone_inside_angle, s.desc.cone_outside_angle);
         if (inner < 360.0 || outer < 360.0) && dist > 1e-6 {
-            if let Some(dir) = normalize(s.direction) {
+            if let Some(dir) = normalize(s.desc.cone_vector) {
                 let to_listener = [-rel[0] / dist, -rel[1] / dist, -rel[2] / dist];
                 let angle = dot(dir, to_listener).clamp(-1.0, 1.0).acos().to_degrees();
                 let cone = if angle <= inner / 2.0 {
@@ -846,14 +791,11 @@ mod tests {
 
     #[test]
     fn inverse_distance_clamped() {
-        let m = DistanceModel::InverseClamped;
-        assert_eq!(distance_gain(m, 0.0, 10.0, 60.0, 1.0), 1.0);
-        assert_eq!(distance_gain(m, 10.0, 10.0, 60.0, 1.0), 1.0);
-        assert!((distance_gain(m, 20.0, 10.0, 60.0, 1.0) - 0.5).abs() < 1e-6);
-        assert!((distance_gain(m, 59.0, 10.0, 60.0, 1.0) - 10.0 / 59.0).abs() < 1e-6);
-        assert_eq!(distance_gain(m, 60.0, 10.0, 60.0, 1.0), 0.0, "culled at maxDistance");
-        let l = DistanceModel::Linear;
-        assert!((distance_gain(l, 35.0, 10.0, 60.0, 1.0) - 0.5).abs() < 1e-6);
+        assert_eq!(distance_gain(0.0, 10.0, 60.0), 1.0);
+        assert_eq!(distance_gain(10.0, 10.0, 60.0), 1.0);
+        assert!((distance_gain(20.0, 10.0, 60.0) - 0.5).abs() < 1e-6);
+        assert!((distance_gain(59.0, 10.0, 60.0) - 10.0 / 59.0).abs() < 1e-6);
+        assert_eq!(distance_gain(60.0, 10.0, 60.0), 0.0, "culled at maxDistance");
     }
 
     #[test]
@@ -910,7 +852,7 @@ mod tests {
         let out = m.render_seconds(0.05);
         assert!(peak(&out, 1) > 0.99 && peak(&out, 0) < 0.01, "right only: {} {}", peak(&out, 0), peak(&out, 1));
         // Turn around: now it is on the left.
-        m.set_listener_orientation([0.0, -1.0, 0.0], [0.0, 0.0, 1.0]);
+        m.set_listener_transform([0.0; 3], [0.0, -1.0, 0.0], [0.0, 0.0, 1.0]);
         let out = m.render_seconds(0.05);
         assert!(peak(&out, 0) > 0.99 && peak(&out, 1) < 0.01);
         // Straight ahead: centred at unity.
@@ -934,7 +876,7 @@ mod tests {
         m.source_3f(h, AlParam::Position, [0.0, 70.0, 0.0]);
         assert!(m.render_seconds(0.05).iter().all(|&s| s == 0.0));
         assert!(m.is_playing(h), "culled loops stay alive");
-        m.set_listener_position([0.0, 65.0, 0.0]);
+        m.set_listener_transform([0.0, 65.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]);
         assert!(peak(&m.render_seconds(0.05), 0) > 0.99);
     }
 
@@ -943,10 +885,13 @@ mod tests {
         let mut m = Mixer::new(8000, AudioDb::new());
         let desc = SoundDesc { cone_inside_angle: 90.0, cone_outside_angle: 180.0, cone_outside_volume: 0.25, cone_vector: [0.0, 1.0, 0.0], ..d3(10.0, 100.0) };
         // Source in front of the listener pointing away from it.
-        let h = m_create(&mut m, desc, [0.0, 5.0, 0.0]);
+        let h = m_create(&mut m, desc.clone(), [0.0, 5.0, 0.0]);
         m.play(h);
         assert!((peak(&m.render_seconds(0.05), 0) - 0.25).abs() < 0.01);
-        m.source_3f(h, AlParam::Direction, [0.0, -1.0, 0.0]);
+        m.stop(h);
+        // Pointing at the listener.
+        let h = m_create(&mut m, SoundDesc { cone_vector: [0.0, -1.0, 0.0], ..desc }, [0.0, 5.0, 0.0]);
+        m.play(h);
         assert!(peak(&m.render_seconds(0.05), 0) > 0.99);
     }
 

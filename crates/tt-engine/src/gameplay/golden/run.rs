@@ -12,12 +12,11 @@ use super::action::ScenarioAction;
 use super::record::{self, Golden, GoldenAudio};
 use super::drive::apply;
 use crate::{Config, Engine, TICK_MS};
-use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 use tt_menu::MenuBackend;
-use tt_net::{Datagram, LinkConditions, MemNet};
+use tt_net::{LinkConditions, MemNet};
 
 /// A local scenario.
 #[derive(Clone)]
@@ -95,20 +94,6 @@ fn data_dir(name: &str, tag: &str) -> PathBuf {
     std::env::temp_dir().join(format!("tt-golden-{name}-{tag}-{}-{n}", std::process::id()))
 }
 
-fn mem_factory(net: &MemNet, ip: [u8; 4]) -> crate::netgame::TransportFactory {
-    let net = net.clone();
-    let mut next = 40000u16;
-    Box::new(move |port| {
-        let port = if port == 0 {
-            next += 1;
-            next
-        } else {
-            port
-        };
-        Ok(Box::new(net.endpoint(SocketAddr::from((ip, port)))) as Box<dyn Datagram>)
-    })
-}
-
 /// A fresh engine in the golden configuration, recording, not booted yet.
 fn engine(name: &str, tag: &str, args: &[String], seed: u32, net: &MemNet, ip: [u8; 4]) -> Result<Engine, String> {
     let data = data_dir(name, tag);
@@ -122,7 +107,7 @@ fn engine(name: &str, tag: &str, args: &[String], seed: u32, net: &MemNet, ip: [
     let inner = std::mem::replace(&mut e.host.audio, Box::new(crate::audio::NullAudio::default()));
     e.host.audio = Box::new(GoldenAudio { inner, out });
     e.host.golden = Some(g);
-    e.host.netgame.factory = Some(mem_factory(net, ip));
+    e.host.netgame.factory = Some(crate::netgame::mem_factory(net, ip));
     Ok(e)
 }
 

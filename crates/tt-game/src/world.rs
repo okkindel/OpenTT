@@ -397,9 +397,9 @@ impl World {
     }
 
     /// Client death animation: once corpseTime ≥ corpse_shake_time a random
-    /// `death%i` sequence starts (randI over the shape's death sequences); when
-    /// it has played to its end the brain is ejected. A shape without death
-    /// sequences never ejects its brain.
+    /// `death%i` sequence starts (randI over the shape's death sequences). The
+    /// brain is ejected as it starts, before the tank flips over. A shape
+    /// without death sequences never ejects its brain.
     fn advance_death_sequence(&mut self, t: &mut Tank) {
         let shake = t.data.fx.corpse_shake_time;
         if t.corpse_timer < shake {
@@ -413,11 +413,7 @@ impl World {
             let k = self.rng.rand_range(0, n as i32 - 1) as usize;
             t.death_sequence = Some((k, t.data.death_sequences[k]));
         }
-        if let Some((_, len)) = t.death_sequence {
-            if t.corpse_timer - shake >= len {
-                self.eject_brain_of(t);
-            }
-        }
+        self.eject_brain_of(t);
     }
 
     fn eject_brain_of(&mut self, t: &mut Tank) -> Option<ProjectileId> {
@@ -760,12 +756,17 @@ impl World {
             if !self.tanks[j].puppet {
                 self.tanks[j].vel += j_imp;
             }
-            if self.server && speed > t.data.fx.hard_tank_coll_vel {
-                if t.carried_flag.is_some() {
+            // Knocks the ball loose when the impulse (the closing speed
+            // along the normal times (1 + bounce_tank)/2), not the closing
+            // speed, beats the carrier's hardTankCollVel.
+            let hard = |c: &Tank| j_imp.length() > c.data.fx.hard_tank_coll_vel;
+            if self.server && t.carried_flag.is_some() {
+                if hard(t) {
                     self.drop_flag(t);
-                } else if let Some(flag) = self.tanks[j].carried_flag.take() {
-                    let (id, vel) = (self.tanks[j].id, self.tanks[j].vel);
-                    self.release_flag(flag, id, vel);
+                }
+            } else if self.server && hard(&self.tanks[j]) {
+                if let Some(flag) = self.tanks[j].carried_flag.take() {
+                    self.release_flag(flag, self.tanks[j].id);
                 }
             }
         }

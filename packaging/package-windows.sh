@@ -44,14 +44,4 @@ mkdir -p "$D"
 cp "$BUILT" "$D/${NAME}.exe"
 stage_docs "$D"
 stage_mods "$D/mods"
-if command -v zip >/dev/null; then
-    (cd "$DIST" && zip -qr "$PKG.zip" "$PKG")
-elif command -v 7z >/dev/null; then
-    (cd "$DIST" && 7z a -tzip -bso0 "$PKG.zip" "$PKG")
-elif command -v python3 >/dev/null; then
-    (cd "$DIST" && python3 -m zipfile -c "$PKG.zip" "$PKG")
-else
-    die "no zip, 7z or python3 to write the archive"
-fi
-rm -rf "$D"
-echo "wrote $D.zip"
+zip_dist "$PKG"

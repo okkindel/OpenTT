@@ -28,7 +28,7 @@ use std::io::{self, Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpStream, ToSocketAddrs, UdpSocket};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
+use std::thread;
 use std::time::{Duration, Instant};
 
 /// NAT-PMP server port on the gateway (RFC 6886 §3).
@@ -153,15 +153,6 @@ impl fmt::Display for PortMapError {
     }
 }
 
-impl std::error::Error for PortMapError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            PortMapError::Io(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
 impl From<io::Error> for PortMapError {
     fn from(e: io::Error) -> Self {
         match e.kind() {
@@ -175,17 +166,7 @@ impl From<io::Error> for PortMapError {
 // Public entry points
 // ---------------------------------------------------------------------------
 
-/// Maps UDP `internal_port` (external port = same) for `lifetime`: NAT-PMP
-/// first, then UPnP. If both fail the error names both failures.
-pub fn map_udp(
-    internal_port: u16,
-    lifetime: Duration,
-    cfg: &PortMapConfig,
-) -> Result<Mapping, PortMapError> {
-    map_with(internal_port, lifetime, lifetime, cfg)
-}
-
-/// Removes a mapping made by [`map_udp`] / [`renew`].
+/// Removes a mapping made by [`map_with`] / [`renew`].
 pub fn unmap(m: &Mapping, cfg: &PortMapConfig) -> Result<(), PortMapError> {
     match m.method {
         Method::NatPmp => {
@@ -715,39 +696,10 @@ impl From<PortMapError> for SoapError {
 impl From<SoapError> for PortMapError {
     fn from(e: SoapError) -> Self {
         match e {
-            SoapError::Fault(code, desc) => {
-                let name = upnp_error_name(code);
-                let desc = if desc.is_empty() || desc == name {
-                    String::new()
-                } else {
-                    format!(": {desc}")
-                };
-                PortMapError::Refused(format!("UPnP error {code} {name}{desc}"))
-            }
+            SoapError::Fault(code, desc) if desc.is_empty() => PortMapError::Refused(format!("UPnP error {code}")),
+            SoapError::Fault(code, desc) => PortMapError::Refused(format!("UPnP error {code} {desc}")),
             SoapError::Other(e) => e,
         }
-    }
-}
-
-/// UPnP IGD WANIPConnection error codes.
-fn upnp_error_name(code: u16) -> &'static str {
-    match code {
-        401 => "InvalidAction",
-        402 => "InvalidArgs",
-        501 => "ActionFailed",
-        606 => "ActionNotAuthorized",
-        714 => "NoSuchEntryInArray",
-        715 => "WildCardNotPermittedInSrcIP",
-        716 => "WildCardNotPermittedInExtPort",
-        718 => "ConflictInMappingEntry",
-        724 => "SamePortValuesRequired",
-        725 => "OnlyPermanentLeasesSupported",
-        726 => "RemoteHostOnlySupportsWildcard",
-        727 => "ExternalPortOnlySupportsWildcard",
-        728 => "NoPortMapsAvailable",
-        729 => "ConflictWithOtherMechanisms",
-        732 => "WildCardNotPermittedInIntPort",
-        _ => "UnknownError",
     }
 }
 
@@ -1098,42 +1050,26 @@ pub enum PortMapStatus {
 /// Keeps a UDP port mapped from a background thread: maps at start
 /// ([`DEFAULT_NATPMP_LIFETIME`] / [`DEFAULT_UPNP_LEASE`]), renews at half
 /// the granted lifetime (a permanent UPnP lease is not renewed), retries
-/// after failures and unmaps when stopped or dropped.
+/// after failures and unmaps when dropped.
 pub struct PortMapper {
-    /// Dropping it (disconnect) is the stop signal.
-    stop_tx: Option<Sender<()>>,
-    thread: Option<JoinHandle<()>>,
+    /// Dropping it (disconnect) tells the thread to unmap and exit; the
+    /// drop does not wait for that.
+    _stop: Sender<()>,
     status: Arc<Mutex<PortMapStatus>>,
-    /// Bound for [`PortMapper::stop`]'s join.
-    stop_wait: Duration,
 }
 
 impl PortMapper {
     pub fn start(internal_port: u16, cfg: PortMapConfig) -> PortMapper {
         let status = Arc::new(Mutex::new(PortMapStatus::Pending));
         let (tx, rx) = mpsc::channel();
-        // Unmapping takes at most one timeout per request.
-        let stop_wait = cfg.timeout * 2 + Duration::from_millis(500);
         let shared = Arc::clone(&status);
-        let thread = thread::Builder::new()
+        if let Err(e) = thread::Builder::new()
             .name("tt-portmap".into())
-            .spawn(move || mapper_thread(internal_port, cfg, rx, shared));
-        let thread = match thread {
-            Ok(h) => Some(h),
-            Err(e) => {
-                set_status(
-                    &status,
-                    PortMapStatus::Failed(format!("cannot start thread: {e}")),
-                );
-                None
-            }
-        };
-        PortMapper {
-            stop_tx: Some(tx),
-            thread,
-            status,
-            stop_wait,
+            .spawn(move || mapper_thread(internal_port, cfg, rx, shared))
+        {
+            set_status(&status, PortMapStatus::Failed(format!("cannot start thread: {e}")));
         }
+        PortMapper { _stop: tx, status }
     }
 
     pub fn status(&self) -> PortMapStatus {
@@ -1141,28 +1077,6 @@ impl PortMapper {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone()
-    }
-
-    /// Stops the thread, which removes the mapping; waits for that at most
-    /// about two [`PortMapConfig::timeout`]s, then leaves it detached.
-    pub fn stop(mut self) {
-        self.stop_tx.take();
-        if let Some(h) = self.thread.take() {
-            let end = Instant::now() + self.stop_wait;
-            while !h.is_finished() && Instant::now() < end {
-                thread::sleep(Duration::from_millis(5));
-            }
-            if h.is_finished() {
-                let _ = h.join();
-            }
-        }
-    }
-}
-
-impl Drop for PortMapper {
-    /// Signals the thread to unmap and exit; does not wait for it.
-    fn drop(&mut self) {
-        self.stop_tx.take();
     }
 }
 
@@ -1526,7 +1440,7 @@ mod tests {
              <detail><UPnPError xmlns=\"urn:schemas-upnp-org:control-1-0\">\
              <errorCode>{code}</errorCode><errorDescription>{}</errorDescription>\
              </UPnPError></detail></s:Fault></s:Body></s:Envelope>",
-            upnp_error_name(code)
+            if code == 718 { "ConflictInMappingEntry" } else { "" }
         )
     }
 
@@ -1545,7 +1459,7 @@ mod tests {
     fn natpmp_map_renew_unmap() {
         let gw = fake_natpmp(0, u32::MAX);
         let cfg = natpmp_cfg(gw.port);
-        let m = map_udp(28000, Duration::from_secs(7200), &cfg).unwrap();
+        let m = map_with(28000, Duration::from_secs(7200), Duration::from_secs(7200), &cfg).unwrap();
         assert_eq!(m.method, Method::NatPmp);
         assert_eq!(m.internal_port, 28000);
         assert_eq!(m.external_port, 28000);
@@ -1588,7 +1502,7 @@ mod tests {
     #[test]
     fn natpmp_result_code_is_refused() {
         let gw = fake_natpmp(2, u32::MAX);
-        let err = map_udp(28000, Duration::from_secs(60), &natpmp_cfg(gw.port)).unwrap_err();
+        let err = map_with(28000, Duration::from_secs(60), Duration::from_secs(60), &natpmp_cfg(gw.port)).unwrap_err();
         match &err {
             PortMapError::Refused(msg) => assert!(msg.contains("result 2"), "{msg}"),
             e => panic!("unexpected {e:?}"),
@@ -1608,7 +1522,7 @@ mod tests {
             ..PortMapConfig::default()
         };
         let t0 = Instant::now();
-        let err = map_udp(28000, Duration::from_secs(60), &cfg).unwrap_err();
+        let err = map_with(28000, Duration::from_secs(60), Duration::from_secs(60), &cfg).unwrap_err();
         let elapsed = t0.elapsed();
         // The timeout applies per method: at most 2 x 300 ms here.
         assert!(elapsed < Duration::from_millis(1000), "{elapsed:?}");
@@ -1617,8 +1531,9 @@ mod tests {
 
         // NAT-PMP alone: exactly its timeout.
         let t0 = Instant::now();
-        let err = map_udp(
+        let err = map_with(
             28000,
+            Duration::from_secs(60),
             Duration::from_secs(60),
             &PortMapConfig {
                 try_upnp: false,
@@ -1651,7 +1566,7 @@ mod tests {
     fn upnp_roundtrip(opts: IgdOpts) {
         let igd = fake_igd(opts);
         let cfg = upnp_cfg(&igd);
-        let m = map_udp(28000, Duration::from_secs(3600), &cfg).unwrap();
+        let m = map_with(28000, Duration::from_secs(3600), Duration::from_secs(3600), &cfg).unwrap();
         assert_eq!(m.method, Method::Upnp);
         assert_eq!(m.external_port, 28000);
         assert_eq!(m.external_ip, Some(EXT_IP));
@@ -1697,13 +1612,10 @@ mod tests {
             add_fault: Some(718),
             ..IgdOpts::default()
         });
-        let err = map_udp(28000, Duration::from_secs(3600), &upnp_cfg(&igd)).unwrap_err();
+        let err = map_with(28000, Duration::from_secs(3600), Duration::from_secs(3600), &upnp_cfg(&igd)).unwrap_err();
         match &err {
             PortMapError::Refused(msg) => {
-                assert!(
-                    msg.contains("718") && msg.contains("ConflictInMappingEntry"),
-                    "{msg}"
-                )
+                assert!(msg.contains("718") && msg.contains("Conflict"), "{msg}")
             }
             e => panic!("unexpected {e:?}"),
         }
@@ -1715,7 +1627,7 @@ mod tests {
             add_fault: Some(725),
             ..IgdOpts::default()
         });
-        let m = map_udp(28000, Duration::from_secs(3600), &upnp_cfg(&igd)).unwrap();
+        let m = map_with(28000, Duration::from_secs(3600), Duration::from_secs(3600), &upnp_cfg(&igd)).unwrap();
         assert_eq!(m.lifetime, Duration::ZERO);
         assert_eq!(renew_interval(&m), None);
         let adds = igd.soap("AddPortMapping");
@@ -1738,7 +1650,7 @@ mod tests {
             try_natpmp: true,
             ..cfg
         };
-        let m = map_udp(28000, Duration::from_secs(3600), &cfg).unwrap();
+        let m = map_with(28000, Duration::from_secs(3600), Duration::from_secs(3600), &cfg).unwrap();
         assert_eq!(m.method, Method::Upnp);
     }
 
@@ -1782,18 +1694,9 @@ mod tests {
             wait_for(Duration::from_millis(1500), || maps(&gw) >= 2),
             "no renew"
         );
-        let t0 = Instant::now();
-        mapper.stop();
-        assert!(t0.elapsed() < Duration::from_secs(1));
-        assert_eq!(
-            *gw.reqs().last().unwrap(),
-            PmpReq {
-                op: 1,
-                internal: 28001,
-                external: 0,
-                lifetime: 0
-            }
-        );
+        drop(mapper);
+        let unmap = PmpReq { op: 1, internal: 28001, external: 0, lifetime: 0 };
+        assert!(wait_for(Duration::from_secs(1), || gw.reqs().last() == Some(&unmap)), "no unmap");
     }
 
     // ---- helpers -------------------------------------------------------

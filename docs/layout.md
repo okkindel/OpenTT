@@ -87,13 +87,12 @@ file) wherever a name is enough (the menus, the solo campaign,
 `tt_assets::layout::mission` gives the file, `missions/tt1_1.ron`, which is
 what the server's session (`Session::mission_file`), the network messages
 and the mission rotation use. Network protocol 10 carries the lowercase
-names; a host-screen mission saved by an older build
-(`missions/TT1_1.ron`) is read as the lowercase one.
+names.
 
-The game's virtual paths (`game/data/shapes/...`, `game/client/ui/...`,
-`~/data/...`) and the `.mis` mission names are gone. `--mission` and `map`
-accept such paths too. Network protocol 6 carries the new paths (older builds
-are refused with a version mismatch).
+The game's virtual paths (`game/data/shapes/...`, `game/client/ui/...`, `~/data/...`) and the
+`.mis` mission names are gone. `--mission` and `map` accept the game's mission paths too (as the
+new file, `tt_assets::layout::migrate_mission`). Network protocol 6 carries the new paths (older
+builds are refused with a version mismatch).
 
 The user data directory is a separate tree (§ User data). Files written
 there shadow asset files of the same path (`tt_engine::fs`).
@@ -165,10 +164,7 @@ The game's own import goes into `gamedata/` next to the executable only when
 that directory is writable and not inside a macOS `.app` bundle (a portable
 install); otherwise (`Program Files`, `/Applications`, a system package) into
 `<user data>/gamedata` (`tt_assets::layout::import_target`). The directory is
-flat; the file names are constants of `tt_shell::save`. A data directory of the
-earlier name, `thinktanks-rs`, in the same place is renamed to `opentt` once at
-startup when `opentt` does not exist yet; with both, `opentt` is used and the
-old one is left untouched (logged; `tt_engine::userdata`, not with `--data`).
+flat; the file names are constants of `tt_shell::save`.
 
 | Path | What | Format |
 |---|---|---|
@@ -182,7 +178,7 @@ old one is left untouched (logged; `tt_engine::userdata`, not with `--data`).
 | `screenshots/` | `doScreenShot` (Ctrl+P): `screenshot_00001.png`, ... (never overwritten: the next free number). | PNG |
 | `mods/` | The player's mods: one folder each (`docs/modding.md`). Also looked for in `mods/` of the source checkout (development, the example mods) and where an install keeps the mods it ships (next to the executable, `share/<data dir>/mods`, the `.app`'s `Resources/mods`). Never touched by an import. | the asset tree |
 | `gamedata/` | The game's own import, when the executable's directory cannot hold it (above). | the asset tree |
-| `legacy/` | Files of an older layout, kept as backups under their old relative path; the game never reads them. Delete at will. | as they were |
+| `legacy/` | The game's saves after their import, kept as backups under their old relative path; the game never reads them. Delete at will. | as they were |
 
 ### Settings
 
@@ -211,23 +207,17 @@ the game setup, the session, the round, the campaign), not reachable by
 name. The player list is `players.*`.
 
 Older saves named settings differently; `tt_shell::legacy` is the only
-place that knows those names. It imports the old prefs files and rewrites
-the `other` map of a `settings.ron` written by an earlier build when it
-is read (the next save writes the new keys); the typed sections did not
-change.
+place that knows those names. It imports the old prefs files.
 
 ### Migration from older layouts
 
-The game and earlier builds of OpenTT kept these files at the game's relative
-paths. At every start, before anything reads the directory,
-`tt_engine::userdata::migrate` moves an older layout into this one (logged to
-the console as `user data: ...`):
+The game kept these files at its own relative paths. Its saves copied into the
+data directory at those paths are imported: at every start, before anything
+reads the directory, `tt_engine::userdata::migrate` moves them into this layout
+(logged to the console as `user data: ...`):
 
 | Old path | New path | How |
 |---|---|---|
-| `game/client/binds.ron` (earlier port, typed) | `binds.ron` | moved as it is |
-| `console.log` | `legacy/console.log` | the previous session's log, archived |
-| `*.png` at the top | `screenshots/` | moved (a taken name gets the next free number) |
 
 Rules:
 
@@ -264,4 +254,5 @@ sides ≤ 16 px were copied unchanged.
 
 Each `SOURCES.md` table gives, per file, the game path it comes from (or OpenTT's
 tool that made it) and how. The data tables of `data/` are the project's own
-authored data (`data/SOURCES.md`).
+authored data (`data/SOURCES.md`). The Power-up Test dev map has its own generated
+grid texture and box prop (`terrain/dev/`, `models/props/dev/`).

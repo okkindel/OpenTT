@@ -211,7 +211,7 @@ pub fn apply_binds(h: &mut EngineHost, binds: &Binds) {
             } else {
                 Command::Action { action: b.action, inverted: b.invert, scale: b.scale.unwrap_or(1.0) }
             };
-            let r = h.input.bind(&map.name, b.device.into(), &b.key, command);
+            let r = h.input.bind(&map.name, b.device, &b.key, command);
             if let Err(e) = r {
                 h.log.warn(&e);
             }
@@ -439,7 +439,6 @@ fn declare_client_file(h: &mut EngineHost, stem: &str) {
             return;
         }
     };
-    crate::gameplay::defs::log_data_notes(h);
     // Plain objects of the client (not defs): the sound database only.
     for o in file {
         let fields: Vec<(String, String)> = o.to_fields().into_iter().map(|f| (f.key(), f.value)).collect();

@@ -67,15 +67,13 @@ impl World {
         }
     }
 
-    /// `flag.clearMount()`: releases the ball, keeping the carrier's velocity.
+    /// `flag.clearMount()`: releases the ball.
     pub fn clear_mount(&mut self, id: FlagId) {
-        let Some(fi) = self.flags.iter().position(|f| f.id == id) else { return };
-        if let Some(c) = self.flags[fi].carrier.take() {
-            if let Some(t) = self.tanks.iter_mut().find(|t| t.id == c) {
-                t.carried_flag = None;
-            }
-            self.events.push(Event::FlagDropped { tank: c, flag: id });
+        let Some(c) = self.flag(id).and_then(|f| f.carrier) else { return };
+        if let Some(t) = self.tanks.iter_mut().find(|t| t.id == c) {
+            t.carried_flag = None;
         }
+        self.release_flag(id, c);
     }
 
     /// `tank.getFlag()`.
@@ -86,15 +84,20 @@ impl World {
     /// Releases the ball a tank carries (death, hard tank hit).
     pub(crate) fn drop_flag(&mut self, t: &mut Tank) {
         if let Some(flag) = t.carried_flag.take() {
-            self.release_flag(flag, t.id, t.vel);
+            self.release_flag(flag, t.id);
         }
     }
 
-    pub(crate) fn release_flag(&mut self, flag: FlagId, tank: TankId, vel: Vec3) {
+    /// `mount(NULL)`, the engine's only release path: the old carrier may
+    /// not re-take the ball for 30 ticks. The ball keeps the velocity it
+    /// copied from the carrier on its last tick, so a ram's bounce does not
+    /// carry it off with the carrier.
+    pub(crate) fn release_flag(&mut self, flag: FlagId, tank: TankId) {
         if let Some(f) = self.flag_mut(flag) {
             f.carrier = None;
-            f.vel = vel;
             f.at_rest = false;
+            f.no_retake = Some(tank);
+            f.lockout = 30;
         }
         self.events.push(Event::FlagDropped { tank, flag });
     }
@@ -121,7 +124,9 @@ impl World {
         self.events.push(Event::FlagPickedUp { flag: id, tank: t.id });
     }
 
-    /// Pickup and push from the tank trigger code.
+    /// Pickup and push from the tank trigger code: balls touching the tank's
+    /// box grown by R. A held ball is never taken from its carrier; only a
+    /// ram's release passes it.
     pub(crate) fn flag_triggers(&mut self, t: &mut Tank) {
         let tb = t.world_box().grow(t.data.geometry.big_radius());
         for fi in 0..self.flags.len() {
@@ -155,7 +160,8 @@ impl World {
             if let Some(c) = self.flags[fi].carrier {
                 match self.tank(c) {
                     Some(t) => {
-                        let node = t.data.geometry.scrum_node.map_or(Vec3::new(0.0, 0.0, t.data.geometry.bounds.max.z), |n| {
+                        // No codeScrum node: 2 m up the tank's z axis.
+                        let node = t.data.geometry.scrum_node.map_or(Vec3::new(0.0, 0.0, 2.0), |n| {
                             t.data.geometry.posed_node(n, t.yaw_n, t.pitch_n, &t.data).translation.into()
                         });
                         let pos = Affine3A::from_mat3_translation(t.rot, t.pos).transform_point3(node);

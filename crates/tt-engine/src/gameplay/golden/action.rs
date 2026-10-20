@@ -309,19 +309,9 @@ fn client_tank(e: &Engine, who: &Who) -> Option<tt_game::TankId> {
     e.host.game.as_ref()?.tank_of(player_of(e, who)?)
 }
 
-/// A typed call into the server.
-fn server(f: impl Fn(&mut Engine) + Send + Sync + 'static) -> Vec<Action> {
-    native(f)
-}
-
 /// Runs `f` on the server with the engine.
 fn with(e: &mut Engine, f: impl FnOnce(&mut tt_gameplay::server::Server, &mut server_host::Bridge)) {
     server_host::with_server(&mut e.host, f);
-}
-
-/// The client a lowering names, or nothing to do.
-fn named(e: &Engine, who: &Who) -> Option<ClientId> {
-    client_of(e, who)
 }
 
 impl ScenarioAction {
@@ -453,17 +443,17 @@ impl ScenarioAction {
             SpawnPlayer => local_cmd(ClientCmd::SpawnPlayer),
             DropBot { index } => {
                 let i = *index;
-                server(move |e| {
-                    if let Some(b) = named(e, &Who::Bot(i)) {
+                native(move |e| {
+                    if let Some(b) = client_of(e, &Who::Bot(i)) {
                         with(e, |s, h| s.drop_bot(h, b));
                     }
                 })
             }
-            UpdateBotCount => server(|e| with(e, |s, h| s.balance_bots(h))),
-            UpdateTeamBotCount => server(|e| with(e, |s, h| s.balance_team_bots(h, None))),
+            UpdateBotCount => native(|e| with(e, |s, h| s.balance_bots(h))),
+            UpdateTeamBotCount => native(|e| with(e, |s, h| s.balance_team_bots(h, None))),
             AddFakeClient { name, team } => {
                 let (name, team) = (name.clone(), team.clone());
-                server(move |e| {
+                native(move |e| {
                     let mut id = None;
                     with(e, |s, h| id = Some(s.add_fake_client(h, &team)));
                     if let Some(c) = id {
@@ -473,7 +463,7 @@ impl ScenarioAction {
             }
             RemoveFakeClient { name } => {
                 let name = name.clone();
-                server(move |e| {
+                native(move |e| {
                     if let Some(c) = e.host.srv.named.remove(&name.to_ascii_lowercase()) {
                         with(e, |s, h| s.remove_client(h, c));
                     }
@@ -481,22 +471,19 @@ impl ScenarioAction {
             }
             Connect { conn, name, team, tank } => {
                 let (conn, name, team, tank) = (conn.clone(), name.clone(), team.clone(), tank.to_string());
-                server(move |e| {
-                    let mut id = None;
+                native(move |e| {
                     with(e, |s, h| {
                         let c = s.add_client(h, tt_gameplay::server::ClientKind::Test);
                         h.h.srv.tests.insert(c);
                         h.h.srv.named.insert(conn.to_ascii_lowercase(), c);
                         s.connected(h, c, &name, &team, &tank);
-                        id = Some(c);
                     });
-                    let _ = id;
                 })
             }
             Drop { conn, .. } => {
                 let conn = conn.clone();
-                server(move |e| {
-                    if let Some(c) = named(e, &Who::Conn(conn.clone())) {
+                native(move |e| {
+                    if let Some(c) = client_of(e, &Who::Conn(conn.clone())) {
                         with(e, |s, h| {
                             s.dropped(h, c);
                             s.remove_client(h, c);
@@ -506,25 +493,25 @@ impl ScenarioAction {
             }
             Rename { conn, name } => {
                 let (conn, name) = (conn.clone(), name.clone());
-                server(move |e| {
-                    if let Some(c) = named(e, &Who::Conn(conn.clone())) {
+                native(move |e| {
+                    if let Some(c) = client_of(e, &Who::Conn(conn.clone())) {
                         with(e, |s, _| s.set_player_name(c, &name));
                     }
                 })
             }
             Kick { conn } | Ban { conn } => {
                 let (conn, ban) = (conn.clone(), matches!(self, Ban { .. }));
-                server(move |e| {
-                    if let Some(c) = named(e, &Who::Conn(conn.clone())) {
+                native(move |e| {
+                    if let Some(c) = client_of(e, &Who::Conn(conn.clone())) {
                         with(e, |s, h| if ban { s.ban(h, c) } else { s.kick(h, c) });
                     }
                 })
             }
             Message { to, kind, text, args } => {
                 let (to, kind, text, args) = (to.clone(), kind.clone(), text.clone(), args.clone());
-                server(move |e| {
+                native(move |e| {
                     let (k, t) = tt_gameplay::server::Server::message_of(&kind, &text, &args);
-                    let who = |w: &Who| named(e, w);
+                    let who = |w: &Who| client_of(e, w);
                     match &to {
                         MsgTo::Client(w) => {
                             if let Some(c) = who(w) {
@@ -558,8 +545,8 @@ impl ScenarioAction {
             }
             Print { to, kind, text, secs, lines } => {
                 let (to, kind, text, secs, lines) = (to.clone(), *kind, text.clone(), secs.clone(), lines.clone());
-                server(move |e| {
-                    let c = to.as_ref().map(|w| named(e, w));
+                native(move |e| {
+                    let c = to.as_ref().map(|w| client_of(e, w));
                     with(e, |s, h| match (c, kind) {
                         (Some(c), PrintKind::Center) => s.center_print(h, c, &tt_gameplay::Value::str(text.clone()), &secs, &lines),
                         (Some(c), PrintKind::Bottom) => s.bottom_print(h, c, &tt_gameplay::Value::str(text.clone()), &secs, &lines),
@@ -570,8 +557,8 @@ impl ScenarioAction {
             }
             ClearPrints { to } => {
                 let to = to.clone();
-                server(move |e| {
-                    let c = to.as_ref().map(|w| named(e, w));
+                native(move |e| {
+                    let c = to.as_ref().map(|w| client_of(e, w));
                     with(e, |s, h| match c {
                         Some(c) => {
                             s.clear_center_print(h, c);
@@ -586,7 +573,7 @@ impl ScenarioAction {
             }
             ServerSound { profile, at } => {
                 let (profile, at) = (profile.clone(), at.clone());
-                server(move |e| {
+                native(move |e| {
                     let Some(sound) = e.host.data.sounds.find(&profile) else { return };
                     with(e, |s, h| match &at {
                         Some(t) => s.server_play_3d(h, sound, t),
@@ -663,7 +650,7 @@ impl ScenarioAction {
                 })
             }
             Cheat(c) => match c.clone() {
-                self::Cheat::KillOne => server(|e| {
+                self::Cheat::KillOne => native(|e| {
                     // The first live tank of `MissionCleanup` that is not the
                     // player's dies, credited to the player, and goes.
                     let Some(me) = player_of(e, &Who::Me) else { return };
@@ -677,7 +664,7 @@ impl ScenarioAction {
                         });
                     }
                 }),
-                self::Cheat::Pickups => server(|e| {
+                self::Cheat::Pickups => native(|e| {
                     // At the player's tank: a pick-up of TestPowerup, Heal,
                     // Reload, TestPowerup (new power-ups there), the goal,
                     // and every ball out of bounds.
@@ -716,7 +703,7 @@ impl ScenarioAction {
                         }
                     }
                 }),
-                self::Cheat::EndLevel => server(|e| {
+                self::Cheat::EndLevel => native(|e| {
                     if server_host::local_client(&e.host).is_some() && e.host.srv.state().round.running() {
                         server_host::with_local_record(&mut e.host, |r| r.last_kill_time = Some(0));
                         if let Some(l) = e.host.srv.state_mut().campaign.level.as_mut() {
@@ -724,7 +711,7 @@ impl ScenarioAction {
                         }
                     }
                 }),
-                self::Cheat::BrainsToPlayer => server(|e| {
+                self::Cheat::BrainsToPlayer => native(|e| {
                     let Some(me) = player_of(e, &Who::Me) else { return };
                     let brains: Vec<String> = e
                         .host
@@ -739,7 +726,7 @@ impl ScenarioAction {
                         }
                     }
                 }),
-                self::Cheat::KillTarget => server(|e| {
+                self::Cheat::KillTarget => native(|e| {
                     let Some(me) = player_of(e, &Who::Me) else { return };
                     let (Some(srv), Some(g)) = (e.host.srv.get(), e.host.game.as_ref()) else { return };
                     let t = srv.cleanup_entities().into_iter().filter_map(|x| g.tank_of(x).filter(|_| x != me)).find(|w| !g.world.is_corpse(*w));
@@ -747,7 +734,7 @@ impl ScenarioAction {
                         g.world.hurt_me(t, "1000");
                     }
                 }),
-                self::Cheat::Hurt(n) => server(move |e| {
+                self::Cheat::Hurt(n) => native(move |e| {
                     let Some(t) = client_tank(e, &Who::Me) else { return };
                     if let Some(g) = e.host.game.as_mut() {
                         g.world.hurt_me(t, &n.to_string());
@@ -755,7 +742,7 @@ impl ScenarioAction {
                 }),
                 self::Cheat::SoloGameOver(score) => {
                     let score = tt_game::fmt::atof(&score);
-                    server(move |e| {
+                    native(move |e| {
                         let Some(me) = server_host::local_client(&e.host) else { return };
                         server_host::with_local_record(&mut e.host, |r| {
                             r.spscore = Some(score);

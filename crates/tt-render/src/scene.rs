@@ -1,5 +1,4 @@
-//! CPU-side scene built from a mission: terrain mesh, textures, lights,
-//! and marker boxes for objects whose shapes are not loaded yet.
+//! CPU-side scene built from a mission: terrain mesh, textures, lights.
 
 use glam::{Mat4, Quat, Vec3, Vec4};
 use std::path::{Path, PathBuf};
@@ -14,13 +13,6 @@ pub struct TerrainVertex {
     pub normal: [f32; 3],
     /// Position in terrain grid units (wraps every `size`).
     pub grid: [f32; 2],
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct ColorVertex {
-    pub pos: [f32; 3],
-    pub color: [f32; 3],
 }
 
 #[repr(C)]
@@ -82,7 +74,6 @@ pub struct Scene {
     pub fog_distance: f32,
     /// Height fog bands: (visible distance, min height, max height).
     pub fog_volumes: Vec<[f32; 3]>,
-    pub markers: Vec<ColorVertex>,
     pub spawn: Option<Vec3>,
     /// The terrain block (heights for placing objects, see [`Scene::terrain_height`]).
     pub terrain: Terrain,
@@ -222,7 +213,6 @@ impl Scene {
 
         let mut shapes = Vec::new();
         let mut hidden_shapes = Vec::new();
-        let mut markers = Vec::new();
         let mut spawn = None;
         for o in all {
             let drawn = draw(o);
@@ -234,7 +224,7 @@ impl Scene {
             let shape = o
                 .get("shape")
                 .map(str::to_string)
-                .or_else(|| block.and_then(|b| b.get("shape").or_else(|| b.get("shape"))).map(str::to_string));
+                .or_else(|| block.and_then(|b| b.get("shape")).map(str::to_string));
             if let Some(shape) = shape.filter(|s| !s.is_empty()) {
                 let path = tt_assets::resolve(root, mission_dir, &shape);
                 if tt_assets::find_ci(&path).is_some_and(|p| !p.to_string_lossy().contains("markers")) {
@@ -254,19 +244,8 @@ impl Scene {
                     continue;
                 }
             }
-            let (color, half) = match o.class.as_str() {
-                "SpawnPoint" => {
-                    spawn.get_or_insert(pos);
-                    ([0.1, 1.0, 0.2], 1.5)
-                }
-                "PowerUp" => ([1.0, 0.9, 0.1], 1.0),
-                "Boost" => ([1.0, 0.3, 0.1], 1.0),
-                "Prop" => ([0.6, 0.6, 0.65], 2.0),
-                "Volcano" => ([1.0, 0.0, 0.0], 4.0),
-                _ => continue,
-            };
-            if drawn {
-                push_box(&mut markers, pos + Vec3::Z * half, half, color);
+            if o.class == "SpawnPoint" {
+                spawn.get_or_insert(pos);
             }
         }
 
@@ -323,7 +302,6 @@ impl Scene {
                     _ => None,
                 })
                 .collect(),
-            markers,
             spawn,
             terrain,
             fx: crate::fx::FxLibrary::from_defs(root, defs),
@@ -372,20 +350,6 @@ fn terrain_mesh(t: &Terrain, square: f32, origin: (f32, f32), half_extent: f32) 
         }
     }
     (vertices, indices)
-}
-
-fn push_box(out: &mut Vec<ColorVertex>, c: Vec3, h: f32, color: [f32; 3]) {
-    let corners: Vec<Vec3> = (0..8)
-        .map(|i| c + Vec3::new(if i & 1 == 0 { -h } else { h }, if i & 2 == 0 { -h } else { h }, if i & 4 == 0 { -h } else { h }))
-        .collect();
-    const FACES: [[usize; 4]; 6] = [[0, 2, 3, 1], [4, 5, 7, 6], [0, 1, 5, 4], [2, 6, 7, 3], [0, 4, 6, 2], [1, 3, 7, 5]];
-    for (fi, f) in FACES.iter().enumerate() {
-        let shade = [0.6, 1.0, 0.75, 0.85, 0.7, 0.9][fi];
-        let col = [color[0] * shade, color[1] * shade, color[2] * shade];
-        for idx in [0, 1, 2, 0, 2, 3] {
-            out.push(ColorVertex { pos: corners[f[idx]].into(), color: col });
-        }
-    }
 }
 
 /// Sky material list (`.dml`): one texture name per line, relative to the
@@ -503,7 +467,6 @@ impl Scene {
             visible_distance: 1e6,
             fog_distance: 1e6,
             fog_volumes: Vec::new(),
-            markers: Vec::new(),
             spawn: None,
             terrain,
             fx: Default::default(),

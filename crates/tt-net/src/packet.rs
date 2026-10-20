@@ -151,7 +151,7 @@ impl<'a> ByteReader<'a> {
         }
         Ok(String::from_utf8_lossy(self.take(n)?).into_owned())
     }
-    fn rest(&self) -> &'a [u8] {
+    pub(crate) fn rest(&self) -> &'a [u8] {
         &self.d[self.p..]
     }
 }

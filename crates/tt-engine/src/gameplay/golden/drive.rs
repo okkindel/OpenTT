@@ -19,9 +19,7 @@ pub enum Action {
     Mouse(f32, f32),
     /// A mouse button (0 = left) at canvas coordinates.
     Button(u8, bool),
-    /// Native code (e.g. the menu's solo-run bookkeeping).
-    Call(fn(&mut Engine)),
-    /// Native code with captured parameters (golden scenario actions).
+    /// Native code (golden scenario actions, the menu's solo-run bookkeeping).
     Native(std::sync::Arc<dyn Fn(&mut Engine) + Send + Sync>),
     /// A menu action through the menu backend (`MenuBridge::apply`).
     Menu(tt_menu::MenuAction),
@@ -68,7 +66,7 @@ pub fn custom_game(mission: &str, scrum: bool, teams: bool, bots: &[(&str, &str,
             set_var(h, &format!("server.bot_name.{i}"), text(name));
             set_var(h, &format!("server.bot_team.{i}"), text(team));
         }
-        server_call(e, |s, b| s.bots_from_settings(b));
+        crate::gameplay::server_host::with_server(&mut e.host, |s, b| s.bots_from_settings(b));
         let s = setup(&mut e.host);
         s.mission_type = if scrum { MissionType::Scrum } else { MissionType::Deathmatch };
         s.team_game = teams;
@@ -93,11 +91,6 @@ fn native(f: impl Fn(&mut Engine) + Send + Sync + 'static) -> Action {
     Action::Native(std::sync::Arc::new(f))
 }
 
-/// A typed call into the server.
-fn server_call(e: &mut Engine, f: impl FnOnce(&mut tt_gameplay::server::Server, &mut crate::gameplay::server_host::Bridge)) {
-    crate::gameplay::server_host::with_server(&mut e.host, f);
-}
-
 /// Not in the solo campaign, back to `gui` on a disconnect, the loading
 /// screen.
 fn to_loading(h: &mut EngineHost, gui: Ctrl) {
@@ -109,7 +102,7 @@ fn to_loading(h: &mut EngineHost, gui: Ctrl) {
 /// The menu's Solo Campaign → Launch (a new run, first level).
 pub fn solo_start() -> Vec<Action> {
     vec![
-        Action::Call(|e| {
+        native(|e| {
             crate::shell::new_run(&mut e.host);
             crate::shell::show_lives_hud(&mut e.host);
         }),
@@ -122,7 +115,7 @@ pub fn solo_start() -> Vec<Action> {
 
 /// The menu's Solo → Launch during a run (the next level).
 pub fn solo_next_level() -> Action {
-    Action::Call(|e| {
+    native(|e| {
         let h = &mut e.host;
         if crate::shell::in_run(h) {
             crate::shell::prepare_next_level(h);
@@ -159,7 +152,6 @@ pub fn apply(e: &mut Engine, a: &Action) {
             }
         }
         Action::Button(b, p) => e.mouse_button(*b, *p),
-        Action::Call(f) => f(e),
         Action::Native(f) => f(e),
         Action::Menu(a) => {
             let Engine { host, menu, .. } = e;

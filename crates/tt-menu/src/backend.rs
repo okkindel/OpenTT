@@ -315,7 +315,7 @@ pub struct MissionInfo {
     pub id: String,
     /// Display name (`createGameGui::getMissionDisplayName`, e.g. "Greymatter Gorge").
     pub name: String,
-    /// World of the map ("Green" TT1, "Blue" TT2, "Red" TT3).
+    /// World of the map ("Green" TT1, "Blue" TT2, "Red" TT3, "Moon" TT4).
     pub world: String,
 }
 
@@ -460,9 +460,9 @@ impl ServerPlayer {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ServerSource {
     /// Broadcast on the local network (`queryLanServers`).
-    #[default]
     Lan,
-    /// The master server's list.
+    /// The master server's list; the default.
+    #[default]
     Internet,
 }
 

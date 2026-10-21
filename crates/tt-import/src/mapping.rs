@@ -184,7 +184,9 @@ fn entry(asset: &str, src: &str) -> Result<Option<How>, String> {
         || src.starts_with("own text")
         || src.starts_with("(none)")
         || src.starts_with("the port's own")
-        || src.starts_with("authored data");
+        || src.starts_with("authored data")
+        // A free third-party work the port ships (the Moon's music).
+        || src.starts_with("free licence:");
     if own {
         return Ok(None);
     }

@@ -184,9 +184,9 @@ pub fn run(h: &mut EngineHost, args: &[String]) -> bool {
         h.srv.state_mut().setup.dedicated = true;
     }
     if let Some(m) = &a.mission {
-        // A mission as its file; `GREEN`, `BLUE`, `RED`, `ALL`
+        // A mission as its file; `GREEN`, `BLUE`, `RED`, `MOON`, `ALL`
         // (rotations) as given.
-        let rotation = ["GREEN", "BLUE", "RED", "ALL"].iter().any(|k| k.eq_ignore_ascii_case(m));
+        let rotation = ["GREEN", "BLUE", "RED", "MOON", "ALL"].iter().any(|k| k.eq_ignore_ascii_case(m));
         h.cl.mission_arg = if rotation { m.clone() } else { crate::mission::game_relative(h.fs.root(), std::path::Path::new(m)).unwrap_or_else(|_| m.clone()) };
     }
     if let Some(g) = &a.game {

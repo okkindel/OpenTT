@@ -81,7 +81,6 @@ pub fn bind_action(h: &mut EngineHost, a: BindAction, v: &str) {
             h.client.moves.mouse_pitch(v, &m);
         }
         Fire => h.client.moves.trigger(0),
-        AltFire => h.client.moves.trigger(1),
         ToggleFreeLook => h.client.moves.free_look = lf(v) != 0.0,
         // No one reads it.
         ToggleFirstPerson => {}
@@ -100,7 +99,7 @@ pub fn bind_action(h: &mut EngineHost, a: BindAction, v: &str) {
             }
         }
         // Demo recording is not supported; the debug actions are not in a release build.
-        StartDemoRecording | StopDemoRecording | DropCameraAtPlayer | DropPlayerAtCamera | CycleDebugRenderMode | CycleRenderMode => {}
+        StartDemoRecording | StopDemoRecording | DropCameraAtPlayer | DropPlayerAtCamera | CycleDebugRenderMode | CycleRenderMode | Unknown => {}
         Spawn => send_spawn_command(h, v),
         // The game's console dialog (the dedicated server's console is stdin).
         ToggleConsole => h.stub("toggleConsole"),

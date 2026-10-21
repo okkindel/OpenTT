@@ -94,7 +94,7 @@ pub fn world_of_id(id: &str) -> Option<u8> {
     let rest = id.get(..2).filter(|p| p.eq_ignore_ascii_case("TT")).map(|_| &id[2..])?;
     let (w, n) = rest.split_once('_')?;
     let w: u8 = w.parse().ok()?;
-    ((1..=3).contains(&w) && !n.is_empty() && n.chars().all(|c| c.is_ascii_digit())).then_some(w)
+    ((1..=4).contains(&w) && !n.is_empty() && n.chars().all(|c| c.is_ascii_digit())).then_some(w)
 }
 
 /// The world's name in the menus.
@@ -103,6 +103,7 @@ pub fn world_label(world: u8) -> &'static str {
         1 => "Green",
         2 => "Blue",
         3 => "Red",
+        4 => "Moon",
         _ => "Special",
     }
 }

@@ -7,6 +7,7 @@ This table lists OpenTT's own files of this directory; the importer builds the r
 
 | file | source: how |
 |---|---|
+| `music/spacefighter.ogg` | free licence: "Space Fighter Loop" Kevin MacLeod (incompetech.com), Licensed under Creative Commons: By Attribution 4.0 License, http://creativecommons.org/licenses/by/4.0/ ; downloaded from https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100672 (320 kb/s MP3), cut with ffmpeg 4.4 to 20.215..101.07 s (the quiet intro dropped, 32 bars that loop), +2 dB with a limiter, 4 ms fade-in and 30 ms fade-out at the loop seam, Ogg Vorbis q5 (the Moon maps' music, MusicDef "Lunar") |
 | `voice/vocarea.ogg` | generated: Piper TTS voice en_US-norman-medium (local), light tanh overdrive + compression |
 | `voice/vocbounce.ogg` | generated: Piper TTS voice en_US-norman-medium (local), light tanh overdrive + compression |
 | `voice/vochealth.ogg` | generated: Piper TTS voice en_US-norman-medium (local), light tanh overdrive + compression |

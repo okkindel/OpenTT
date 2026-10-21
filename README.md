@@ -89,7 +89,7 @@ in a source checkout, the checkout's `gamedata/`, ignored by git) and
 starts. Nothing is downloaded or uploaded and nothing of your install is
 changed. Afterwards it shows what it imported; the full report is in
 `logs/import.log` of the user data folder. Settings → Game data imports
-again.
+again; after an update OpenTT does so by itself (Cancel keeps the old data).
 
 Without a window:
 
@@ -142,8 +142,8 @@ default):
 cargo run --release -p tt-master -- --port 28100     # or: opentt --master
 ```
 
-Each release also has the master server alone (`opentt-master-*` archives
-for Linux, Windows and macOS: one small binary, `README.txt` with its
+Each release also has the master server alone (`opentt-master-server-*`
+archives for Linux and Windows: one small binary, `README.txt` with its
 options). It prints the time when a game server joins or leaves the list.
 
 Players enter its address in Play → On-line → Join → Internet → "Master

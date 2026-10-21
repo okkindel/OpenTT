@@ -108,6 +108,8 @@ crate::schema! {
         desc0: String,
         desc1: String,
         desc2: String,
+        /// The share of the game's gravity on this map (1 when unset).
+        gravity: Num,
     }
 }
 
@@ -148,6 +150,9 @@ crate::schema! {
         cloud_speed1: Num,
         cloud_speed2: Num,
         cloud_speed3: Num,
+        /// Images drawn on the sky at infinite distance: `FILE AZIMUTH
+        /// ELEVATION RADIUS` per sprite (degrees), `;` between.
+        sky_sprites: String,
         locked: String,
     }
 }
@@ -171,6 +176,9 @@ crate::schema! {
         scale: [Num; 3],
         terrain_file: String,
         detail_texture: String,
+        /// A colour multiplier map over one terrain block (`2 x` the
+        /// texel, so 128 is neutral; none when unset).
+        macro_texture: String,
         square_size: Num,
         tile: Num,
         block_shift: Num,

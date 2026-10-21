@@ -661,7 +661,7 @@ fn soak_eight_clients_bad_wifi_rotation() {
     });
 }
 
-/// A mission with defs of its own (tt1_5's `JumpBoost`): the mission
+/// A mission with defs of its own (tt1_5's `LeapBoost`): the mission
 /// is in the def manifest, so a remote client joining on it declares
 /// them before the hash check (it was dropped with "Game data
 /// differs"), and has the def its pads use.
@@ -673,7 +673,7 @@ fn client_joins_mission_with_own_defs() {
         let mut g = Game::new(&root, "missiondb", LinkConditions::default(), &["-mission", "missions/tt1_5.ron"], 1, 0);
         play_until_in(&mut g);
         assert_eq!(g.server.server().session.mission_file.clone(), "missions/tt1_5.ron");
-        assert!(g.clients[0].host.defs.get("JumpBoost").is_some());
+        assert!(g.clients[0].host.defs.get("LeapBoost").is_some());
     });
 }
 

@@ -9,7 +9,8 @@ struct Globals {
     params: vec4<f32>,
     // x: seconds, y: IFL ticks per second, z: shadow casters, w: near plane
     time: vec4<f32>,
-    // x: terrain grid origin, y: metres per square, z: samples per edge
+    // x: terrain grid origin, y: metres per square, z: samples per edge,
+    // w: 1 with a macro colour map (binding 11), else 0
     terrain: vec4<f32>,
     // Height fog bands: x visible distance (0 = unused), y min height, z max height.
     fog_volumes: array<vec4<f32>, 3>,
@@ -42,6 +43,10 @@ struct Globals {
 // is the costly part on integrated GPUs, and relief fades with distance).
 @group(0) @binding(9) var terrain_normals: texture_2d_array<f32>;
 @group(0) @binding(10) var normal_samp: sampler;
+// Macro colour map over one terrain block (`Scene::macro_tex`): `2 x macro`
+// (a display-space factor) scales the blended materials (breaks their
+// tiling, paints colour fields); used when `g.terrain.w` is 1.
+@group(0) @binding(11) var macro_tex: texture_2d<f32>;
 
 // Terrain normal maps fade out between these distances (m): relief is not
 // visible further away, and the samples are skipped there.
@@ -166,6 +171,7 @@ fn fs_terrain(i: TerrainOut) -> @location(0) vec4<f32> {
     let dgx = dpdx(duv);
     let dgy = dpdy(duv);
     let baked = terrain_light(i.world);
+    let macro_c = textureSample(macro_tex, samp, (i.world.xy - vec2<f32>(g.terrain.x)) / (g.terrain.y * g.terrain.z)).rgb * 2.0;
     let fog = fog_factor(i.world);
     if (fog >= 1.0) {
         // Fully fogged (beyond the visible distance, or deep in a fog
@@ -185,6 +191,10 @@ fn fs_terrain(i: TerrainOut) -> @location(0) vec4<f32> {
     if (w1.w > 0.0) { c += w1.w * textureSampleGrad(materials, samp, muv, 7, gx, gy).rgb; }
     let total = dot(w0, vec4<f32>(1.0)) + dot(w1, vec4<f32>(1.0));
     c = c / max(total, 0.001);
+    if (g.terrain.w > 0.0) {
+        // A display-space factor (as the lightmap's), on the linear colour.
+        c = c * pow(macro_c, vec3<f32>(2.2));
+    }
     // Pure modulate by the baked lightmap, no overbright (engine-notes §1.3).
     var lit = c * baked;
     var shading_n = normalize(i.normal);
@@ -235,6 +245,31 @@ fn fs_depth_only() -> @location(0) vec4<f32> {
 
 @group(1) @binding(0) var sky_tex: texture_2d_array<f32>;
 @group(1) @binding(1) var sky_samp: sampler;
+// Sky sprites (the Earth, the Sun) at infinite distance: their images
+// (layers) and info[0].x the count, then per sprite its direction (xyz)
+// and the tangent of its angular radius (w).
+@group(1) @binding(2) var sky_sprite_tex: texture_2d_array<f32>;
+struct SkySprites { info: array<vec4<f32>, 3> };
+@group(1) @binding(3) var<uniform> sky_sprite_info: SkySprites;
+
+// The sky sprites over the sky colour `c` along `d` (unit): each a square
+// image on the plane tangent to the sky at its direction (gnomonic, its
+// rows along the sky's up), alpha blended.
+fn sky_sprites(c: vec3<f32>, d: vec3<f32>) -> vec3<f32> {
+    var col = c;
+    for (var k = 0u; k < u32(sky_sprite_info.info[0].x); k++) {
+        let s = sky_sprite_info.info[1u + k];
+        let right = normalize(cross(s.xyz, vec3<f32>(0.0, 0.0, 1.0)));
+        let up = cross(right, s.xyz);
+        let cosang = dot(d, s.xyz);
+        let p = d / max(cosang, 1e-3) - s.xyz;
+        let uv = vec2<f32>(dot(p, right), -dot(p, up)) / s.w * 0.5 + vec2<f32>(0.5);
+        let t = textureSample(sky_sprite_tex, sky_samp, uv, k);
+        let inside = select(0.0, 1.0, cosang > 0.0 && all(uv >= vec2<f32>(0.0)) && all(uv <= vec2<f32>(1.0)));
+        col = mix(col, t.rgb, t.a * inside);
+    }
+    return col;
+}
 
 struct SkyOut {
     @builtin(position) clip: vec4<f32>,
@@ -257,16 +292,17 @@ fn vs_sky(@location(0) dir: vec3<f32>, @location(1) uv: vec2<f32>, @location(2) 
 
 @fragment
 fn fs_sky(i: SkyOut) -> @location(0) vec4<f32> {
-    let c = textureSample(sky_tex, sky_samp, i.uv, i.layer).rgb;
+    var base = textureSample(sky_tex, sky_samp, i.uv, i.layer).rgb;
+    if (g.extras.w > 0.0) {
+        // Sun glow (HDR extra): a bright core and a soft halo around the sun,
+        // under the sky sprites (an eclipse's disc covers it, its corona stays).
+        let s = max(dot(normalize(i.dir), g.sun_dir.xyz), 0.0);
+        base += g.sun_color.rgb * g.extras.w * (pow(s, 900.0) * 6.0 + pow(s, 24.0) * 0.35);
+    }
+    let c = sky_sprites(base, normalize(i.dir));
     let up = normalize(i.dir).z;
     let f = 1.0 - smoothstep(0.0, 0.35, up);
-    var col = mix(c, g.fog_color.rgb, f);
-    if (g.extras.w > 0.0) {
-        // Sun glow (HDR extra): a bright core and a soft halo around the sun.
-        let s = max(dot(normalize(i.dir), g.sun_dir.xyz), 0.0);
-        col += g.sun_color.rgb * g.extras.w * (pow(s, 900.0) * 6.0 + pow(s, 24.0) * 0.35);
-    }
-    return vec4<f32>(col, 1.0);
+    return vec4<f32>(mix(c, g.fog_color.rgb, f), 1.0);
 }
 
 @group(1) @binding(0) var shape_tex: texture_2d_array<f32>;

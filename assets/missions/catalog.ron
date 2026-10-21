@@ -1,6 +1,6 @@
 // The menus' map list (docs/modding.md § Maps): the order of the maps and
-// their world (1 green, 2 blue, 3 red: Quick Play draws from these; 0 a
-// special map). A map's name comes from its MissionInfo, its music from its
+// their world (1 green, 2 blue, 3 red: Quick Play draws from these; 4 the
+// Moon; 0 a special map). A map's name comes from its MissionInfo, its music from its
 // MissionGroup. `hidden`: mission files that are not maps of the list.
 // Every other missions/*.ron (a mod's map) follows these, by world and id.
 // A mod may add a missions/catalog.ron of its own: the files are merged.
@@ -21,6 +21,8 @@
     (id: "tt3_3", world: 3),
     (id: "tt3_4", world: 3),
     (id: "tt3_5", world: 3),
+    (id: "tt4_1", world: 4),
+    (id: "tt4_2", world: 4),
     (id: "poweruptest", world: 0),
   ],
   hidden: ["greenbrain", "bluebrain", "redbrain", "target"],

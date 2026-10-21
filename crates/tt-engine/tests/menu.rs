@@ -221,9 +221,10 @@ fn backend_reads_the_game() {
         assert!(hs[0].score >= hs[9].score && hs[0].score > 0);
         assert_eq!(b.last_run_rank(), None);
 
-        assert_eq!(b.missions().len(), 16);
-        assert_eq!(b.missions()[15].name, "Power-up Test");
-        assert_eq!(b.missions()[15].world, "Special");
+        assert_eq!(b.missions().len(), 18);
+        assert_eq!(b.missions()[15].world, "Moon");
+        assert_eq!(b.missions()[17].name, "Power-up Test");
+        assert_eq!(b.missions()[17].world, "Special");
         b.mission_preview("missions/tt2_3.ron", [400, 225]);
         assert_eq!(b.missions()[7].name, "Greymatter Gorge");
         assert_eq!(b.bot_names().len(), 6);
@@ -232,6 +233,7 @@ fn backend_reads_the_game() {
         println!("bindings: {keys:?}");
         assert!(keys.iter().any(|k| k.action == "Forward" && k.keys.contains(&"W".to_string())));
         assert!(keys.iter().any(|k| k.action == "Fire" && k.keys.contains(&"Mouse 1".to_string())));
+        assert!(keys.iter().any(|k| k.action == "Team chat" && k.keys == ["Y"]));
 
         let mut s = b.settings();
         s.music_volume = 0.25;
@@ -759,7 +761,7 @@ fn custom_game_on_every_map_and_mp_stats() {
         }
         d.e.menu.as_mut().unwrap().state.reset(Screen::MainMenu);
         let missions = tt_engine::shell::missions(&mut d.e.host).to_vec();
-        assert_eq!(missions.len(), 16, "the game's maps: {missions:?}");
+        assert_eq!(missions.len(), 18, "the game's maps: {missions:?}");
         for (i, m) in missions.iter().enumerate() {
             let mode = (i % 4) as u32;
             let g = CustomGame {

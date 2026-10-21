@@ -110,15 +110,19 @@ pub fn refresh_ours(out: &Path) -> Result<bool, String> {
         return Ok(false);
     }
     for (asset, bytes) in crate::OURS {
-        let Some(b) = bytes else { continue };
-        let p = out.join(asset);
-        if let Some(d) = p.parent() {
-            std::fs::create_dir_all(d).map_err(|e| format!("{}: {e}", d.display()))?;
+        if let Some(b) = bytes {
+            write_file(&out.join(asset), b)?;
         }
-        std::fs::write(&p, b).map_err(|e| format!("{}: {e}", p.display()))?;
     }
-    std::fs::write(out.join(OURS_VERSION), version).map_err(|e| format!("{OURS_VERSION}: {e}"))?;
     Ok(true)
+}
+
+/// Writes `bytes` to `p`, creating its directory.
+fn write_file(p: &Path, bytes: &[u8]) -> Result<(), String> {
+    if let Some(d) = p.parent() {
+        std::fs::create_dir_all(d).map_err(|e| format!("{}: {e}", d.display()))?;
+    }
+    std::fs::write(p, bytes).map_err(|e| format!("{}: {e}", p.display()))
 }
 
 /// What to import and how.
@@ -312,11 +316,7 @@ impl<'a> Importer<'a> {
     }
 
     fn write(&mut self, asset: &str, bytes: &[u8]) -> Result<(), String> {
-        let p = self.out(asset);
-        if let Some(d) = p.parent() {
-            std::fs::create_dir_all(d).map_err(|e| format!("{}: {e}", d.display()))?;
-        }
-        std::fs::write(&p, bytes).map_err(|e| format!("{}: {e}", p.display()))?;
+        write_file(&self.out(asset), bytes)?;
         self.wrote(asset);
         Ok(())
     }
@@ -549,14 +549,9 @@ impl<'a> Importer<'a> {
                     _ => return Err(format!("{asset} (our own file) is not built into this program; pass the directory that has it (--ours)")),
                 },
             };
-            let p = self.out(asset);
-            if let Some(d) = p.parent() {
-                std::fs::create_dir_all(d).map_err(|e| format!("{}: {e}", d.display()))?;
-            }
-            std::fs::write(&p, b).map_err(|e| format!("{}: {e}", p.display()))?;
-            self.wrote(asset);
+            self.write(asset, &b)?;
         }
-        std::fs::write(self.opts.out.join(OURS_VERSION), env!("CARGO_PKG_VERSION")).map_err(|e| format!("{OURS_VERSION}: {e}"))
+        Ok(())
     }
 
     /// Required files that are missing are not skipped (the import fails
@@ -638,6 +633,8 @@ impl<'a> Importer<'a> {
             }
         }
         if errors.is_empty() {
+            // Only a complete import marks the data as this version's.
+            std::fs::write(self.opts.out.join(OURS_VERSION), env!("CARGO_PKG_VERSION")).map_err(|e| format!("{OURS_VERSION}: {e}"))?;
             Ok(self.report)
         } else {
             Err(errors.join("\n"))
@@ -722,7 +719,8 @@ pub fn install(opts: &Options) -> Result<Report, InstallError> {
 
 #[cfg(test)]
 mod tests {
-    /// An import of an older version gets this version's own files once.
+    /// An import of an older version gets this version's own files (every
+    /// start, until an import stamps it); an up-to-date one is left alone.
     #[test]
     fn refresh_ours_rewrites_an_older_versions_files() {
         let out = std::env::temp_dir().join(format!("tt-refresh-ours-{}", std::process::id()));
@@ -732,7 +730,9 @@ mod tests {
         let (asset, bytes) = crate::OURS.iter().find_map(|(a, b)| b.map(|b| (*a, b))).unwrap();
         assert!(super::refresh_ours(&out).unwrap());
         assert_eq!(std::fs::read(out.join(asset)).unwrap(), bytes);
-        assert_eq!(std::fs::read_to_string(out.join(super::OURS_VERSION)).unwrap(), env!("CARGO_PKG_VERSION"));
+        assert_eq!(std::fs::read_to_string(out.join(super::OURS_VERSION)).unwrap(), "0.1.2", "still the old import's");
+        assert!(super::refresh_ours(&out).unwrap(), "still stale");
+        std::fs::write(out.join(super::OURS_VERSION), env!("CARGO_PKG_VERSION")).unwrap();
         assert!(!super::refresh_ours(&out).unwrap(), "up to date: nothing written");
         let _ = std::fs::remove_dir_all(&out);
     }

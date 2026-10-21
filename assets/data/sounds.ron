@@ -457,5 +457,24 @@
         "1 1 1",
       ],
     ),
+    MusicDef(
+      name: "Lunar",
+      num_moods: 1,
+      k1: 0.33,
+      k2: 0.33,
+      k3: 0.33,
+      smooth1: 0.5,
+      smooth2: 0.5,
+      smooth3: 0.5,
+      mood_smooth: 0.5,
+      mood_scale: 1,
+      mood1: [
+        "sound/music/spacefighter.ogg",
+      ],
+      sequences1: [
+        "1",
+        "1 1",
+      ],
+    ),
   ],
 )

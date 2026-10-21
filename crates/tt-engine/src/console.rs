@@ -356,6 +356,29 @@ pub fn execute(e: &mut Engine, line: &str) -> Vec<String> {
     }
 }
 
+/// Set by SIGINT/SIGTERM/SIGHUP (Ctrl+C, `docker stop`; Ctrl+C/Break on
+/// Windows, where closing the console still ends the process unsaved).
+static STOP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Makes SIGINT/SIGTERM request the console's `quit` (polled with
+/// [`take_stop`], so the settings and the ban list are saved); a second
+/// one while shutting down exits at once.
+pub fn install_stop_handler() {
+    let _ = ctrlc::set_handler(|| {
+        if STOP.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            std::process::exit(130);
+        }
+    });
+}
+
+/// Turns a received stop signal into `quit_requested`.
+pub fn take_stop(h: &mut crate::host::EngineHost) {
+    if STOP.load(std::sync::atomic::Ordering::SeqCst) && !h.quit_requested {
+        h.log.info("Signal: quit");
+        h.quit_requested = true;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{split_words, Command};

@@ -6,8 +6,9 @@
 opentt --dedicated --mission tt2_3 --port 28000 -- -game TS
 ```
 
-* `--mission`: a map id (`tt2_3`), or a rotation: `GREEN`, `BLUE`, `RED`
-  (one world's maps) or `ALL`, starting on a random map.
+* `--mission`: a map id (`tt2_3`), or a rotation: `GREEN`, `BLUE`, `RED`,
+  `MOON` (one world's maps) or `ALL` (the green, blue and red worlds'),
+  starting on a random map.
 * `-game`: `B` battle (default), `TB` team battle, `S` scrum, `TS` team scrum.
 * `--port N`: the UDP port, 28000 by default. When it is taken (another server,
   or the game's), the server tries the next ones up to 28009 and prints the port
@@ -18,11 +19,14 @@ opentt --dedicated --mission tt2_3 --port 28000 -- -game TS
 * `--master-server HOST[:PORT]`: list the server on a master server for
   internet play; `--port-mapping` asks the router to forward the port
   (UPnP / NAT-PMP), otherwise forward it on the router yourself.
+  Several masters: comma-separated (`--master-server a.org,b.org:28101`).
+  A master on the same host (Docker) needs `tt-master --local-address PUBLIC_IP`.
 
 ## Settings
 
 Set them in the console (`set server.max_players 8`, `get server.*` lists
-them) or in `settings.ron`; they are saved when the server quits.
+them) or in `settings.ron`; they are saved when the server quits
+(`docker stop` / Ctrl+C save like `quit`; a second one exits at once).
 
 | Setting | Default | |
 |---|---|---|

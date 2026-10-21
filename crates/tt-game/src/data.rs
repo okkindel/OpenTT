@@ -253,6 +253,12 @@ impl ProjectileParams {
         self.high_angle() && self.pellet_count > 1
     }
 
+    /// Its downward acceleration (m/s²) under the mission's gravity
+    /// scale `world_g` ([`crate::World::gravity`]).
+    pub fn fall(&self, world_g: f32) -> f32 {
+        -crate::GRAVITY * self.gravity_scale * world_g
+    }
+
     /// The mortar's elevation above the horizon (degrees) for the barrel's
     /// normalised pitch (`pitch_n` −1 = barrel highest): raising the barrel
     /// lowers the arc towards `launch_pitch_min` and so reaches further, as
@@ -268,13 +274,13 @@ impl ProjectileParams {
     /// between them (barrel lowest → `launch_range_min`, highest →
     /// `launch_range_max`), so the barrel sets the reach linearly and the
     /// flight stays short (a mortar's charge).
-    pub fn launch_speed(&self, pitch_n: f32) -> f32 {
+    pub fn launch_speed(&self, pitch_n: f32, world_g: f32) -> f32 {
         if !self.high_angle() || self.launch_range_max <= 0.0 {
             return self.velocity;
         }
         let u = (1.0 - pitch_n.clamp(-1.0, 1.0)) * 0.5;
         let reach = self.launch_range_min + (self.launch_range_max - self.launch_range_min) * u;
-        let g = -crate::GRAVITY * self.gravity_scale;
+        let g = self.fall(world_g);
         let s = (2.0 * self.launch_elevation_deg(pitch_n).to_radians()).sin().max(1e-3);
         (reach.max(0.0) * g / s).sqrt()
     }
@@ -284,10 +290,10 @@ impl ProjectileParams {
     /// time s), following the simulation's tick integration exactly
     /// (explicit Euler at `DT`: the shell is `g·DT·t/2` above the analytic
     /// parabola at tick time `t`). None when the arc never gets that high.
-    pub fn high_angle_reach(&self, pitch_n: f32, dz: f32) -> Option<(f32, f32)> {
+    pub fn high_angle_reach(&self, pitch_n: f32, dz: f32, world_g: f32) -> Option<(f32, f32)> {
         let e = self.launch_elevation_deg(pitch_n).to_radians();
-        let v = self.launch_speed(pitch_n);
-        let g = -crate::GRAVITY * self.gravity_scale;
+        let v = self.launch_speed(pitch_n, world_g);
+        let g = self.fall(world_g);
         let (vh, vz) = (v * e.cos(), v * e.sin() + 0.5 * g * crate::DT);
         if g <= 0.0 {
             return None;
@@ -304,9 +310,9 @@ impl ProjectileParams {
     /// horizontal distance `d` and height `dz` relative to its spawn point
     /// ([`Self::high_angle_reach`], bisection: raising the barrel reaches
     /// further); the nearest limit when out of reach.
-    pub fn pitch_n_for_reach(&self, d: f32, dz: f32) -> f32 {
+    pub fn pitch_n_for_reach(&self, d: f32, dz: f32, world_g: f32) -> f32 {
         // Distance past the target (+) or short of it (−).
-        let past = |pn: f32| self.high_angle_reach(pn, dz).map_or(-1e9, |(r, _)| r - d);
+        let past = |pn: f32| self.high_angle_reach(pn, dz, world_g).map_or(-1e9, |(r, _)| r - d);
         if past(-1.0) <= 0.0 {
             return -1.0;
         }

@@ -84,6 +84,9 @@ struct PostUniform {
     texel: [f32; 4],
     // x, y: texel size of the bloom texture (composite).
     extra: [f32; 4],
+    fog: [f32; 4],
+    up: [f32; 4],
+    vols: [[f32; 4]; 3],
 }
 
 /// Per-view projection data for SSAO.
@@ -95,6 +98,12 @@ pub struct ViewParams {
     pub tan_half_y: f32,
     /// Fog visible distance (SSAO fades out towards it).
     pub visible: f32,
+    /// Fog distance, camera world z, world z of the view axes, and the
+    /// height fog bands (the composite keeps fogged pixels unoccluded).
+    pub fog_distance: f32,
+    pub cam_z: f32,
+    pub up: [f32; 3],
+    pub vols: [[f32; 4]; 3],
 }
 
 struct Pass {
@@ -430,6 +439,9 @@ impl Post {
             proj: [v.near, v.far, v.tan_half_x, v.tan_half_y],
             texel: [0.0, 0.0, radius, v.visible],
             extra: [t.bloom_texel[0], t.bloom_texel[1], 0.0, 0.0],
+            fog: [v.fog_distance, v.cam_z, 0.0, 0.0],
+            up: [v.up[0], v.up[1], v.up[2], 0.0],
+            vols: v.vols,
         };
         let fullscreen = |enc: &mut wgpu::CommandEncoder, pass: &Pass, pipe: &wgpu::RenderPipeline, load: wgpu::LoadOp<wgpu::Color>, texel: [f32; 2]| {
             let mut u = base;

@@ -162,7 +162,7 @@ fn mortar_lands_on_the_aim_point_on_hills() {
                     let flat = Vec3::new(dir.x, dir.y, 0.0).normalize();
                     let (x, y) = (t.pos.x + flat.x * d, t.pos.y + flat.y * d);
                     let aim = Vec3::new(x, y, hf.height(x, y));
-                    let (yaw_n, pn) = t.high_angle_aim(&mortar, yaw_n, aim);
+                    let (yaw_n, pn) = t.high_angle_aim(&mortar, yaw_n, aim, 1.0);
                     let (pos, time) = fire_mortar(&mut w, id, yaw_n, pn);
                     let miss = (pos - aim).truncate().length();
                     let short = (aim - t.pos).truncate().length() - (pos - t.pos).truncate().length();

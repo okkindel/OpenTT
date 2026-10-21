@@ -113,15 +113,15 @@ impl Server {
     }
 
     /// A dedicated server on `mission`: a mission file, or a rotation of
-    /// the map list (`GREEN`, `BLUE`, `RED`: a world's maps; `ALL`: every
-    /// world's) starting on a random one of them.
+    /// the map list (`GREEN`, `BLUE`, `RED`, `MOON`: a world's maps; `ALL`: the
+    /// green, blue and red worlds') starting on a random one of them.
     pub fn launch_dedicated(&mut self, h: &mut dyn ServerHost, mission: &str) {
         let mut mission = mission.to_string();
         self.bots_from_settings(h);
         let mode = self.setup.dedicated_mode;
         self.setup.mission_type = mode.mission_type();
         self.setup.team_game = mode.teams();
-        let world = [("GREEN", 1), ("BLUE", 2), ("RED", 3)].iter().find(|(k, _)| mission.eq_ignore_ascii_case(k)).map(|(_, w)| *w);
+        let world = [("GREEN", 1), ("BLUE", 2), ("RED", 3), ("MOON", 4)].iter().find(|(k, _)| mission.eq_ignore_ascii_case(k)).map(|(_, w)| *w);
         let rotation = match world {
             Some(w) => Some(Rotation::World(w)),
             None if mission.eq_ignore_ascii_case("ALL") => Some(Rotation::All),

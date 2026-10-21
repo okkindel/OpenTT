@@ -457,9 +457,9 @@ impl Engine {
         let (mut out, mut anims) = (Vec::new(), Vec::new());
         for tr in &g.world.triggers {
             let (shape, seq, lamp) = match &tr.kind {
-                // The Reload arch (type "ammo") has no lamp.
+                // The Reload arch (type "ammo"): its lightning lights.
                 tt_game::TriggerKind::PowerUp(d) => {
-                    let lamp = if d.kind.eq_ignore_ascii_case("ammo") { crate::gfx::Lamp::None } else { crate::gfx::Lamp::PowerUp };
+                    let lamp = if d.kind.eq_ignore_ascii_case("ammo") { crate::gfx::Lamp::Arch } else { crate::gfx::Lamp::PowerUp };
                     (d.shape.clone(), "ambient".to_string(), lamp)
                 }
                 tt_game::TriggerKind::Boost(b) => {

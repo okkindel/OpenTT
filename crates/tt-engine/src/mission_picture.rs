@@ -4,7 +4,7 @@
 //! type, with the server defs and the mission's own), power-ups,
 //! reload arches and boost/jump pads drawn as the game draws them
 //! (animated at a given time, lamps switched on, with their dynamic
-//! lights), the renderer settings of `tt_shell::prefs::GRAPHICS_DEFAULTS`
+//! lights; the props' own lamps lit too), the renderer settings of `tt_shell::prefs::GRAPHICS_DEFAULTS`
 //! (anisotropy 16, default detail), the game's view
 //! ([`crate::gfx::render_game_view`]).
 //!
@@ -56,9 +56,9 @@ pub fn load(root: &Path, mission: &str) -> Result<(Scene, Vec<Trigger>), String>
             continue;
         }
         let (seq, lamp) = if o.class.eq_ignore_ascii_case("PowerUp") {
-            // The Reload arch (type "ammo") has no lamp.
+            // The Reload arch (type "ammo"): its lightning lights.
             let kind = db.get("kind").unwrap_or("");
-            ("ambient".to_string(), if kind.eq_ignore_ascii_case("ammo") { Lamp::None } else { Lamp::PowerUp })
+            ("ambient".to_string(), if kind.eq_ignore_ascii_case("ammo") { Lamp::Arch } else { Lamp::PowerUp })
         } else {
             // A pad in its first state (`state_name1`, else `ambient`).
             let name = db.get("state_name1").unwrap_or("");
@@ -114,6 +114,7 @@ pub struct Pictures {
     lights_dynamic: bool,
     time: f32,
     ssaa: u32,
+    root: PathBuf,
 }
 
 pub const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;
@@ -133,7 +134,7 @@ impl Pictures {
         renderer.preload(&device, &queue, &shapes, &[], Some(&scene.fx));
         let lights_dynamic = tt_shell::prefs::GRAPHICS_DEFAULTS.dynamic_lights;
         eprintln!("{mission}: {} power-ups/pads", dynamic.len());
-        Ok(Pictures { device, queue, renderer, scene, targets: HashMap::new(), dynamic, anims, lights_dynamic, time, ssaa: ssaa.clamp(1, 4) })
+        Ok(Pictures { device, queue, renderer, scene, targets: HashMap::new(), dynamic, anims, lights_dynamic, time, ssaa: ssaa.clamp(1, 4), root: root.to_path_buf() })
     }
 
     /// Renders the view from `cam` (x y z yaw pitch hfov, degrees) at
@@ -148,13 +149,15 @@ impl Pictures {
             Target { texture, view }
         });
         let camera = Camera { pos: Vec3::new(x, y, z), yaw: yaw.to_radians(), pitch: pitch.to_radians() };
+        // A fresh light state each picture (no explosions, no projectiles);
+        // the wisps drawn as the game draws them.
+        let mut dl = crate::dynlights::DynLights::default();
+        dl.set_scene(&self.scene, &self.root);
         if self.lights_dynamic {
-            // A fresh light state each picture (no explosions, no projectiles).
-            let mut dl = crate::dynlights::DynLights::default();
             let lights = dl.update(0.0, &[], Some(&self.scene.fx), &self.dynamic, &self.anims, &[], camera.pos, 1.0).to_vec();
             self.renderer.set_point_lights(&lights);
         }
-        let gv = GameView { camera, hfov, dynamic: Vec::new(), ifl: Vec::new(), triggers: self.dynamic.clone(), trigger_anim: self.anims.clone(), sprites: Vec::new(), smoke: Vec::new() };
+        let gv = GameView { camera, hfov, dynamic: Vec::new(), ifl: Vec::new(), triggers: self.dynamic.clone(), trigger_anim: self.anims.clone(), sprites: dl.wisp_sprites(), smoke: Vec::new() };
         crate::gfx::render_game_view(&mut self.renderer, &self.scene, &self.device, &self.queue, &target.view, big, &gv, None, self.time);
         let px = crate::gfx::read_rgba(&self.device, &self.queue, &target.texture, big, FORMAT);
         let img = image::RgbaImage::from_raw(big.0, big.1, px).ok_or("bad frame")?;

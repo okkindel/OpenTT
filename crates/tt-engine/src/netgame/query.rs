@@ -181,10 +181,11 @@ pub fn query_address(h: &mut EngineHost, address: &str) -> bool {
     }
 }
 
-/// Starts an internet query: the master server's list, then every listed
-/// server's info (with introductions for servers behind NAT). Ends with
-/// `onServerQueryStatus("done")` after [`MASTER_QUERY_TIME`].
-pub fn query_master(h: &mut EngineHost, master: SocketAddr, clear: bool) {
+/// Starts an internet query: the master servers' lists (merged, each
+/// server once), then every listed server's info (with introductions for
+/// servers behind NAT). Ends with `onServerQueryStatus("done")` after
+/// [`MASTER_QUERY_TIME`].
+pub fn query_master(h: &mut EngineHost, masters: &[SocketAddr], clear: bool) {
     let t = now(h);
     h.netgame.query.message = "Querying master server".into();
     let q = &mut h.netgame.query;
@@ -196,7 +197,7 @@ pub fn query_master(h: &mut EngineHost, master: SocketAddr, clear: bool) {
         if clear {
             b.clear();
         }
-        b.query_master(master, t);
+        b.query_master(masters, t);
     }
 }
 

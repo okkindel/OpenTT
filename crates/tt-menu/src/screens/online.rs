@@ -5,7 +5,7 @@ use egui::{Align2, Color32, Key, Pos2, Rect, Stroke, StrokeKind, Vec2};
 
 use super::{bot_table, edit_text, frame, pal, pressed, Gfx, Typed};
 use crate::backend::*;
-use crate::{Field, MenuAction, MenuState, OnlineTab};
+use crate::{Field, MastersEdit, MenuAction, MenuState, OnlineTab};
 
 /// Server list sort keys as the header shows them (the first three in the
 /// first column, whose rows show name, map and mode; the last: the lock
@@ -32,7 +32,19 @@ fn field(g: &mut Gfx, id: &str, rect: Rect, text: &str, placeholder: &str, focus
     let resp = g.interact_button(rect, ("field", id), true);
     let edge = if focused || resp.hovered() { pal::BRASS } else { super::steel::shade(pal::LINE, 0.1) };
     g.inset(rect, super::steel::shade(pal::WELL, -0.25), pal::WELL, edge, 4.0);
-    let shown: String = if mask { "*".repeat(text.chars().count()) } else { text.to_string() };
+    let mut shown: String = if mask { "*".repeat(text.chars().count()) } else { text.to_string() };
+    // Too long: "..." where it is cut (the start while typing, so the caret shows).
+    let max_w = rect.width() - 30.0;
+    if g.text_width(&shown, 24.0) > max_w {
+        while !shown.is_empty() && g.text_width(&format!("{shown}..."), 24.0) > max_w {
+            if focused {
+                shown.remove(0);
+            } else {
+                shown.pop();
+            }
+        }
+        shown = if focused { format!("...{shown}") } else { format!("{shown}...") };
+    }
     let pos = rect.left_center() + Vec2::new(12.0, 0.0);
     let end = if shown.is_empty() {
         if !focused {
@@ -62,7 +74,6 @@ fn type_into(ctx: &egui::Context, st: &mut MenuState, host: Option<&mut HostGame
         (Field::ServerPassword, Some(host)) => (&mut host.password, MAX_PASSWORD),
         // The host fields are not on the Join screen.
         (Field::ServerName | Field::ServerPassword, None) => return false,
-        (Field::Master, _) => (st.master.get_or_insert_with(String::new), MAX_ADDRESS),
     };
     let k = edit_text(ctx, text, max);
     if k.escape || k.tab {
@@ -128,13 +139,96 @@ fn refresh(st: &MenuState, b: &mut dyn MenuBackend) {
     b.refresh_servers();
 }
 
-/// Saves an edited master address (when it changed) and lists its servers.
-fn commit_master(st: &mut MenuState, b: &mut dyn MenuBackend) {
-    let Some(m) = st.master.as_ref().map(|m| m.trim().to_string()) else { return };
-    if m != b.master_server() {
-        b.set_master_server(&m);
-        refresh(st, b);
+/// The master servers of the pref (comma-separated), one a row.
+fn master_rows(pref: &str) -> Vec<String> {
+    pref.split(',').map(str::trim).filter(|s| !s.is_empty()).map(String::from).collect()
+}
+
+/// A light check of a master address: `host[:port]`, `IP:a.b.c.d:port`
+/// or `[v6]:port`, no spaces or commas.
+fn valid_master(s: &str) -> bool {
+    let s = s.strip_prefix("IP:").or_else(|| s.strip_prefix("ip:")).unwrap_or(s);
+    if s.is_empty() || s.contains(|c: char| c.is_whitespace() || c == ',') {
+        return false;
     }
+    if s.starts_with('[') {
+        return s.parse::<std::net::SocketAddr>().is_ok();
+    }
+    match s.split_once(':') {
+        Some((host, port)) => !host.is_empty() && port.parse::<u16>().is_ok(),
+        None => true,
+    }
+}
+
+/// Rows the master servers dialog shows at most.
+const MAX_MASTER_ROWS: usize = 6;
+
+/// The master servers dialog: one address a row (× removes it), "+ Add",
+/// Save (Enter) stores them comma-separated and lists their servers,
+/// Cancel (Escape) keeps the old ones.
+pub(super) fn masters_dialog(ctx: &egui::Context, st: &mut MenuState, b: &mut dyn MenuBackend) {
+    let Some(mut m) = st.masters.take() else { return };
+    m.focus = m.focus.min(m.rows.len().saturating_sub(1));
+    let Typed { enter: mut save, escape: mut cancel, tab } = match m.rows.get_mut(m.focus) {
+        Some(row) => edit_text(ctx, row, MAX_ADDRESS),
+        None => Typed { escape: pressed(ctx, Key::Escape), enter: pressed(ctx, Key::Enter), ..Default::default() },
+    };
+    if tab && !m.rows.is_empty() {
+        m.focus = (m.focus + 1) % m.rows.len();
+    }
+    let (mut add, mut remove) = (false, None);
+    frame(ctx, st, egui::Order::Foreground, false, |g, _| {
+        let row_h = 56.0;
+        let (inner, y) = g.dialog(Vec2::new(720.0, 250.0 + row_h * MAX_MASTER_ROWS as f32), "Master servers");
+        g.text(inner.min, "Each lists internet games; servers you host register with all of them.", 20.0, pal::SAND_MUTED, Align2::LEFT_TOP);
+        for (i, row) in m.rows.iter().enumerate() {
+            let top = inner.top() + 40.0 + i as f32 * row_h;
+            let r = Rect::from_min_size(Pos2::new(inner.left(), top), Vec2::new(inner.width() - 62.0, row_h - 8.0));
+            if field(g, &format!("master{i}"), r, row, "host or host:port", i == m.focus, false) {
+                m.focus = i;
+            }
+            let x = Rect::from_min_size(Pos2::new(r.right() + 14.0, top), Vec2::splat(row_h - 8.0));
+            let resp = g.button(("master-x", i), x, "", false, false, true);
+            if resp.clicked() {
+                remove = Some(i);
+            }
+            let c = x.center();
+            let color = if resp.hovered() { pal::BRASS } else { pal::SAND_MUTED };
+            for d in [Vec2::new(8.0, 8.0), Vec2::new(8.0, -8.0)] {
+                g.painter.line_segment([c - d, c + d], Stroke::new(3.0_f32, color));
+            }
+        }
+        let add_top = inner.top() + 40.0 + m.rows.len() as f32 * row_h;
+        add = m.rows.len() < MAX_MASTER_ROWS && g.button("master-add", Rect::from_min_size(Pos2::new(inner.left(), add_top), Vec2::new(160.0, 44.0)), "+ Add", false, false, true).clicked();
+        if m.invalid {
+            g.text_fit(Pos2::new(inner.left() + 180.0, add_top + 22.0), "Use host or host:port (port 28100 if left out)", 20.0, pal::RED, inner.width() - 180.0);
+        }
+        let right = inner.right();
+        cancel |= g.button("master-cancel", Rect::from_min_size(Pos2::new(right - 330.0, y - 25.0), Vec2::new(170.0, 50.0)), "Cancel", false, false, true).clicked();
+        save |= g.button("master-save", Rect::from_min_size(Pos2::new(right - 140.0, y - 25.0), Vec2::new(140.0, 50.0)), "Save", true, false, true).clicked();
+    });
+    if cancel {
+        return;
+    }
+    if let Some(i) = remove {
+        m.rows.remove(i);
+        m.invalid = false;
+    } else if add {
+        m.rows.push(String::new());
+        m.focus = m.rows.len() - 1;
+    } else if save {
+        let rows: Vec<&str> = m.rows.iter().map(|r| r.trim()).filter(|r| !r.is_empty()).collect();
+        m.invalid = !rows.iter().all(|r| valid_master(r));
+        if !m.invalid {
+            let pref = rows.join(", ");
+            if pref != b.master_server() {
+                b.set_master_server(&pref);
+                refresh(st, b);
+            }
+            return;
+        }
+    }
+    st.masters = Some(m);
 }
 
 pub(super) fn online(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend) -> Option<MenuAction> {
@@ -189,21 +283,12 @@ fn plain_address(a: &str) -> &str {
 
 fn join(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, inner: Rect) -> Option<MenuAction> {
     let ctx = g.ctx();
-    if st.master.is_none() {
-        st.master = Some(b.master_server());
-    }
     if !st.queried {
         st.queried = true;
         b.set_server_source(st.server_source);
         refresh(st, b);
     }
-    let was_field = st.field;
     let typed_enter = if g.blocked { false } else { type_into(&ctx, st, None) };
-    // The master field: Enter, or leaving it, saves the address.
-    if was_field == Some(Field::Master) && (st.field.is_none() || typed_enter) {
-        st.field = None;
-        commit_master(st, b);
-    }
     // Two columns: the list (with the source above it and joining by
     // address below it) and the selected server's details.
     let left = Rect::from_min_max(inner.min, Pos2::new(inner.right() - DETAILS_W - 20.0, inner.bottom()));
@@ -211,8 +296,8 @@ fn join(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, inner: Rect) -
     let top_row = |r: Rect, x: f32, w: f32| Rect::from_min_size(Pos2::new(r.left() + x, r.top()), Vec2::new(w, TOP_ROW));
     // Source: LAN / Internet.
     let internet = st.server_source == ServerSource::Internet;
-    if let Some(i) = g.segmented("source", top_row(left, 0.0, 240.0), &["LAN", "Internet"], internet as usize) {
-        st.server_source = if i == 1 { ServerSource::Internet } else { ServerSource::Lan };
+    if let Some(i) = g.segmented("source", top_row(left, 0.0, 240.0), &["Internet", "LAN"], !internet as usize) {
+        st.server_source = if i == 0 { ServerSource::Internet } else { ServerSource::Lan };
         st.join_sel = None;
         b.set_server_source(st.server_source);
         refresh(st, b);
@@ -228,21 +313,29 @@ fn join(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, inner: Rect) -
         st.join_sel = servers.iter().find(|s| s.compatible).map(|s| s.address.clone());
     }
     let mut out = None;
-    // Beside the source: what the list shows (LAN), or the master server
-    // address (Internet); the search status at the right.
+    // Beside the source: what the list shows (LAN), or the master field's
+    // hint (Internet); the search status at the right.
     let status = if b.querying() { "Searching..." } else { "" };
     let mid = left.top() + TOP_ROW / 2.0;
     g.text(Pos2::new(left.right(), mid), status, 20.0, pal::RUST, Align2::RIGHT_CENTER);
-    let master_r = top_row(left, 380.0, 280.0);
+    // The master servers: a plate in the tab row, right of the Join / Host
+    // tabs, above the details; it opens the master servers dialog.
     if internet {
-        g.text(Pos2::new(left.left() + 260.0, mid), "Master server", 20.0, pal::SAND_MUTED, Align2::LEFT_CENTER);
-        let focused = st.field == Some(Field::Master);
-        let text = st.master.clone().unwrap_or_default();
-        if field(g, "master", master_r, &text, "host:port (empty: none)", focused, false) {
-            st.field = Some(Field::Master);
+        let tab_row = g.tab_panel_rect().top();
+        let plate = Rect::from_min_max(Pos2::new(right.left() - 100.0, tab_row - 36.0), Pos2::new(inner.right(), tab_row - 4.0));
+        let list = master_rows(&master);
+        let text = match list.len() {
+            0 => "Master servers: none".to_string(),
+            1 => format!("Master servers: {}", list[0]),
+            n => format!("Master servers: {} (+{})", list[0], n - 1),
+        };
+        if g.button("masters", plate, "", false, false, true).clicked() {
+            st.masters = Some(MastersEdit { rows: if list.is_empty() { vec![String::new()] } else { list }, ..Default::default() });
         }
-        let hint = if focused { "Enter saves" } else if no_master { "not set" } else { "" };
-        g.text(Pos2::new(master_r.right() + 12.0, mid), hint, 18.0, pal::DISABLED, Align2::LEFT_CENTER);
+        g.text_fit(Pos2::new(plate.left() + 14.0, plate.center().y), &text, 20.0, pal::SAND, plate.width() - 28.0);
+        let hint = if no_master { "No master server set" } else { "Games listed by the master servers" };
+        let hint_w = left.right() - g.text_width("Searching...", 20.0) - 20.0 - (left.left() + 260.0);
+        g.text_fit(Pos2::new(left.left() + 260.0, mid), hint, 18.0, pal::DISABLED, hint_w);
     } else {
         g.label(Pos2::new(left.left() + 260.0, mid), "Servers on your network", 20.0, pal::SAND_MUTED, Align2::LEFT_CENTER);
     }
@@ -323,7 +416,7 @@ fn join(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, inner: Rect) -
     }
     if servers.is_empty() {
         let msg = if no_master {
-            "No master server set: enter one above to list internet games."
+            "No master server set: add one at the top right to list internet games."
         } else if b.querying() {
             if internet {
                 "Asking the master server..."
@@ -394,11 +487,7 @@ fn join(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, inner: Rect) -
         }
     }
     // A click anywhere else leaves the text field.
-    if st.field.is_some() && ctx.input(|i| i.pointer.any_click()) && !ctx.pointer_interact_pos().is_some_and(|p| fr.contains(p) || (internet && master_r.contains(p))) {
-        if st.field == Some(Field::Master) {
-            st.field = None;
-            commit_master(st, b);
-        }
+    if st.field.is_some() && ctx.input(|i| i.pointer.any_click()) && !ctx.pointer_interact_pos().is_some_and(|p| fr.contains(p)) {
         st.field = None;
     }
     // The divider between the columns.

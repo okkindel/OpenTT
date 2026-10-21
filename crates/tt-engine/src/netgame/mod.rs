@@ -152,8 +152,10 @@ pub struct NetGame {
     /// `startHeartbeat()` was called (and no `stopHeartbeat()` since): list
     /// the open server on the master server.
     heartbeat: bool,
-    /// Last logged master registration (registered, public address).
-    master_logged: (bool, Option<SocketAddr>),
+    /// Last logged master registrations (master, registered, public address).
+    master_logged: Vec<(SocketAddr, bool, Option<SocketAddr>)>,
+    /// The master list as resolved for the server's heartbeats ([`MasterDns`]).
+    master_dns: MasterDns,
     /// The router port mapping of the open server.
     portmap: Option<tt_net::portmap::PortMapper>,
     portmap_logged: Option<tt_net::portmap::PortMapStatus>,
@@ -331,13 +333,21 @@ pub fn parse_address(s: &str) -> Option<SocketAddr> {
     parse_address_port(s, DEFAULT_PORT)
 }
 
-/// The master server; `None` when unset or unresolvable.
-pub fn master_addr(prefs: &tt_shell::Prefs) -> Option<SocketAddr> {
-    let s = prefs.get("net.master_server");
-    if s.trim().is_empty() {
-        return None;
+/// The master servers; empty when unset. Unresolvable entries and
+/// repeats are left out.
+pub fn master_addrs(prefs: &tt_shell::Prefs) -> Vec<SocketAddr> {
+    parse_master_list(&prefs.get("net.master_server"))
+}
+
+/// [`master_addrs`] of a pref value.
+pub fn parse_master_list(s: &str) -> Vec<SocketAddr> {
+    let mut out: Vec<SocketAddr> = Vec::new();
+    for a in s.split(',').filter(|e| !e.trim().is_empty()).filter_map(|e| parse_address_port(e, tt_net::master::DEFAULT_MASTER_PORT)) {
+        if !out.contains(&a) {
+            out.push(a);
+        }
     }
-    parse_address_port(&s, tt_net::master::DEFAULT_MASTER_PORT)
+    out
 }
 
 /// [`parse_address`] with another default port.
@@ -350,6 +360,43 @@ pub fn parse_address_port(s: &str, default_port: u16) -> Option<SocketAddr> {
     let with_port = if s.rsplit_once(':').is_some_and(|(_, p)| p.parse::<u16>().is_ok()) { s.to_string() } else { format!("{s}:{default_port}") };
     let addrs: Vec<SocketAddr> = with_port.to_socket_addrs().ok()?.collect();
     addrs.iter().find(|a| a.is_ipv4()).or(addrs.first()).copied()
+}
+
+/// The resolved master servers of a pref value, looked up on a thread (a
+/// DNS lookup can take long; the server ticks must not wait for it) when
+/// the value changes and every [`MASTER_DNS_EVERY`].
+#[derive(Default)]
+struct MasterDns {
+    value: String,
+    addrs: Vec<SocketAddr>,
+    at: Duration,
+    pending: Option<std::sync::mpsc::Receiver<Vec<SocketAddr>>>,
+}
+
+/// How often the master servers' names are looked up again.
+const MASTER_DNS_EVERY: Duration = Duration::from_secs(300);
+
+impl MasterDns {
+    fn get(&mut self, value: &str, t: Duration) -> &[SocketAddr] {
+        if let Some(addrs) = self.pending.as_ref().and_then(|r| r.try_recv().ok()) {
+            self.addrs = addrs;
+            self.pending = None;
+        }
+        // A changed value supersedes a pending lookup (its receiver is
+        // dropped, so a late result of the old value is discarded).
+        if value != self.value || (self.pending.is_none() && t.saturating_sub(self.at) >= MASTER_DNS_EVERY) {
+            if value != self.value {
+                self.addrs.clear();
+            }
+            self.value = value.to_string();
+            self.at = t;
+            let (tx, rx) = std::sync::mpsc::channel();
+            let v = value.to_string();
+            std::thread::spawn(move || tx.send(parse_master_list(&v)));
+            self.pending = Some(rx);
+        }
+        &self.addrs
+    }
 }
 
 fn address_string(a: SocketAddr) -> String {
@@ -480,8 +527,8 @@ pub fn connect(h: &mut EngineHost, obj: Conn, address: &str, args: Vec<String>, 
     let mut client = Client::new(Box::new(transport) as Box<dyn Datagram>, cfg);
     client.set_auth_secret(tt_net::auth::secret(password));
     // Through the master (hole punching) for internet addresses, when one is set.
-    let master = master_addr(&h.shell.prefs).filter(|_| tt_net::master::is_public(addr.ip()));
-    client.set_introducer(master);
+    let masters = if tt_net::master::is_public(addr.ip()) { master_addrs(&h.shell.prefs) } else { Vec::new() };
+    client.set_introducer(&masters);
     client.set_timeout(LOADING_TIMEOUT);
     let t = now(h);
     if client.connect(addr, &args.encode(), t).is_err() {
@@ -625,8 +672,8 @@ pub fn shutdown(h: &mut EngineHost) {
         for id in ids {
             s.disconnect(id, "Server shut down", t);
         }
-        // Off the master server's list at once.
-        s.set_master(None, 0, t);
+        // Off the master servers' lists at once.
+        s.set_master(&[], 0, t);
     }
     h.netgame.server = None;
     h.netgame.portmap = None;
@@ -759,17 +806,21 @@ fn master_tick(h: &mut EngineHost, t: Duration) {
         return;
     };
     let listed = h.netgame.heartbeat && h.netgame.accepting && !h.shell.prefs.get("server.display_on_master").eq_ignore_ascii_case("Never");
-    let master = if listed { master_addr(&h.shell.prefs) } else { None };
+    let value = if listed { h.shell.prefs.get("net.master_server") } else { String::new() };
+    let masters = h.netgame.master_dns.get(&value, t).to_vec();
     let id = info::server_id(h);
     let Some(s) = h.netgame.server.as_mut() else { return };
-    s.set_master(master, id, t);
-    let st = s.master_status().clone();
-    let now = (st.registered, st.public_addr);
+    s.set_master(&masters, id, t);
+    let now: Vec<_> = s.master_statuses().filter_map(|st| Some((st.master?, st.registered, st.public_addr))).collect();
     if now != h.netgame.master_logged {
-        h.netgame.master_logged = now;
-        match now {
-            (true, Some(a)) => h.log.info(&format!("Master server {}: listed; this server's internet address is {a}", st.master.map(|m| m.to_string()).unwrap_or_default())),
-            _ => h.log.info("Master server: not listed"),
+        let old = std::mem::replace(&mut h.netgame.master_logged, now.clone());
+        let gone = old.iter().filter(|o| o.1 && !now.iter().any(|n| n.0 == o.0)).map(|o| (o.0, false, None));
+        let changed: Vec<_> = now.iter().copied().filter(|n| old.iter().find(|o| o.0 == n.0).map_or((false, None), |o| (o.1, o.2)) != (n.1, n.2)).chain(gone).collect();
+        for (m, registered, public) in changed {
+            match (registered, public) {
+                (true, Some(a)) => h.log.info(&format!("Master server {m}: listed; this server's internet address is {a}")),
+                _ => h.log.info(&format!("Master server {m}: not listed")),
+            }
         }
     }
     // The router port mapping (a background thread; the factory = tests: none).
@@ -1085,7 +1136,7 @@ pub fn apply_client_msg(h: &mut EngineHost, obj: Conn, msg: Msg) {
             for f in &files {
                 if !h.netgame.manifest.iter().any(|e| e.eq_ignore_ascii_case(f)) {
                     manifest_entry(h, f);
-                    // Or a mission with defs of its own (tt1_5's JumpBoost).
+                    // Or a mission with defs of its own (tt1_5's LeapBoost).
                     if !crate::gameplay::defs::load_server_set(h, f) {
                         crate::mission::declare_mission_defs(h, f);
                     }
@@ -1167,6 +1218,13 @@ mod tests {
         assert_eq!(parse_address("127.0.0.1"), Some("127.0.0.1:28000".parse().unwrap()));
         assert_eq!(parse_address("[::1]:7"), Some("[::1]:7".parse().unwrap()));
         assert_eq!(address_string("10.0.0.2:5000".parse().unwrap()), "IP:10.0.0.2:5000");
+        // The master list: comma-separated, port 28100 by default, spaces,
+        // empty entries and repeats dropped, `IP:` and host names.
+        let l = |s: &str| parse_master_list(s).iter().map(|a| a.to_string()).collect::<Vec<_>>();
+        assert_eq!(l("10.0.0.50"), ["10.0.0.50:28100"]);
+        assert_eq!(l(" 10.0.0.50 , IP:10.0.0.51:9,, localhost:28101 ,"), ["10.0.0.50:28100", "10.0.0.51:9", "127.0.0.1:28101"]);
+        assert_eq!(l("10.0.0.50,10.0.0.50:28100, ip:10.0.0.50"), ["10.0.0.50:28100"]);
+        assert!(l("").is_empty() && l(" , ,").is_empty());
         assert_eq!(parse_address_port("10.0.0.50", 28100), Some("10.0.0.50:28100".parse().unwrap()));
         assert_eq!(parse_address_port("10.0.0.50:9", 28100), Some("10.0.0.50:9".parse().unwrap()));
     }

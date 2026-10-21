@@ -35,12 +35,41 @@ pub struct ShapeInstance {
     pub light_boost: f32,
 }
 
+/// A sky sprite: an RGBA8 `textures::size()`^2 image (alpha edged),
+/// centred on the sky at `dir` (unit), `radius` (radians) from its centre
+/// to its square's edge.
+pub struct SkySprite {
+    pub image: Vec<u8>,
+    pub dir: Vec3,
+    pub radius: f32,
+}
+
+/// The Sky's `sky_sprites` field: `FILE AZIMUTH ELEVATION RADIUS` (asset
+/// path, compass and elevation degrees, angular radius in degrees) per
+/// sprite, `;` between sprites.
+fn sky_sprites(root: &Path, mission_dir: &Path, field: &str) -> Vec<SkySprite> {
+    field
+        .split(';')
+        .filter_map(|e| {
+            let v: Vec<&str> = e.split_whitespace().collect();
+            let [file, az, el, r] = v.as_slice() else { return None };
+            let (az, el, r): (f32, f32, f32) = (az.parse::<f32>().ok()?.to_radians(), el.parse::<f32>().ok()?.to_radians(), r.parse::<f32>().ok()?.to_radians());
+            let image = load_material(&tt_assets::resolve(root, mission_dir, file));
+            Some(SkySprite { image, dir: Vec3::new(az.sin() * el.cos(), az.cos() * el.cos(), el.sin()), radius: r })
+        })
+        .take(crate::render::MAX_SKY_SPRITES)
+        .collect()
+}
+
 pub struct Scene {
     pub name: String,
     pub shapes: crate::shapes::ShapeSet,
     /// Skybox: 4 side panorama faces and the top, `textures::size()`^2 RGBA8 each.
     pub sky_faces: Vec<Vec<u8>>,
     pub sky_vertices: Vec<SkyVertex>,
+    /// Sky `sky_sprites`: images drawn on the sky at infinite
+    /// distance (the Moon's Earth and Sun), sharper than the faces.
+    pub sky_sprites: Vec<SkySprite>,
     pub terrain_vertices: Vec<TerrainVertex>,
     pub terrain_indices: Vec<u32>,
     pub terrain_size: u32,
@@ -59,6 +88,10 @@ pub struct Scene {
     /// Terrain `detail_texture` (RGBA8 `textures::size()`^2), normalised
     /// to a mean of 128 so `2 x detail` keeps the average brightness.
     pub detail: Option<Vec<u8>>,
+    /// Terrain `macro_texture` (RGBA8 `textures::size()`^2): a colour
+    /// multiplier over one terrain block (wrapping with it), `2 x macro`, so
+    /// 128 keeps the material's colour; None draws as before.
+    pub macro_tex: Option<Vec<u8>>,
     /// The sun after `conform`, and the lightmap as colours, for lighting
     /// moving objects ([`Scene::shape_light`]).
     pub sun: crate::lighting::Sun,
@@ -79,6 +112,13 @@ pub struct Scene {
     pub terrain: Terrain,
     /// Particle, emitter and explosion defs (for [`crate::fx::Effects`]).
     pub fx: crate::fx::FxLibrary,
+    /// The drawn `Prop`s: shape file and transform (the engine's
+    /// dynamic lights find the props that carry a lamp by their shape).
+    pub props: Vec<(PathBuf, Mat4)>,
+    /// The `Wisp` objects of `kind` "ember" (sparks rising from lava):
+    /// position, `size`; no shape (the engine's dynamic lights draw and
+    /// light them).
+    pub wisps: Vec<(Vec3, f32)>,
 }
 
 fn latin1(path: &Path) -> Result<String, String> {
@@ -157,18 +197,17 @@ impl Scene {
         let sp = crate::loadstats::span(|| "scene: detail + materials + sky decode".into());
         // Every terrain, detail and sky texture decoded on all cores first.
         let sky_list = find("Sky").and_then(|s| s.get("material_list")).and_then(|dml| sky_bases(root, mission_dir, dml));
-        let bases: Vec<PathBuf> = tb
-            .get("detail_texture")
-            .filter(|p| !p.is_empty())
-            .map(|p| tt_assets::resolve(root, mission_dir, p))
+        let tex_path = |field: &str| tb.get(field).filter(|p| !p.is_empty()).map(|p| tt_assets::resolve(root, mission_dir, p));
+        let bases: Vec<PathBuf> = tex_path("detail_texture")
             .into_iter()
+            .chain(tex_path("macro_texture"))
             .chain(terrain.materials.iter().filter(|m| !m.is_empty()).map(|m| root.join(m)))
             .chain(sky_list.iter().flatten().cloned())
             .collect();
         let jobs: Vec<crate::textures::Job> = bases.iter().filter_map(|b| crate::textures::find(b)).collect();
         crate::textures::prefetch(&jobs);
-        let detail = tb.get("detail_texture").filter(|p| !p.is_empty()).map(|p| {
-            let mut px = load_material(&tt_assets::resolve(root, mission_dir, p));
+        let detail = tex_path("detail_texture").map(|p| {
+            let mut px = load_material(&p);
             let n = (px.len() / 4) as f64;
             let mean = px.chunks(4).map(|c| (c[0] as f64 + c[1] as f64 + c[2] as f64) / 3.0).sum::<f64>() / n;
             if mean > 1.0 {
@@ -180,6 +219,7 @@ impl Scene {
             }
             px
         });
+        let macro_tex = tex_path("macro_texture").map(|p| load_material(&p));
         let o = terrain.origin(square_size);
         let origin = (o, o);
 
@@ -214,6 +254,7 @@ impl Scene {
         let mut shapes = Vec::new();
         let mut hidden_shapes = Vec::new();
         let mut spawn = None;
+        let mut wisps = Vec::new();
         for o in all {
             let drawn = draw(o);
             let pos = match o.floats("position").as_slice() {
@@ -247,16 +288,21 @@ impl Scene {
             if o.class == "SpawnPoint" {
                 spawn.get_or_insert(pos);
             }
+            if o.class.eq_ignore_ascii_case("Wisp") && o.get("kind").is_some_and(|k| k.eq_ignore_ascii_case("ember")) {
+                wisps.push((pos, o.get("size").and_then(|v| v.parse().ok()).unwrap_or(1.0)));
+            }
         }
 
         let sp = crate::loadstats::span(|| "scene: sky".into());
         let sky_faces = sky.and_then(|s| s.get("material_list")).map(|dml| load_sky(root, mission_dir, dml)).unwrap_or_default();
+        let sky_sprites = sky.and_then(|s| s.get("sky_sprites")).map(|f| sky_sprites(root, mission_dir, f)).unwrap_or_default();
 
         let name = find("Info").and_then(|o| o.get("display_name")).unwrap_or("").to_string();
         drop(sp);
         let sp = crate::loadstats::span(|| format!("scene: static shapes ({})", shapes.len()));
         let mut shape_set = crate::shapes::ShapeSet::load(&shapes);
         drop(sp);
+        let props = shapes.iter().enumerate().filter(|(i, s)| s.casts_shadow && !hidden_shapes.contains(i)).map(|(_, s)| (s.path.clone(), s.transform)).collect();
         let tile = tb.get("tile").is_some_and(|v| v.trim() != "0" && !v.eq_ignore_ascii_case("false"));
         let started = std::time::Instant::now();
         let light = light_scene(&terrain, square_size, o, tile, &sun_light, &shapes, &mut shape_set);
@@ -275,6 +321,7 @@ impl Scene {
             name,
             shapes: shape_set,
             sky_vertices: if sky_faces.is_empty() { Vec::new() } else { sky_cube() },
+            sky_sprites,
             sky_faces,
             terrain_vertices: vertices,
             terrain_indices: indices,
@@ -286,6 +333,7 @@ impl Scene {
             lightmap: light.rgba8(),
             lightmap_size: light.size as u32,
             detail,
+            macro_tex,
             sun: sun_light,
             light,
             lighting_time,
@@ -305,6 +353,8 @@ impl Scene {
             spawn,
             terrain,
             fx: crate::fx::FxLibrary::from_defs(root, defs),
+            props,
+            wisps,
         })
     }
 }
@@ -446,6 +496,7 @@ impl Scene {
             shapes: crate::shapes::ShapeSet::load(&[]),
             sky_faces: Vec::new(),
             sky_vertices: Vec::new(),
+            sky_sprites: Vec::new(),
             terrain_vertices: vec![v(0.0, 0.0), v(1.0, 0.0), v(0.0, 1.0)],
             terrain_indices: vec![0, 1, 2],
             terrain_size: 2,
@@ -456,6 +507,7 @@ impl Scene {
             lightmap: vec![255u8; 16],
             lightmap_size: 2,
             detail: None,
+            macro_tex: None,
             light: crate::lighting::Lightmap::uniform(Vec3::ONE, 2, 1.0, 0.0),
             sun,
             lighting_time: std::time::Duration::ZERO,
@@ -470,6 +522,8 @@ impl Scene {
             spawn: None,
             terrain,
             fx: Default::default(),
+            props: Vec::new(),
+            wisps: Vec::new(),
         }
     }
 

@@ -495,7 +495,7 @@ fn mortar_lands_under_the_screen_centre() {
         let _ = std::fs::remove_dir_all(e.host.fs.data_dir());
         let mut e = start_on(&root, "missions/tt1_5.ron", 0);
         // (x, y, hull rotation about +z in radians, view yaw from the hull)
-        for (x, y, rot, yaw, label) in [(30.0f32, 105.0f32, std::f32::consts::FRAC_PI_2, 0.0f32, "tt1_5 uphill"), (-80.0, 105.0, -std::f32::consts::FRAC_PI_2, 0.0, "tt1_5 downhill")] {
+        for (x, y, rot, yaw, label) in [(-36.0f32, -54.0f32, std::f32::consts::FRAC_PI_2, 0.0f32, "tt1_5 uphill"), (-144.0, -36.0, std::f32::consts::FRAC_PI_2, 0.0, "tt1_5 downhill")] {
             let (o, _) = player(&e).unwrap();
             let g = e.host.game.as_mut().unwrap();
             let z = g.world.terrain.as_ref().unwrap().height(x, y);

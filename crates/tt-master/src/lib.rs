@@ -43,6 +43,8 @@ impl Default for Limits {
 #[derive(Debug, Clone)]
 struct Entry {
     server_id: u64,
+    /// The real source address (replies, introductions); the key is the listed one.
+    reply: SocketAddr,
     last_seen: Duration,
     /// Introduction budget: (tokens, last refill).
     intro: (f64, Duration),
@@ -70,6 +72,9 @@ pub struct Master<T: Datagram> {
     pub stats: MasterStats,
     /// List changes not yet printed (servers added, restarted, dropped).
     log: Vec<String>,
+    /// `--local-address`: lists servers registering from a non-public
+    /// source (same host, Docker bridge) under this IP and their port.
+    pub local_address: Option<IpAddr>,
 }
 
 /// Cookie validity bucket (a cookie is accepted in its bucket and the next).
@@ -78,7 +83,7 @@ const COOKIE_BUCKET: u64 = 30;
 impl<T: Datagram> Master<T> {
     pub fn new(transport: T, limits: Limits) -> Self {
         let mut rng = Rng::from_entropy();
-        Master { transport, key: (rng.next_u64(), rng.next_u64()), limits, servers: HashMap::new(), flood: HashMap::new(), stats: MasterStats::default(), log: Vec::new() }
+        Master { transport, key: (rng.next_u64(), rng.next_u64()), limits, servers: HashMap::new(), flood: HashMap::new(), stats: MasterStats::default(), log: Vec::new(), local_address: None }
     }
 
     pub fn local_addr(&self) -> SocketAddr {
@@ -95,6 +100,14 @@ impl<T: Datagram> Master<T> {
     /// The list changes since the last call (one line each, no timestamp).
     pub fn drain_log(&mut self) -> Vec<String> {
         std::mem::take(&mut self.log)
+    }
+
+    /// The address a server registering from `from` is listed under.
+    fn listed(&self, from: SocketAddr) -> SocketAddr {
+        match self.local_address {
+            Some(ip) if !tt_net::master::is_public(from.ip()) => SocketAddr::new(ip, from.port()),
+            _ => from,
+        }
     }
 
     fn cookie(&self, addr: SocketAddr, bucket: u64) -> u64 {
@@ -166,28 +179,30 @@ impl<T: Datagram> Master<T> {
                     let cookie = self.cookie(from, now.as_secs() / COOKIE_BUCKET);
                     return self.send(&MasterPacket::HeartbeatChallenge { nonce, cookie }, from);
                 }
+                let listed = self.listed(from);
                 if closing {
-                    if let Some(e) = self.servers.remove(&from) {
-                        self.log.push(format!("dropped {from} (id {:016x}): server closed", e.server_id));
+                    if let Some(e) = self.servers.remove(&listed) {
+                        self.log.push(format!("dropped {listed} (id {:016x}): server closed", e.server_id));
                     }
                     return;
                 }
-                if !self.servers.contains_key(&from) {
-                    let same_ip = self.servers.keys().filter(|a| a.ip() == from.ip()).count();
+                if !self.servers.contains_key(&listed) {
+                    let same_ip = self.servers.keys().filter(|a| a.ip() == listed.ip()).count();
                     if same_ip >= self.limits.servers_per_ip || self.servers.len() >= self.limits.max_servers {
                         self.stats.dropped += 1;
                         return;
                     }
                     self.stats.registrations += 1;
-                    self.log.push(format!("added {from} (id {server_id:016x})"));
-                } else if self.servers[&from].server_id != server_id {
-                    self.log.push(format!("restarted {from} (id {server_id:016x})"));
+                    self.log.push(format!("added {listed} (id {server_id:016x})"));
+                } else if self.servers[&listed].server_id != server_id {
+                    self.log.push(format!("restarted {listed} (id {server_id:016x})"));
                 }
                 let rate = self.limits.introductions_per_server;
-                let e = self.servers.entry(from).or_insert(Entry { server_id, last_seen: now, intro: (rate, now) });
+                let e = self.servers.entry(listed).or_insert(Entry { server_id, reply: from, last_seen: now, intro: (rate, now) });
                 e.server_id = server_id;
                 e.last_seen = now;
-                self.send(&MasterPacket::HeartbeatAck { nonce, public: from }, from);
+                e.reply = from;
+                self.send(&MasterPacket::HeartbeatAck { nonce, public: listed }, from);
             }
             MasterPacket::ListRequest { version, nonce, page } => {
                 if version != MASTER_VERSION {
@@ -213,8 +228,9 @@ impl<T: Datagram> Master<T> {
                     return;
                 }
                 e.intro = (tokens - 1.0, now);
+                let to = e.reply;
                 self.stats.introductions += 1;
-                self.send(&MasterPacket::Introduce { client: from }, server);
+                self.send(&MasterPacket::Introduce { client: from }, to);
             }
             // Replies and punches are not for us.
             _ => {}
@@ -228,17 +244,19 @@ pub struct Options {
     pub port: u16,
     /// Print a status line this often (0 = never).
     pub status_every: Duration,
+    /// `--local-address IP`: see [`Master::local_address`].
+    pub local_address: Option<IpAddr>,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { port: tt_net::master::DEFAULT_MASTER_PORT, status_every: Duration::from_secs(60) }
+        Options { port: tt_net::master::DEFAULT_MASTER_PORT, status_every: Duration::from_secs(60), local_address: None }
     }
 }
 
-pub const USAGE: &str = "usage: tt-master [--port N] [--status SECONDS]   (default port 28100)";
+pub const USAGE: &str = "usage: tt-master [--port N] [--status SECONDS] [--local-address IP]   (default port 28100)";
 
-/// Parses `--port N`, `--status SECONDS`.
+/// Parses `--port N`, `--status SECONDS`, `--local-address IP`.
 pub fn parse_args(args: &[String]) -> Result<Options, String> {
     let mut o = Options::default();
     let mut it = args.iter();
@@ -247,6 +265,7 @@ pub fn parse_args(args: &[String]) -> Result<Options, String> {
         match a.as_str() {
             "--port" => o.port = num("--port")?.clamp(1, 65535) as u16,
             "--status" => o.status_every = Duration::from_secs(num("--status")?),
+            "--local-address" => o.local_address = Some(it.next().and_then(|v| v.parse().ok()).ok_or_else(|| format!("--local-address needs an IP address\n{USAGE}"))?),
             "-h" | "--help" => return Err(USAGE.to_string()),
             other => return Err(format!("unknown argument {other}\n{USAGE}")),
         }
@@ -259,6 +278,7 @@ pub fn run(o: &Options) -> std::io::Result<()> {
     let t = tt_net::UdpTransport::bind_any(o.port)?;
     let addr = t.local_addr();
     let mut m = Master::new(t, Limits::default());
+    m.local_address = o.local_address;
     println!("{} master server on UDP {addr}", tt_net::PRODUCT_NAME);
     let start = std::time::Instant::now();
     let stamp = || utc_stamp(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs()));

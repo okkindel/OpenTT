@@ -930,7 +930,7 @@ pub(crate) fn ui(st: &mut MenuState, ctx: &egui::Context, b: &mut dyn MenuBacken
         st.solo_level = None;
     }
     let message = b.script_message();
-    let modal = message.is_some() || st.new_player.is_some() || st.confirm_delete.is_some() || st.password.is_some() || screen == Screen::QuitConfirm;
+    let modal = message.is_some() || st.new_player.is_some() || st.confirm_delete.is_some() || st.password.is_some() || st.masters.is_some() || screen == Screen::QuitConfirm;
     let shown = if screen == Screen::QuitConfirm { st.stack.iter().rev().nth(1).copied().unwrap_or(Screen::MainMenu) } else { screen };
     // The Play tab's mission picture, blurred behind the content.
     let backdrop = if shown == Screen::MainMenu && st.focus == 0 {
@@ -1020,6 +1020,10 @@ pub(crate) fn ui(st: &mut MenuState, ctx: &egui::Context, b: &mut dyn MenuBacken
     }
     if st.password.is_some() {
         return online::password_dialog(ctx, st);
+    }
+    if st.masters.is_some() {
+        online::masters_dialog(ctx, st, b);
+        return None;
     }
     if std::mem::take(&mut st.esc_eaten) {
         return action;
@@ -1990,6 +1994,7 @@ fn world_color(w: &str) -> Color32 {
         "Green" => Color32::from_rgb(0x5c, 0xc8, 0x46),
         "Blue" => Color32::from_rgb(0x4a, 0x8c, 0xe0),
         "Red" => Color32::from_rgb(0xd8, 0x5a, 0x40),
+        "Moon" => Color32::from_rgb(0xb8, 0xc4, 0xd6),
         _ => pal::SAND_MUTED,
     }
 }

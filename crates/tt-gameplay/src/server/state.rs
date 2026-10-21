@@ -73,9 +73,9 @@ impl DedicatedMode {
 /// (the game's and the enabled mods'), in its order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Rotation {
-    /// Every map of a world (1 green, 2 blue, 3 red).
+    /// Every map of a world (1 green, 2 blue, 3 red, 4 the Moon).
     World(u8),
-    /// Every map of every world.
+    /// Every map of the green, blue and red worlds (not the Moon's).
     #[default]
     All,
 }

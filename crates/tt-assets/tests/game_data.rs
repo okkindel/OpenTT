@@ -21,8 +21,9 @@ fn files(ext: &str) -> Vec<PathBuf> {
 fn all_terrains_parse() {
     tt_assets::require_game_data!();
     let ters = files("ter");
-    // The 12 maps, OpenTT's Power-up Test and its three new maps.
-    assert_eq!(ters.len(), 16);
+    // The 12 maps, OpenTT's Power-up Test, its three new maps and the
+    // two Moon maps.
+    assert_eq!(ters.len(), 18);
     for p in ters {
         let t = tt_assets::terrain::Terrain::parse(&std::fs::read(&p).unwrap()).unwrap();
         assert!(t.size() == 128 || t.size() == 64, "{}", p.display());
@@ -39,7 +40,7 @@ fn all_missions_parse() {
     let root = assets();
     // Every mission file (the map list, missions/catalog.ron, is none).
     let missions: Vec<_> = files("ron").into_iter().filter(|p| !p.ends_with("catalog.ron")).collect();
-    assert_eq!(missions.len(), 20);
+    assert_eq!(missions.len(), 22);
     for p in missions {
         let m = tt_assets::data::mission::load(&p).unwrap();
         let objs = m.scene_objects(|_| true);

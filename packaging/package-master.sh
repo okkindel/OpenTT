@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The standalone master server (the internet server list; no game, no
-# window): target/dist/opentt-master-<version>-<os>-<arch>.tar.gz, a .zip
+# window): target/dist/opentt-master-server-<version>-<os>-<arch>.tar.gz, a .zip
 # on Windows, with the binary, LICENSE, NOTICE and README.txt (how to run it).
 #
 # Usage: packaging/package-master.sh [--no-build]
@@ -26,7 +26,7 @@ esac
 BUILT="$ROOT/target/release/tt-master$SUFFIX"
 [ -f "$BUILT" ] || die "$BUILT not built (drop --no-build)"
 
-PKG="$NAME-master-$VERSION-$OS-$(uname -m)"
+PKG="$NAME-master-server-$VERSION-$OS-$(uname -m)"
 D="$DIST/$PKG"
 rm -rf "$D" "$D.tar.gz" "$D.zip"
 mkdir -p "$D"
@@ -36,10 +36,11 @@ cat >"$D/README.txt" <<TXT
 OpenTT master server $VERSION: lists the internet games and introduces
 players to hosts behind NAT. One UDP socket, nothing on disk, no window.
 
-    $NAME-master [--port N] [--status SECONDS]
+    $NAME-master [--port N] [--status SECONDS] [--local-address IP]
 
-    --port N          UDP port (default 28100; open it in the firewall)
-    --status SECONDS  print the counters this often (default 60, 0 = never)
+    --port N            UDP port (default 28100; open it in the firewall)
+    --status SECONDS    print the counters this often (default 60, 0 = never)
+    --local-address IP  list game servers on this host (Docker etc.) under IP
 
 It prints a line (UTC time) when a game server is added to the list or
 dropped from it. Players enter this machine's HOST[:PORT] as the master

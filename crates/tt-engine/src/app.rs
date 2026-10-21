@@ -275,6 +275,7 @@ impl App {
             let ft = self.engine.frame_ticks;
             self.stats.step_done(n, ft.script_ms, ft.sim_ms);
         }
+        crate::console::take_stop(&mut self.engine.host);
         if self.engine.host.quit_requested {
             self.engine.shutdown();
             el.exit();

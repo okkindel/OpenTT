@@ -97,9 +97,9 @@ fn lan_discovery_over_memnet() {
         query(&net, &mut t, &mut server, &mut client);
         assert!(tt_engine::netgame::query::rows(&client.host).is_empty());
         // The master server is gone: queryMasterServer completes at once.
-        let master = tt_engine::netgame::master_addr(&client.host.shell.prefs);
-        if let Some(m) = master {
-            tt_engine::netgame::query::query_master(&mut client.host, m, false);
+        let masters = tt_engine::netgame::master_addrs(&client.host.shell.prefs);
+        if !masters.is_empty() {
+            tt_engine::netgame::query::query_master(&mut client.host, &masters, false);
         }
         for _ in 0..(tt_engine::netgame::query::MASTER_QUERY_TIME.as_millis() as u32 / 32 + 2) {
             step_all(&net, &mut t, &mut [&mut server, &mut client]);
@@ -219,61 +219,105 @@ fn console_commands_on_dedicated_server() {
     });
 }
 
-/// The executable: commands typed on stdin while it serves.
-#[test]
-fn dedicated_executable_reads_console_from_stdin() {
-    use std::io::{BufRead, BufReader, Write};
-    use std::process::{Command, Stdio};
-    let root = assets();
-    let data = std::env::temp_dir().join(format!("tt-lan-stdin-{}", std::process::id()));
-    let mut child = Command::new(game_exe())
-        .args(["--assets", root.to_str().unwrap(), "--data", data.to_str().unwrap(), "--dedicated", "--mission", MISSION, "--port", "0", "--no-sound", "--quiet"])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .unwrap();
-    let mut stdin = child.stdin.take().unwrap();
-    let lines = BufReader::new(child.stdout.take().unwrap()).lines();
-    let (tx, rx) = std::sync::mpsc::channel();
-    let reader = std::thread::spawn(move || {
-        for l in lines.map_while(Result::ok) {
-            if tx.send(l).is_err() {
-                break;
+/// `opentt --dedicated` on a free port with its data in `data`, its
+/// stdin piped and its stdout lines on a channel; returns once it
+/// listens.
+struct Dedicated {
+    child: std::process::Child,
+    stdin: std::process::ChildStdin,
+    rx: std::sync::mpsc::Receiver<String>,
+    reader: std::thread::JoinHandle<()>,
+}
+
+impl Dedicated {
+    fn start(data: &Path) -> Dedicated {
+        use std::io::{BufRead, BufReader};
+        use std::process::{Command, Stdio};
+        let root = assets();
+        let mut child = Command::new(game_exe())
+            .args(["--assets", root.to_str().unwrap(), "--data", data.to_str().unwrap(), "--dedicated", "--mission", MISSION, "--port", "0", "--no-sound", "--quiet"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .unwrap();
+        let stdin = child.stdin.take().unwrap();
+        let lines = BufReader::new(child.stdout.take().unwrap()).lines();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            for l in lines.map_while(Result::ok) {
+                if tx.send(l).is_err() {
+                    break;
+                }
             }
-        }
-    });
-    let wait_for = |pred: &dyn Fn(&str) -> bool, what: &str| {
+        });
+        let d = Dedicated { child, stdin, rx, reader };
+        d.wait_for(&|l| l.starts_with("dedicated server listening on "), "listening line");
+        d
+    }
+
+    fn wait_for(&self, pred: &dyn Fn(&str) -> bool, what: &str) -> String {
         let start = Instant::now();
         while start.elapsed() < Duration::from_secs(60) {
-            if let Ok(l) = rx.recv_timeout(Duration::from_millis(100)) {
+            if let Ok(l) = self.rx.recv_timeout(Duration::from_millis(100)) {
                 if pred(&l) {
                     return l;
                 }
             }
         }
         panic!("no {what} on stdout");
-    };
-    wait_for(&|l| l.starts_with("dedicated server listening on "), "listening line");
-    writeln!(stdin, "status").unwrap();
-    let l = wait_for(&|l| l.starts_with("mission "), "status output");
+    }
+
+    /// Waits for the exit (30 s at most) and asserts it was a clean one.
+    fn exits(mut self) {
+        let start = Instant::now();
+        let status = loop {
+            if let Some(s) = self.child.try_wait().unwrap() {
+                break s;
+            }
+            if start.elapsed() > Duration::from_secs(30) {
+                let _ = self.child.kill();
+                panic!("server did not quit");
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        };
+        assert!(status.success(), "{status}");
+        drop(self.stdin);
+        self.reader.join().unwrap();
+    }
+}
+
+/// The executable: commands typed on stdin while it serves.
+#[test]
+fn dedicated_executable_reads_console_from_stdin() {
+    use std::io::Write;
+    let data = std::env::temp_dir().join(format!("tt-lan-stdin-{}", std::process::id()));
+    let mut d = Dedicated::start(&data);
+    writeln!(d.stdin, "status").unwrap();
+    let l = d.wait_for(&|l| l.starts_with("mission "), "status output");
     assert!(l.contains("tt1_1.ron"), "{l}");
-    writeln!(stdin, "echo from stdin").unwrap();
-    wait_for(&|l| l == "from stdin", "echo output (--quiet prints the command's log lines)");
-    writeln!(stdin, "quit").unwrap();
-    let start = Instant::now();
-    let status = loop {
-        if let Some(s) = child.try_wait().unwrap() {
-            break s;
-        }
-        if start.elapsed() > Duration::from_secs(30) {
-            let _ = child.kill();
-            panic!("server did not quit");
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    };
-    assert!(status.success());
-    drop(stdin);
-    reader.join().unwrap();
+    writeln!(d.stdin, "echo from stdin").unwrap();
+    d.wait_for(&|l| l == "from stdin", "echo output (--quiet prints the command's log lines)");
+    writeln!(d.stdin, "quit").unwrap();
+    d.exits();
+    let _ = std::fs::remove_dir_all(&data);
+}
+
+/// SIGTERM (`docker stop`) shuts the executable down like `quit`: the
+/// settings changed in the console are saved.
+#[cfg(unix)]
+#[test]
+fn dedicated_executable_saves_on_sigterm() {
+    use std::io::Write;
+    let data = std::env::temp_dir().join(format!("tt-lan-sigterm-{}", std::process::id()));
+    let mut d = Dedicated::start(&data);
+    writeln!(d.stdin, "set server.name SignalSaved").unwrap();
+    writeln!(d.stdin, "get server.name").unwrap();
+    d.wait_for(&|l| l.contains("SignalSaved"), "the new name");
+    let kill = std::process::Command::new("kill").args(["-TERM", &d.child.id().to_string()]).status().unwrap();
+    assert!(kill.success());
+    d.exits();
+    let settings = std::fs::read_to_string(data.join("settings.ron")).unwrap();
+    assert!(settings.contains("SignalSaved"), "{settings}");
     let _ = std::fs::remove_dir_all(&data);
 }

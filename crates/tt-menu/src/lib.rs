@@ -98,8 +98,16 @@ pub(crate) enum Field {
     Address,
     ServerName,
     ServerPassword,
-    /// The master server address (the Internet list).
-    Master,
+}
+
+/// The master servers dialog (Join → Internet): one address a row (the
+/// pref stores them comma-separated), the row typed into, and whether
+/// Save found an entry that is not `host[:port]`.
+#[derive(Debug, Clone, Default)]
+pub struct MastersEdit {
+    pub rows: Vec<String>,
+    pub focus: usize,
+    pub invalid: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -167,8 +175,8 @@ pub struct MenuState {
     pub(crate) server_source: ServerSource,
     /// The team asked for when joining a team game.
     pub(crate) join_team: Team,
-    /// The master server address being edited (`None`: not loaded yet).
-    pub(crate) master: Option<String>,
+    /// The master servers dialog, while open.
+    pub masters: Option<MastersEdit>,
     /// The server details show the player list instead of the info.
     pub show_players: bool,
     /// Escape was used by the screen (leaving a text field).
@@ -602,6 +610,7 @@ mod tests {
         let ctx = egui::Context::default();
         let mut b = MockBackend::new();
         let mut s = MenuState::at(Screen::MainMenu);
+        s.set_server_source(ServerSource::Lan);
         frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
         // The On-line entry opens the screen, which starts a LAN query.
         click(&mut s, &mut b, &ctx, egui::pos2(200.0, 22.0 + 120.0 + 3.0 * 104.0 + 46.0));
@@ -662,6 +671,8 @@ mod tests {
         let ctx = egui::Context::default();
         let mut b = MockBackend::new();
         let mut s = MenuState::at(Screen::MainMenu);
+        assert_eq!(s.server_source, ServerSource::Internet, "Internet by default");
+        s.set_server_source(ServerSource::Lan);
         s.open(Screen::Online);
         frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
         frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
@@ -685,21 +696,37 @@ mod tests {
         assert_eq!(click(&mut s, &mut b, &ctx, join), Some(MenuAction::Join { address: "IP:192.168.1.20:28000".into(), password: String::new(), team: Team::Auto }));
         // Internet without a master server: a hint, no query, Refresh disabled.
         b.log.clear();
-        click(&mut s, &mut b, &ctx, egui::pos2(236.0, 200.0));
+        click(&mut s, &mut b, &ctx, egui::pos2(116.0, 200.0));
         assert_eq!((s.server_source, b.source), (ServerSource::Internet, ServerSource::Internet));
         click(&mut s, &mut b, &ctx, egui::pos2(900.0, 671.0));
         assert_eq!(b.log, vec!["source Internet"]);
-        // Enter a master: saved, then listed.
-        click(&mut s, &mut b, &ctx, egui::pos2(550.0, 200.0));
-        assert_eq!(s.field, Some(Field::Master));
-        type_text(&ctx, &mut s, &mut b, "master.example.org:28100", true);
+        // The master servers dialog (the plate in the tab row, top right):
+        // one row a master, "+ Add", × removes, Save checks, Escape cancels.
+        click(&mut s, &mut b, &ctx, egui::pos2(1000.0, 148.0));
+        assert_eq!(s.masters.as_ref().map(|m| m.rows.clone()), Some(vec![String::new()]));
+        type_text(&ctx, &mut s, &mut b, "master.example.org:28100", false);
+        click(&mut s, &mut b, &ctx, egui::pos2(388.0, 261.0));
+        assert_eq!(s.masters.as_ref().map(|m| (m.rows.len(), m.focus)), Some((2, 1)));
+        type_text(&ctx, &mut s, &mut b, "bad host", true);
+        assert!(s.masters.as_ref().is_some_and(|m| m.invalid), "not saved");
+        assert_eq!(b.master, "");
+        click(&mut s, &mut b, &ctx, egui::pos2(948.0, 263.0));
+        assert_eq!(s.masters.as_ref().map(|m| m.rows.clone()), Some(vec!["master.example.org:28100".to_string()]));
+        click(&mut s, &mut b, &ctx, egui::pos2(902.0, 607.0));
+        assert!(s.masters.is_none());
         assert_eq!(b.master, "master.example.org:28100");
+        click(&mut s, &mut b, &ctx, egui::pos2(1000.0, 148.0));
+        click(&mut s, &mut b, &ctx, egui::pos2(388.0, 261.0));
+        type_text(&ctx, &mut s, &mut b, "tt.example.net", false);
+        frame_at(&ctx, &mut s, &mut b, 2.0, vec![key(egui::Key::Escape)]);
+        assert!(s.masters.is_none());
+        assert_eq!(b.master, "master.example.org:28100", "cancelled");
         assert_eq!(b.log[1..], ["master master.example.org:28100", "refresh internet master.example.org:28100"]);
         b.internet_servers = vec![b.servers[0].clone()];
         frame_at(&ctx, &mut s, &mut b, 3.0, Vec::new());
         assert_eq!(click(&mut s, &mut b, &ctx, join), Some(MenuAction::Join { address: "IP:192.168.1.20:28000".into(), password: String::new(), team: Team::Auto }));
         // Back to LAN.
-        click(&mut s, &mut b, &ctx, egui::pos2(116.0, 200.0));
+        click(&mut s, &mut b, &ctx, egui::pos2(236.0, 200.0));
         assert_eq!(b.source, ServerSource::Lan);
         // Host: the router port mapping and the master listing.
         click(&mut s, &mut b, &ctx, egui::pos2(190.0, 152.0));

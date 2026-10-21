@@ -20,14 +20,14 @@
 //!   shortcut that skips the menus — loads
 //!   the server defs and the mission and shows it with a free-fly
 //!   camera (WASD/QE, Shift, arrows, right-drag; Escape quits);
-//! * `--dedicated [--mission MISSION] [--port N]`: headless dedicated server (the
-//!   scripts' `-dedicated -mission`), real-time 32 ms ticks, UDP port N, with a
-//!   console on stdin (`status`, `say`, `kick`, `ban`, `map`, `quit`, `set`/`get`
-//!   for the settings; `tt_engine::console`).
+//! * `--dedicated [--mission MISSION] [--port N]`: headless dedicated server (the scripts'
+//!   `-dedicated -mission`), real-time 32 ms ticks, UDP port N, with a console on stdin
+//!   (`status`, `say`, `kick`, `ban`, `map`, `quit`, `set`/`get` for the settings;
+//!   `tt_engine::console`).
 //! * `--connect HOST[:PORT]`: joins a server at start (the scripts' `-connect`);
 //! * `--net-stats`: prints RTT, loss and bytes/s per connection every 5 s;
-//! * `--master-server HOST[:PORT]`: list the server on that master server;
-//!   `--port-mapping`: ask the router to forward the port (UPnP / NAT-PMP).
+//! * `--master-server HOST[:PORT][,HOST[:PORT]...]`: list the server on those master
+//!   servers; `--port-mapping`: ask the router to forward the port (UPnP / NAT-PMP).
 //! * `--master [--port N]`: run a master server instead (as `tt-master`);
 //! * `--debug`: debug state in the window title;
 //! * `TT_GPU_TIMING=1`: GPU time of each 3D pass (scene, glass copy, SSAO,
@@ -45,10 +45,10 @@
 //!   after N ticks (default 1) instead of opening a window (the canvas at
 //!   its resolution, or with `--mission` the 3D view);
 //! * `--bench SECONDS`: offscreen frames at 60 Hz, timing every stage;
-//! * `--play MISSION[:BOTS]`: the menu's Quick Play on MISSION (`tt3_5`) at the
-//!   first tick (`:BOTS`: a free-for-all custom game with that many bots), for
-//!   benchmarks and screenshots of a real game, e.g. `TT_GPU_TIMING=1 opentt
-//!   --play tt3_5 --bench 20 --size 1920x1080`;
+//! * `--play MISSION[:BOTS]`: the menu's Quick Play on MISSION (`tt3_5`) at the first tick
+//!   (`:BOTS`: a free-for-all custom game with that many bots), for benchmarks and
+//!   screenshots of a real game, e.g. `TT_GPU_TIMING=1 opentt --play tt3_5 --bench 20 --size
+//!   1920x1080`;
 //! * `--cmd TICK:COMMAND` (repeatable): runs a console command at that tick.
 //! * `--keys TICK:TEXT` (repeatable): types TEXT at that tick; `{name}`
 //!   sends a named key, e.g. `--keys 300:Bait{return}`, `{click:X,Y}` a left
@@ -63,10 +63,10 @@
 //!   the window (events, sim ticks, acquire, draw, present), spikes over
 //!   20 ms (`TT_FRAME_SPIKE_MS`) and a summary every 5 s on stderr.
 //!
-//! Unrecognised arguments starting with `-` (e.g. `-windowed`, `-log 2`) are the
-//! game's command line options ([`tt_engine::boot::BootArgs`]). Everything the
-//! game writes (settings, players, high scores, logs/console.log) goes to the data
-//! directory (default `$XDG_DATA_HOME/opentt`; docs/layout.md § User data).
+//! Unrecognised arguments starting with `-` (e.g. `-windowed`, `-log 2`) are the game's
+//! command line options ([`tt_engine::boot::BootArgs`]). Everything the game writes
+//! (settings, players, high scores, logs/console.log) goes to the data directory (default
+//! `$XDG_DATA_HOME/opentt`; docs/layout.md § User data).
 //!
 //! A release build for Windows is a GUI program: no console window opens
 //! with the game. Started from a console (cmd, PowerShell) it writes its
@@ -106,7 +106,7 @@ struct Args {
     net_stats: bool,
     /// `--master`: run a master server instead of the game.
     master: bool,
-    /// `--master-server HOST[:PORT]`: list this server there.
+    /// `--master-server HOST[:PORT]...`: list this server there.
     master_server: Option<String>,
     /// `--port-mapping`: ask the router to forward the port.
     port_mapping: bool,
@@ -114,7 +114,7 @@ struct Args {
     dev: devtools::DevArgs,
 }
 
-const USAGE: &str = concat!("usage: ", env!("CARGO_BIN_NAME"), " [--assets DIR] [--import THINK_TANKS_DIR] [--data DIR] [--windowed] [--no-sound] [--quiet] [--mission MISSION] [--debug] [--dedicated [--port N]] [--connect HOST[:PORT]] [--net-stats] [--master-server HOST[:PORT]] [--port-mapping] [--master [--port N]] [game args] [-- game args]");
+const USAGE: &str = concat!("usage: ", env!("CARGO_BIN_NAME"), " [--assets DIR] [--import THINK_TANKS_DIR] [--data DIR] [--windowed] [--no-sound] [--quiet] [--mission MISSION] [--debug] [--dedicated [--port N]] [--connect HOST[:PORT]] [--net-stats] [--master-server HOST[:PORT][,...]] [--port-mapping] [--master [--port N]] [game args] [-- game args]");
 #[cfg(feature = "dev")]
 const DEV_USAGE: &str = "developer options: [--headless [--ticks N]] [--screenshot OUT.png [--frames N] [--size WxH]] [--keys TICK:TEXT] [--cmd TICK:COMMAND] [--play MISSION[:BOTS]] [--bench SECONDS] [--frame-stats]";
 #[cfg(not(feature = "dev"))]
@@ -163,7 +163,7 @@ fn parse_args() -> Result<Args, String> {
             }
             "--net-stats" => a.net_stats = true,
             "--master" => a.master = true,
-            "--master-server" => a.master_server = Some(it.next().ok_or("--master-server needs HOST[:PORT]")?),
+            "--master-server" => a.master_server = Some(it.next().ok_or("--master-server needs HOST[:PORT][,HOST[:PORT]...]")?),
             "--port-mapping" => a.port_mapping = true,
             "-h" | "--help" => return Err(format!("{USAGE}\n{DEV_USAGE}")),
             "--" => a.cfg.args.extend(it.by_ref()),
@@ -203,6 +203,9 @@ fn run(a: Args) -> Result<(), String> {
     if windowed_run(&a) {
         tt_engine::update::start();
     }
+    if windowed_run(&a) || a.dedicated {
+        tt_engine::console::install_stop_handler();
+    }
     let a = std::rc::Rc::new(a);
     let factory_args = a.clone();
     let factory: launcher::AppFactory = Box::new(move |assets: &Path| {
@@ -212,8 +215,14 @@ fn run(a: Args) -> Result<(), String> {
     });
     let offline = offline(&a);
     let present = gamedata::present(&a.cfg.assets);
-    if present {
+    // Data imported by another version: imported again in the window (the
+    // own files are refreshed meanwhile; a run without a window is told how).
+    let stale = present && gamedata::stale(&a.cfg.assets);
+    if stale {
         gamedata::refresh_ours(&a.cfg.assets);
+        if !windowed_run(&a) {
+            eprintln!("note: {} was imported by another version; run `{} --import DIR` to refresh it", a.cfg.assets.display(), env!("CARGO_BIN_NAME"));
+        }
     }
     // Runs without a window cannot show the import screen: they start on
     // what there is (our own maps; the engine needs `missions/`).
@@ -230,7 +239,9 @@ fn run(a: Args) -> Result<(), String> {
         if let Some(r) = devtools::run_offline(&mut engine, &a.dev, &a.cfg.assets, a.mission.as_deref()) {
             return r;
         }
-        launcher::Launcher::game(window_app_loaded(&a, engine, &a.cfg.assets), target, factory)
+        let mut l = launcher::Launcher::game(window_app_loaded(&a, engine, &a.cfg.assets), target, factory);
+        l.refresh = stale;
+        l
     } else {
         launcher::Launcher::first_run(a.cfg.assets.clone(), target, factory)
     };
@@ -336,6 +347,7 @@ fn dedicated(engine: &mut Engine) -> Result<(), String> {
     let mut next = Instant::now();
     while !engine.host.quit_requested {
         console.poll(engine);
+        tt_engine::console::take_stop(&mut engine.host);
         if engine.host.quit_requested {
             break;
         }

@@ -44,7 +44,6 @@ pub enum BindAction {
     /// Mouse y: pitch.
     Pitch,
     Fire,
-    AltFire,
     ToggleFreeLook,
     ToggleFirstPerson,
     ToggleCamera,
@@ -74,6 +73,9 @@ pub enum BindAction {
     TogglePlayerAi,
     Quit,
     Screenshot,
+    /// An action of an older `binds.ron` (`AltFire`): does nothing.
+    #[serde(other)]
+    Unknown,
 }
 
 impl BindAction {
@@ -93,7 +95,6 @@ impl BindAction {
         BindAction::Yaw,
         BindAction::Pitch,
         BindAction::Fire,
-        BindAction::AltFire,
         BindAction::ToggleFreeLook,
         BindAction::ToggleFirstPerson,
         BindAction::ToggleCamera,
@@ -139,7 +140,6 @@ impl BindAction {
             Yaw => "yaw",
             Pitch => "pitch",
             Fire => "mouseFire",
-            AltFire => "altTrigger",
             ToggleFreeLook => "toggleFreeLook",
             ToggleFirstPerson => "toggleFirstPerson",
             ToggleCamera => "toggleCamera",
@@ -165,6 +165,7 @@ impl BindAction {
             TogglePlayerAi => "clientTogglePlayerAI",
             Quit => "ttQuit2",
             Screenshot => "doScreenShot",
+            Unknown => "",
         }
     }
 
@@ -276,11 +277,16 @@ impl Binds {
         self.maps.iter_mut().find(|m| m.name.eq_ignore_ascii_case(name)).unwrap()
     }
 
-    /// `user`'s maps replace these (a map the user file lacks stays).
+    /// `user`'s maps replace these (a map the user file lacks stays). A
+    /// default binding of an action the user's map does not bind, on a key
+    /// it leaves free, stays as well (a default newer than the file).
     pub fn overlay(&mut self, user: Binds) {
-        for m in user.maps {
-            let name = m.name.clone();
-            *self.map_mut(&name) = m;
+        for mut m in user.maps {
+            let d = self.map_mut(&m.name);
+            let clash = |b: &Binding| m.binds.iter().any(|u| u.action == b.action || (u.device == b.device && normal_key(&u.key) == normal_key(&b.key)));
+            let kept: Vec<Binding> = d.binds.iter().filter(|b| !clash(b)).cloned().collect();
+            m.binds.extend(kept);
+            *d = m;
         }
     }
 
@@ -441,7 +447,8 @@ pub struct MoveState {
     pub yaw: SVal,
     pub pitch: SVal,
     pub roll: SVal,
-    pub triggers: [SVal; 2],
+    /// The server reads no other trigger.
+    pub triggers: [SVal; 1],
     pub free_look: bool,
     pub movement_speed: SVal,
 }
@@ -629,6 +636,16 @@ mod tests {
         assert!(!mv.binds.iter().any(|x| x.key == "w"));
         assert_eq!(mv.binds.iter().find(|x| x.key == "xaxis").unwrap().scale, Some(0.5));
         assert!(b.map("GlobalActionMap").unwrap().binds.iter().any(|x| x.key == "F2" && x.action == BindAction::ToggleHelp));
+    }
+
+    #[test]
+    fn old_files_and_new_defaults() {
+        let mut b = Binds::parse(r#"(maps: [(name: "MoveMap", binds: [(device: Keyboard, key: "u", action: Chat), (device: Keyboard, key: "y", action: TeamChat), (device: Keyboard, key: "x", action: Fire)])])"#).unwrap();
+        let user = Binds::parse(r#"(maps: [(name: "MoveMap", binds: [(device: Mouse, key: "button1", action: AltFire), (device: Keyboard, key: "x", action: Chat)])])"#).unwrap();
+        b.overlay(user);
+        // Chat only on the user's X; the newer team chat default added; X not taken back for Fire.
+        let keys: Vec<(&str, BindAction)> = b.maps[0].binds.iter().map(|x| (x.key.as_str(), x.action)).collect();
+        assert_eq!(keys, vec![("button1", BindAction::Unknown), ("x", BindAction::Chat), ("y", BindAction::TeamChat)]);
     }
 
     #[test]

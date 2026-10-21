@@ -112,7 +112,10 @@ fn host_and_join_through_the_menus() {
         w.run_until(&mut [&mut host], 600, "the host plays", |e| in_game(e[0]));
         assert_eq!(tt_engine::netgame::server_addr(&host.host), Some(SocketAddr::from(([10, 0, 0, 1], 28000))));
         // The client opens Online/Join: the LAN query finds the server.
-        backend_do(&mut client, |b| b.refresh_servers());
+        backend_do(&mut client, |b| {
+            b.set_server_source(tt_menu::ServerSource::Lan);
+            b.refresh_servers()
+        });
         w.run_until(&mut [&mut host, &mut client], 200, "LAN list", |e| !tt_engine::netgame::query::rows(&e[1].host).is_empty());
         let servers = backend_do(&mut client, |b| b.lan_servers());
         assert_eq!(servers.len(), 1, "{servers:?}");
@@ -161,7 +164,10 @@ fn password_and_error_dialogs() {
         let mut client = engine(&root, &net, "pwclient", [10, 0, 0, 2], "Joiner");
         apply(&mut host, MenuAction::Host(host_game("Locked", "secret", 16)));
         w.run_until(&mut [&mut host], 600, "host plays", |e| in_game(e[0]));
-        backend_do(&mut client, |b| b.refresh_servers());
+        backend_do(&mut client, |b| {
+            b.set_server_source(tt_menu::ServerSource::Lan);
+            b.refresh_servers()
+        });
         w.run_until(&mut [&mut host, &mut client], 200, "LAN list", |e| !tt_engine::netgame::query::rows(&e[1].host).is_empty());
         let s = backend_do(&mut client, |b| b.lan_servers()).remove(0);
         assert!(s.password, "the lock icon");
@@ -262,7 +268,10 @@ fn team_choice_player_list_and_version_errors() {
         let hc = tt_engine::gameplay::server_host::local_client(&host.host).unwrap();
         tt_engine::gameplay::server_host::with_record(&mut host.host, hc, |r| r.score = Some(7.0));
         tt_engine::gameplay::server_host::with_server(&mut host.host, |s, b| s.refresh_player_list(b));
-        backend_do(&mut client, |b| b.refresh_servers());
+        backend_do(&mut client, |b| {
+            b.set_server_source(tt_menu::ServerSource::Lan);
+            b.refresh_servers()
+        });
         w.run_until(&mut [&mut host, &mut client], 200, "LAN list", |e| !tt_engine::netgame::query::rows(&e[1].host).is_empty());
         let s = backend_do(&mut client, |b| b.lan_servers()).remove(0);
         assert!(s.team_game(), "{}", s.mode);
@@ -289,7 +298,10 @@ fn team_choice_player_list_and_version_errors() {
         // build, so the joining client runs the other build instead.)
         host.host.netgame.build_override = Some(0x1234);
         client.host.netgame.build_override = Some(0x1234);
-        backend_do(&mut client, |b| b.refresh_servers());
+        backend_do(&mut client, |b| {
+            b.set_server_source(tt_menu::ServerSource::Lan);
+            b.refresh_servers()
+        });
         w.run_until(&mut [&mut host, &mut client], 200, "LAN list", |e| tt_engine::netgame::query::rows(&e[1].host).first().is_some_and(|r| !r.compatible));
         assert!(!backend_do(&mut client, |b| b.lan_servers())[0].compatible);
         assert_eq!(join_and_answer(&mut w, &mut host, &mut client, "10.0.0.1", Team::Auto).as_deref(), Some("Incompatible protocol version: Your game version is not compatible with this server."));

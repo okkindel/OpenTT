@@ -615,7 +615,7 @@ impl World {
                     let (x, y) = (i.pos.x - m.x, i.pos.y - m.y);
                     x < m.w + 5.0 && y < m.h + 5.0 && x > -5.0 && y > -5.0
                 });
-                alive && i.pos.z > -100.0 && inside
+                alive && i.pos.z > self.floor && inside
             });
             if !valid {
                 let nt = self.pick_target(t);
@@ -728,7 +728,7 @@ impl World {
         // Aim.
         let yaw_cur = a.turret_yaw_range * DEG * t.yaw_n;
         let pitch_cur = a.turret_pitch_range * DEG * t.pitch_n - a.turret_pitch_center * DEG;
-        let (vel, gs) = t.current.as_ref().map_or((0.0, 0.0), |p| (p.velocity, p.gravity_scale));
+        let (vel, gs) = t.current.as_ref().map_or((0.0, 0.0), |p| (p.velocity, p.gravity_scale * self.gravity));
         let aim = if t.current.is_some() { lead_aim(rel, rel_v, vel, gs) } else { Vec3::ZERO };
         let (aim_yaw, mut aim_pitch) = aim_angles(aim);
         // A high-angle cartridge (the mortar): the barrel pitch whose shell
@@ -736,7 +736,7 @@ impl World {
         // hull's centre).
         let high_angle = t.current.as_ref().filter(|p| p.high_angle() && aim != Vec3::ZERO).cloned();
         if let Some(p) = &high_angle {
-            let pn = t.high_angle_pitch_n(p, t.yaw_n, t.world_box().center() + t.rot * rel);
+            let pn = t.high_angle_pitch_n(p, t.yaw_n, t.world_box().center() + t.rot * rel, self.gravity);
             aim_pitch = a.turret_pitch_range * DEG * pn - a.turret_pitch_center * DEG;
         }
         {

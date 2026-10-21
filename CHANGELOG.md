@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.3.0
+
+* A new world, the Moon: two maps, "Lunar Lobe" and "Cortex Craters", with
+  low gravity, a lunar base, a crash site and their own music.
+* Three new maps replace the old fifth map of each world:
+  * "The Neverending Stream" (green): a stream between the teams' banks;
+  * "Night of the Living Brains" (blue): Halloween night, a stone circle
+    on the ritual hill under a blood-red moon;
+  * "The Dark Cortex" (red): a dark tower on a lava sea under an eclipse.
+* After an update the game imports your copy of ThinkTanks again by itself
+  when the new version needs it.
+* The Reload arch's lightning lights up the ground around it.
+* Tanks that fall below a map's floor are out of bounds; no more dark
+  lines through the fog.
+* Several master servers can be entered (Join → Internet → "Master servers").
+  The Internet list is the default in Join.
+* Team chat is on Y; the unused alternate fire bind is gone.
+* Servers save their settings on Ctrl+C or `docker stop`; a slow master
+  server lookup no longer stalls the game.
+* The master server downloads are now named `opentt-master-server-*`
+  (Linux and Windows); its new `--local-address` option lists game servers
+  on the same host (Docker).
+
 ## 0.2.0
 
 * Scrum: the ball can be passed: a hard ram knocks it loose, the ball keeps

@@ -199,7 +199,7 @@ impl World {
                 }
             } else {
                 let start = f.pos;
-                f.vel.z += GRAVITY * DT;
+                f.vel.z += GRAVITY * self.gravity * DT;
                 f.pos += f.vel * DT;
                 if let Some(ter) = &self.terrain {
                     let (h, n) = ter.height_and_normal(f.pos.x, f.pos.y);
@@ -229,7 +229,7 @@ impl World {
                 let (x, y) = (f.pos.x - m.x, f.pos.y - m.y);
                 !(x < m.w + 5.0 && y < m.h + 5.0 && x > -5.0 && y > -5.0)
             });
-            if self.server && (f.pos.z <= -100.0 || outside) {
+            if self.server && (f.pos.z <= self.floor || outside) {
                 self.events.push(Event::FlagOutOfBounds { flag: f.id });
             }
             if touched_terrain {

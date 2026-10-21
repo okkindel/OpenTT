@@ -11,6 +11,11 @@ struct Post {
     texel: vec4<f32>,
     // x, y: texel size of the bloom texture (composite)
     extra: vec4<f32>,
+    // Fog as in shader.wgsl `fog_factor`: x fog distance, y camera world z;
+    // `up`: world z of the view axes; `vols`: the height fog bands.
+    fog: vec4<f32>,
+    up: vec4<f32>,
+    vols: array<vec4<f32>, 3>,
 };
 
 @group(0) @binding(0) var<uniform> p: Post;
@@ -179,12 +184,40 @@ fn soft_clip(x: vec3<f32>) -> vec3<f32> {
     return min(x, vec3<f32>(k)) + (1.0 - k) * (vec3<f32>(1.0) - exp(-over / (1.0 - k)));
 }
 
+// shader.wgsl `fog_factor` of the scene pixel at `uv` (from the depth).
+fn fog_at(uv: vec2<f32>) -> f32 {
+    let dims = vec2<i32>(textureDimensions(depth));
+    let v = view_pos(uv, linear_depth(textureLoad(depth, clamp(vec2<i32>(uv * vec2<f32>(dims)), vec2<i32>(0), dims - vec2<i32>(1)), 0)));
+    let d = length(v);
+    let h = select(haze((d - p.fog.x) / max(p.texel.w - p.fog.x, 1.0)), 1.0, d >= p.texel.w);
+    let z0 = min(p.fog.y, p.fog.y + dot(v, p.up.xyz));
+    let z1 = max(p.fog.y, p.fog.y + dot(v, p.up.xyz));
+    var bands = 0.0;
+    for (var k = 0; k < 3; k++) {
+        let b = p.vols[k];
+        if (b.x > 0.0) {
+            var inside = d * max(min(z1, b.z) - max(z0, b.y), 0.0) / max(z1 - z0, 1e-4);
+            if (z1 - z0 < 0.01) {
+                inside = select(0.0, d, z0 >= b.y && z0 <= b.z);
+            }
+            bands = bands + inside / b.x;
+        }
+    }
+    return clamp(h + bands, 0.0, 1.0);
+}
+
+fn haze(t: f32) -> f32 {
+    let c = clamp(t, 0.0, 1.0);
+    return 1.0 - (c - 1.0) * (c - 1.0);
+}
+
 @fragment
 fn fs_composite(i: FullOut) -> @location(0) vec4<f32> {
     var c = textureSampleLevel(src, samp, i.uv, 0.0);
     if (p.params.z > 0.0) {
-        // (Blurred at half resolution by `fs_ssao_blur`.)
-        let ao = textureSampleLevel(ao_tex, samp, i.uv, 0.0).r;
+        // (Blurred at half resolution by `fs_ssao_blur`.) Only the surface
+        // under the fog is occluded: fully fogged pixels get none.
+        let ao = mix(textureSampleLevel(ao_tex, samp, i.uv, 0.0).r, 1.0, fog_at(i.uv));
         c = vec4<f32>(c.rgb * ao, c.a);
     }
     if (p.params.x > 0.0) {

@@ -306,7 +306,8 @@ fn importing(ctx: &egui::Context, st: &mut SetupState, menu: &mut MenuState) -> 
         g.text(Pos2::new(x, y), &format!("{} of {} files", p.done, p.total), 22.0, pal::SAND, Align2::LEFT_TOP);
         g.text_fit(Pos2::new(x + 260.0, y + 11.0), &p.file, 22.0, pal::SAND_MUTED, w - 260.0);
         y += 60.0;
-        g.paragraph(Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, 80.0)), "This takes a minute or two. Cancel leaves the game data as it was.", 22.0, pal::SAND_MUTED);
+        let tip = format!("{} This takes a minute or two. Cancel leaves the game data as it was.", st.note.as_deref().unwrap_or_default());
+        g.paragraph(Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, 80.0)), tip.trim_start(), 22.0, pal::SAND_MUTED);
         let mut out = None;
         if g.button("setup-cancel", g.action(0.0, 220.0), if st.cancelling { "Cancelling" } else { "Cancel" }, false, false, !st.cancelling).clicked() {
             out = Some(SetupAction::Cancel);

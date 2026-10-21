@@ -758,6 +758,19 @@ fn heal_and_out_of_bounds() {
 }
 
 #[test]
+fn below_mission_floor_kills() {
+    // MissionArea.floor 95 on ground at 0 (a tank in the fogged pit, well
+    // inside the area): 0.1 per tick, 14 → dead on tick 141 (4.5 s).
+    let mut w = flat_world();
+    w.mission_area = Some(MissionArea { x: -100.0, y: -100.0, w: 200.0, h: 200.0 });
+    w.floor = 95.0;
+    let id = w.add_tank(Arc::new(medium()), Vec3::ZERO, 0.0);
+    let ev = run(&mut w, 150);
+    let died = ev.iter().position(|(_, e)| matches!(e, Event::Killed { tank, .. } if *tank == id));
+    assert_eq!(died.map(|i| ev[i].0 / 32), Some(140));
+}
+
+#[test]
 fn repair_rate_heals_per_second() {
     let mut data = medium();
     data.misc.repair_rate = 0.5;
@@ -1689,6 +1702,42 @@ fn real(name: &str) -> Arc<ProjectileParams> {
 
 const FIRE: Move = Move { trigger: [true, false, false, false, false, false], ..Move::NULL };
 
+/// A mission's gravity scale (`World::gravity`, the Moon's 0.4): a tank
+/// falls and a shell drops at that share of the game's gravity; a mortar
+/// launches slower but keeps its reach. 1 (every other mission) is the
+/// game's gravity exactly (`free_fall_then_land`, the goldens).
+#[test]
+fn mission_gravity_scales_falls() {
+    let fall = |g: f32| {
+        let mut w = flat_world();
+        w.gravity = g;
+        let id = w.add_tank_at(Arc::new(medium()), Vec3::new(0.0, 0.0, 30.0), Mat3::IDENTITY);
+        run(&mut w, 5);
+        w.tank(id).unwrap().vel.z
+    };
+    assert!((fall(0.4) - 0.4 * fall(1.0)).abs() < EPS);
+    let shell_dvz = |g: f32| {
+        let mut w = flat_world();
+        w.gravity = g;
+        let id = w.add_tank(Arc::new(medium()), Vec3::ZERO, 0.0);
+        w.set_projectile(id, real("MortarProjectile"));
+        w.time_ms = 5000;
+        w.set_move(id, FIRE);
+        w.tick();
+        w.set_move(id, Move::NULL);
+        let v0 = w.projectiles[0].vel.z;
+        run(&mut w, 3);
+        w.projectiles[0].vel.z - v0
+    };
+    assert!(shell_dvz(1.0) < 0.0);
+    assert!((shell_dvz(0.4) - 0.4 * shell_dvz(1.0)).abs() < 1e-3, "{} {}", shell_dvz(0.4), shell_dvz(1.0));
+    let p = real("MortarProjectile");
+    assert!(p.launch_speed(0.0, 0.4) < p.launch_speed(0.0, 1.0));
+    let (r1, _) = p.high_angle_reach(0.0, 0.0, 1.0).unwrap();
+    let (r4, _) = p.high_angle_reach(0.0, 0.0, 0.4).unwrap();
+    assert!((r1 - r4).abs() < 0.02 * r1, "{r1} {r4}");
+}
+
 /// Fires one shot of `p` from a fresh tank at the origin facing +y with the
 /// turret at `pitch_n`: (world, tank, the shot's events).
 fn one_shot(p: Arc<ProjectileParams>, pitch_n: f32) -> (World, TankId, Vec<Event>) {
@@ -1828,7 +1877,7 @@ fn mortar_flies_a_high_arc_and_the_barrel_sets_its_range() {
         let (apex, range, time) = mortar_flight(pn);
         let want = 20.0 + 130.0 * (1.0 - pn) * 0.5;
         let e = p.launch_elevation_deg(pn);
-        println!("pitchN {pn:5.2}: {e:4.1} deg {:5.1} m/s, lands at {range:5.1} m (nominal {want:5.1}) after {time:.2} s, apex {apex:4.1} m", p.launch_speed(pn));
+        println!("pitchN {pn:5.2}: {e:4.1} deg {:5.1} m/s, lands at {range:5.1} m (nominal {want:5.1}) after {time:.2} s, apex {apex:4.1} m", p.launch_speed(pn, 1.0));
         assert!(range > want && range < want + 5.0, "pitchN {pn}: {range} m, want {want}");
         assert!(range > last + 10.0, "raising the barrel reaches further: {last} -> {range}");
         last = range;
@@ -1836,7 +1885,7 @@ fn mortar_flies_a_high_arc_and_the_barrel_sets_its_range() {
         assert!(time > 0.9 && time < 2.6, "flight {time} s at {range} m");
         // The reach the aim solvers use is the simulated one.
         let m = mortar_muzzle(pn);
-        let (r, t) = p.high_angle_reach(pn, p.radius - m.z).unwrap();
+        let (r, t) = p.high_angle_reach(pn, p.radius - m.z, 1.0).unwrap();
         assert!((r + m.y - range).abs() < 0.3 && (t - time).abs() < 0.07, "solver {r} m {t} s vs flight {range} m {time} s");
     }
     let (_, mid, mid_t) = mortar_flight(0.0);
@@ -1863,7 +1912,7 @@ fn mortar_lands_on_the_aim_point_flat_and_sloped() {
             let t = w.tank(id).unwrap().clone();
             let y = t.pos.y + d;
             let aim = Vec3::new(t.pos.x, y, w.terrain.as_ref().unwrap().height(t.pos.x, y));
-            let pn = t.high_angle_pitch_n(&p, 0.0, aim);
+            let pn = t.high_angle_pitch_n(&p, 0.0, aim, 1.0);
             w.tank_mut(id).unwrap().pitch_n = pn;
             w.set_move(id, Move { pitch: 0.0, ..FIRE });
             let mut landed = None;
@@ -2052,13 +2101,13 @@ fn bot_aim_solves_the_mortar_reach() {
     let p = real("MortarProjectile");
     for d in [30.0f32, 60.0, 90.0, 140.0] {
         for dz in [-10.0f32, 0.0, 10.0] {
-            let pn = p.pitch_n_for_reach(d, dz);
+            let pn = p.pitch_n_for_reach(d, dz, 1.0);
             assert!(pn.abs() < 1.0, "{d} m {dz} m: pitchN {pn}");
-            let (r, _) = p.high_angle_reach(pn, dz).unwrap();
+            let (r, _) = p.high_angle_reach(pn, dz, 1.0).unwrap();
             assert!((r - d).abs() < 0.05, "{d} m {dz} m: lands at {r}");
         }
     }
     // Out of reach: the nearest limit.
-    assert_eq!(p.pitch_n_for_reach(400.0, 0.0), -1.0);
-    assert_eq!(p.pitch_n_for_reach(3.0, 0.0), 1.0);
+    assert_eq!(p.pitch_n_for_reach(400.0, 0.0, 1.0), -1.0);
+    assert_eq!(p.pitch_n_for_reach(3.0, 0.0, 1.0), 1.0);
 }

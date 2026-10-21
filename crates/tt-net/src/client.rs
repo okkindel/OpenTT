@@ -68,8 +68,8 @@ pub struct Client<T: Datagram> {
     events: VecDeque<ClientEvent>,
     queries: Vec<(u64, Duration)>,
     malformed: u64,
-    /// Master server that introduces us to the server (hole punching).
-    introducer: Option<SocketAddr>,
+    /// Master servers that introduce us to the server (hole punching).
+    introducer: Vec<SocketAddr>,
     last_intro: Option<Duration>,
     /// Secret for the password proof (0: none), see [`crate::auth`].
     auth_secret: u64,
@@ -103,17 +103,17 @@ impl<T: Datagram> Client<T> {
             events: VecDeque::new(),
             queries: Vec::new(),
             malformed: 0,
-            introducer: None,
+            introducer: Vec::new(),
             last_intro: None,
             auth_secret: 0,
         }
     }
 
-    /// While connecting, ask this master server to introduce us to the
+    /// While connecting, ask these master servers to introduce us to the
     /// server (UDP hole punching through both NATs, [`crate::master`]).
-    /// Set before [`connect`](Self::connect); `None` connects directly.
-    pub fn set_introducer(&mut self, master: Option<SocketAddr>) {
-        self.introducer = master;
+    /// Set before [`connect`](Self::connect); `&[]` connects directly.
+    pub fn set_introducer(&mut self, masters: &[SocketAddr]) {
+        self.introducer = masters.to_vec();
         self.last_intro = None;
     }
 
@@ -192,11 +192,13 @@ impl<T: Datagram> Client<T> {
             ClientState::Requesting => {
                 self.send_raw(&Packet::ConnectRequest { protocol, build, nonce });
                 // Through NAT: the master asks the server to punch towards us.
-                if let (Some(m), Some(s)) = (self.introducer, self.server) {
+                if let Some(s) = self.server.filter(|_| !self.introducer.is_empty()) {
                     if self.last_intro.is_none_or(|t| now.saturating_sub(t) >= INTRO_INTERVAL) {
                         self.last_intro = Some(now);
                         let p = crate::master::MasterPacket::IntroduceRequest { version: crate::master::MASTER_VERSION, nonce, server: s };
-                        let _ = self.transport.send_to(&p.encode(), m);
+                        for &m in &self.introducer {
+                            let _ = self.transport.send_to(&p.encode(), m);
+                        }
                     }
                 }
             }

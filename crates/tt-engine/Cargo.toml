@@ -53,6 +53,8 @@ rfd = { version = "0.17", default-features = false, features = ["xdg-portal"] }
 egui = "0.31"
 egui-wgpu = "0.31"
 egui-winit = { version = "0.31", default-features = false, features = ["clipboard", "wayland", "x11"] }
+# SIGINT/SIGTERM (Ctrl+C, `docker stop`) quit like the console `quit`.
+ctrlc = { version = "3", features = ["termination"] }
 
 # The application icon and version information of the Windows executable
 # (build.rs, `icon/`); used only when the target is Windows (also in a

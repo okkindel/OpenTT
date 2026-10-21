@@ -1,4 +1,4 @@
-//! `tt-master [--port N] [--status SECONDS]`: the master server.
+//! `tt-master [--port N] [--status SECONDS] [--local-address IP]`: the master server.
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();

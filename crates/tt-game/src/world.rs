@@ -13,7 +13,7 @@ use crate::rng::Rng;
 use crate::statics::{StaticObject, StaticShape};
 use crate::tank::{self, Move, Tank};
 use crate::terrain::HeightField;
-use crate::{ProjectileId, TankId, TriggerId, DT, GRAVITY, TICK_MS};
+use crate::{ProjectileId, TankId, TriggerId, DT, TICK_MS};
 
 /// `MissionArea.area`: "x y width height".
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -99,9 +99,14 @@ pub struct World {
     pub spawn_spheres: Vec<Vec3>,
     /// Scrum balls (the first one is "the" ball the AI looks at).
     pub flags: Vec<crate::flag::Flag>,
+    /// The mission's gravity scale (`MissionInfo.gravity`, 1: the game's
+    /// [`crate::GRAVITY`]): tanks, shells, balls, brain jars.
+    pub gravity: f32,
     pub terrain: Option<HeightField>,
     pub statics: Vec<StaticObject>,
     pub mission_area: Option<MissionArea>,
+    /// `MissionArea.floor`: below it a tank is out of bounds.
+    pub floor: f32,
     /// World boxes of named mission objects (volcano zone markers).
     pub markers: HashMap<String, Aabb>,
     pub tanks: Vec<Tank>,
@@ -138,9 +143,11 @@ impl World {
             replay: false,
             spawn_spheres: Vec::new(),
             flags: Vec::new(),
+            gravity: 1.0,
             terrain,
             statics: Vec::new(),
             mission_area: None,
+            floor: -100.0,
             markers: HashMap::new(),
             tanks: Vec::new(),
             projectiles: Vec::new(),
@@ -190,7 +197,7 @@ impl World {
     pub fn add_tank(&mut self, data: Arc<TankParams>, pos: Vec3, yaw: f32) -> TankId {
         let id = TankId(self.alloc_id());
         let mut t = Tank::new(id, data, pos, crate::geom::rot_z(yaw));
-        tank::snap_to_ground(&mut t, self.terrain.as_ref());
+        tank::snap_to_ground(&mut t, self.terrain.as_ref(), self.gravity);
         self.tanks.push(t);
         id
     }
@@ -247,7 +254,7 @@ impl World {
         t.rot = Mat3::from_cols(Vec3::new(f.y, -f.x, 0.0), f, Vec3::Z);
         t.pos = pos;
         t.wheel_vel = [0.0; 4];
-        tank::snap_to_ground(t, self.terrain.as_ref());
+        tank::snap_to_ground(t, self.terrain.as_ref(), self.gravity);
         if self.server {
             let p = self.tanks[i].pos;
             self.tanks[i].pos = self.spawn_clearance(p, Some(id));
@@ -567,7 +574,7 @@ impl World {
         }
 
         let drive = if t.is_corpse { Move::NULL } else { mv.unwrap_or(Move::NULL) };
-        tank::update_move(t, &drive, self.terrain.as_ref());
+        tank::update_move(t, &drive, self.terrain.as_ref(), self.gravity);
         if t.corpse_timer <= t.data.fx.corpse_fade_time && !self.check_collisions(t, start_pos, start_rot) {
             t.pos = start_pos + t.vel * DT;
             if !self.check_collisions(t, start_pos, start_rot) {
@@ -881,7 +888,7 @@ impl World {
                             // its speed `launch_speed`). One `Fired` per shot (its first
                             // projectile).
                             let mut first = None;
-                            let speed = p.launch_speed(t.pitch_n);
+                            let speed = p.launch_speed(t.pitch_n, self.gravity);
                             for fwd in p.launch_dirs(&m, t.pitch_n, t.fire_count) {
                                 let vel = fwd * speed + t.vel * p.inherit_velocity;
                                 let id = self.spawn_projectile(p.clone(), m.translation.into(), vel, Some(t.id), t.data.damage_scale);
@@ -921,7 +928,7 @@ impl World {
         let outside = self.mission_area.is_some_and(|m| {
             t.pos.x < m.x - 5.0 || t.pos.x > m.x + m.w + 5.0 || t.pos.y < m.y - 5.0 || t.pos.y > m.y + m.h + 5.0
         });
-        if (t.pos.z <= -100.0 || outside) && !a.name.eq_ignore_ascii_case("BossTank") {
+        if (t.pos.z <= self.floor || outside) && !a.name.eq_ignore_ascii_case("BossTank") {
             t.damage = (t.damage + 0.1).min(a.damage_amount);
         }
         if t.damage > 0.0 {
@@ -1037,7 +1044,7 @@ impl World {
             // gravity_scale·0.32, then the ray cast and bounce work on that
             // post-gravity velocity.
             let end = pos + vel * DT;
-            vel.z -= data.gravity_scale * (-GRAVITY) * DT;
+            vel.z -= data.fall(self.gravity) * DT;
             // Ray lowered by r on z: 0.5·sprite_scale for sprites, half the
             // shape height for.dts.
             let off = Vec3::new(0.0, 0.0, r);
@@ -1177,7 +1184,7 @@ impl World {
             let bx = bx.grow(radius);
             let r = Vec3::new(self.rng.rand_f(), self.rng.rand_f(), self.rng.rand_f());
             let target = bx.min + (bx.max - bx.min) * r;
-            let vel = ballistic(origin, target, rock.velocity, -GRAVITY * rock.gravity_scale, &mut self.rng);
+            let vel = ballistic(origin, target, rock.velocity, rock.fall(self.gravity), &mut self.rng);
             // No shooter: damage_scale keeps the Projectile constructor's 1.0.
             self.spawn_projectile(rock.clone(), origin, vel, None, 1.0);
             fired += 1;

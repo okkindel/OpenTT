@@ -9,5 +9,8 @@ Original art, sound and music: BraveTree Productions
 Joe Maruschak, Mike Jahnke, Clark Fagot, Tim Clarke, Pascal Bos
 
 Announcer voice: Piper TTS (en_US-norman)
+Moon music: "Space Fighter Loop" Kevin MacLeod (incompetech.com)
+Licensed under Creative Commons: By Attribution 4.0 License
+http://creativecommons.org/licenses/by/4.0/
 Font: Chakra Petch by Cadson Demak (SIL Open Font License)
 Built with Rust, wgpu and egui

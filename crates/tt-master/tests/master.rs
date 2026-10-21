@@ -60,7 +60,7 @@ fn accept_all(s: &mut Server<RestrictedNat<MemLink>>, t: Duration) {
 #[test]
 fn register_list_punch_and_connect_through_nat() {
     let mut w = World::new();
-    w.server.set_master(Some(a(MASTER)), 77, w.t);
+    w.server.set_master(&[a(MASTER)], 77, w.t);
     w.run(1500, &mut accept_all);
     let st = w.server.master_status().clone();
     assert!(st.registered, "{st:?}");
@@ -73,7 +73,7 @@ fn register_list_punch_and_connect_through_nat() {
     // gets through thanks to the introduction.
     let mut b = LanBrowser::new(RestrictedNat::new(w.net.endpoint(a("192.0.2.50:40001"))), 9);
     b.loopback = false;
-    b.query_master(a(MASTER), w.t);
+    b.query_master(&[a(MASTER)], w.t);
     for _ in 0..60 {
         w.step(&mut accept_all);
         b.update(w.t);
@@ -105,7 +105,7 @@ fn register_list_punch_and_connect_through_nat() {
 
     // With the master introducing: connected.
     let mut c = Client::with_seed(RestrictedNat::new(w.net.endpoint(a("192.0.2.61:40003"))), ClientConfig::default(), 5);
-    c.set_introducer(Some(a(MASTER)));
+    c.set_introducer(&[a(MASTER)]);
     c.connect(a(SERVER), b"x", w.t).unwrap();
     let mut connected = false;
     for _ in 0..150 {
@@ -121,7 +121,7 @@ fn register_list_punch_and_connect_through_nat() {
     assert_eq!(w.server.connection_count(), 1);
 
     // A closing heartbeat takes the server off the list at once.
-    w.server.set_master(None, 77, w.t);
+    w.server.set_master(&[], 77, w.t);
     w.run(500, &mut accept_all);
     assert!(w.master.servers().is_empty());
     assert_eq!(w.master.drain_log(), ["dropped 203.0.113.10:28000 (id 000000000000004d): server closed"]);
@@ -130,7 +130,7 @@ fn register_list_punch_and_connect_through_nat() {
 #[test]
 fn entries_expire_and_spoofed_heartbeats_do_not_register() {
     let mut w = World::new();
-    w.server.set_master(Some(a(MASTER)), 1, w.t);
+    w.server.set_master(&[a(MASTER)], 1, w.t);
     w.run(1000, &mut accept_all);
     assert_eq!(w.master.servers().len(), 1);
     // A heartbeat from a forged source: challenged (to the forged address), not listed.
@@ -145,8 +145,8 @@ fn entries_expire_and_spoofed_heartbeats_do_not_register() {
     assert_eq!(w.master.servers(), vec![a(SERVER)]);
     assert_eq!(w.master.drain_log().len(), 1, "only the first registration");
     // A restarted server: closed, then added again with its new id.
-    w.server.set_master(None, 1, w.t);
-    w.server.set_master(Some(a(MASTER)), 3, w.t);
+    w.server.set_master(&[], 1, w.t);
+    w.server.set_master(&[a(MASTER)], 3, w.t);
     w.run(1000, &mut accept_all);
     assert_eq!(w.master.drain_log(), ["dropped 203.0.113.10:28000 (id 0000000000000001): server closed", "added 203.0.113.10:28000 (id 0000000000000003)"]);
     // A server that stops heartbeating expires.
@@ -158,6 +158,50 @@ fn entries_expire_and_spoofed_heartbeats_do_not_register() {
     }
     assert!(w.master.servers().is_empty());
     assert_eq!(w.master.drain_log(), ["dropped 203.0.113.10:28000 (id 0000000000000003): no heartbeat for 70s"]);
+}
+
+/// Several masters: the server registers with each (its own challenge),
+/// the browser merges their lists (the server once; a dead master only
+/// lists nothing), and leaving one out takes the server off that one only.
+#[test]
+fn several_masters_register_and_merge() {
+    const MASTER2: &str = "198.51.100.2:28100";
+    const DEAD: &str = "198.51.100.3:28100";
+    let mut w = World::new();
+    let mut m2 = Master::new(w.net.endpoint(a(MASTER2)), Limits::default());
+    w.server.set_master(&[a(MASTER), a(MASTER2)], 77, w.t);
+    let step = |w: &mut World, m2: &mut Master<MemLink>| {
+        w.step(&mut accept_all);
+        m2.update(w.t);
+    };
+    for _ in 0..50 {
+        step(&mut w, &mut m2);
+    }
+    assert!(w.server.master_statuses().all(|s| s.registered), "{:?}", w.server.master_statuses().collect::<Vec<_>>());
+    assert_eq!((w.master.servers(), m2.servers()), (vec![a(SERVER)], vec![a(SERVER)]));
+    assert_eq!((w.master.stats.challenges, m2.stats.challenges), (1, 1));
+
+    let mut b = LanBrowser::new(RestrictedNat::new(w.net.endpoint(a("192.0.2.50:40001"))), 9);
+    b.loopback = false;
+    b.query_master(&[a(DEAD), a(MASTER), a(MASTER2)], w.t);
+    for _ in 0..60 {
+        step(&mut w, &mut m2);
+        b.update(w.t);
+        if w.t.as_millis().is_multiple_of(320) {
+            b.resend_master(w.t);
+        }
+    }
+    assert_eq!(b.master_list(), &[a(SERVER)], "listed by two masters, kept once");
+    assert_eq!(b.servers().len(), 1);
+    assert_eq!(b.servers()[0].info.name, "Behind NAT");
+
+    w.server.set_master(&[a(MASTER2)], 77, w.t);
+    for _ in 0..20 {
+        step(&mut w, &mut m2);
+    }
+    assert!(w.master.servers().is_empty());
+    assert_eq!(m2.servers(), vec![a(SERVER)]);
+    assert_eq!(w.server.master_status().master, Some(a(MASTER2)));
 }
 
 #[test]
@@ -196,7 +240,7 @@ fn lists_are_paged_and_limits_hold() {
     }
     assert_eq!(m.servers().len(), 150, "the third server on one IP is refused");
     let mut b = LanBrowser::new(net.endpoint(a("192.0.2.9:5000")), 1);
-    b.query_master(a(MASTER), t);
+    b.query_master(&[a(MASTER)], t);
     for _ in 0..10 {
         t += Duration::from_millis(50);
         net.set_now(t);
@@ -223,4 +267,60 @@ fn args() {
     assert_eq!((o.port, o.status_every), (29000, Duration::ZERO));
     assert_eq!(tt_master::parse_args(&[]).unwrap().port, 28100);
     assert!(tt_master::parse_args(&["--bogus".into()]).is_err());
+    assert_eq!(tt_master::parse_args(&["--local-address".into(), "203.0.113.5".into()]).unwrap().local_address, Some("203.0.113.5".parse().unwrap()));
+    assert!(tt_master::parse_args(&["--local-address".into(), "nope".into()]).is_err());
+}
+
+/// `--local-address`: a server on the master's host (Docker bridge,
+/// loopback) is listed and acked under the master's public IP, heartbeats
+/// keep refreshing it, and introductions still go to its real source.
+#[test]
+fn local_address_lists_same_host_servers_under_the_public_ip() {
+    const LOCAL: &str = "127.0.0.1:28000";
+    const LISTED: &str = "203.0.113.5:28000";
+    let net = MemNet::new(5);
+    let mut m = Master::new(net.endpoint(a(MASTER)), Limits::default());
+    m.local_address = Some("203.0.113.5".parse().unwrap());
+    let mut s = Server::with_seed(net.endpoint(a(LOCAL)), ServerConfig::default(), 2);
+    let mut t = Duration::ZERO;
+    s.set_master(&[a(MASTER)], 9, t);
+    let step = |m: &mut Master<MemLink>, s: &mut Server<MemLink>, t: &mut Duration| {
+        *t += Duration::from_millis(32);
+        net.set_now(*t);
+        m.update(*t);
+        s.update(*t);
+        s.flush(*t);
+    };
+    for _ in 0..40 {
+        step(&mut m, &mut s, &mut t);
+    }
+    assert!(s.master_status().registered);
+    assert_eq!(s.master_status().public_addr, Some(a(LISTED)), "the ack names the listed address");
+    assert_eq!(m.servers(), vec![a(LISTED)]);
+    assert_eq!(m.drain_log(), ["added 203.0.113.5:28000 (id 0000000000000009)"]);
+    for _ in 0..100_000 / 32 {
+        step(&mut m, &mut s, &mut t);
+    }
+    assert_eq!(m.servers(), vec![a(LISTED)], "heartbeats refresh it");
+    assert!(m.drain_log().is_empty());
+
+    // An introduction to the listed address reaches the server, which punches the client.
+    let mut c = net.endpoint(a("192.0.2.70:40000"));
+    c.send_to(&MasterPacket::IntroduceRequest { version: MASTER_VERSION, nonce: 3, server: a(LISTED) }.encode(), a(MASTER)).unwrap();
+    for _ in 0..20 {
+        step(&mut m, &mut s, &mut t);
+    }
+    assert_eq!((m.stats.introductions, s.master_status().introductions), (1, 1));
+    let mut buf = [0u8; 1500];
+    let mut punched = false;
+    while let Some((n, from)) = c.recv_from(&mut buf) {
+        punched |= from == a(LOCAL) && matches!(MasterPacket::decode(&buf[..n]), Ok(MasterPacket::Punch { .. }));
+    }
+    assert!(punched, "punched from the real address");
+
+    s.set_master(&[], 9, t);
+    for _ in 0..20 {
+        step(&mut m, &mut s, &mut t);
+    }
+    assert_eq!(m.drain_log(), ["dropped 203.0.113.5:28000 (id 0000000000000009): server closed"]);
 }

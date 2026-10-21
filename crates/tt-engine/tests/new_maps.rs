@@ -1,11 +1,12 @@
-//! OpenTT's three new maps (tt1_5 "Amygdala Abyss", tt2_5 "Thalamus Pass", tt3_5 "Cerebral
-//! Caldera"; crates/tt-assets/examples/new_maps/): each loads through the menu's custom game
-//! path in all four modes with the player spawned on the plateau and every power-up and pad
-//! present; scripted drives check the landmarks (the ravine road through the notch under the
-//! land bridge and the jump over it, a ravine ramp, the slot canyons and the stone circle, the
-//! causeway and the ramp jumps over the lava river), that every pad kicks and that a tank
-//! drives straight through every reload arch, which stands on a level lane.
-//! `NEW_MAPS_SHOTS=DIR` saves in-game screenshots of the landmarks there.
+//! OpenTT's new maps (tt1_5 "The Neverending Stream", tt2_5 "Night of the Living Brains",
+//! tt3_5 "The Dark Cortex", the Moon's tt4_1 "Lunar Lobe" and tt4_2 "Cortex Craters";
+//! crates/tt-assets/examples/new_maps/): each loads through the menu's custom game path in all
+//! four modes with the player spawned on the plateau and every power-up and pad present;
+//! scripted drives check the landmarks (the stream's fords and its leaps, the jump pads up
+//! onto the island, the witch's gully and the stone circle, the island fords and the ramp
+//! jumps over the lava gorge), that every pad kicks and that a tank drives straight through
+//! every reload arch, which stands on a level lane. `NEW_MAPS_SHOTS=DIR` saves in-game
+//! screenshots of the landmarks there.
 
 use glam::Vec3;
 use std::path::Path;
@@ -25,23 +26,38 @@ struct MapSpec {
 
 const GREEN: MapSpec = MapSpec {
     id: "tt1_5",
-    name: "Amygdala Abyss",
+    name: "The Neverending Stream",
     world: "Green",
-    triggers: &["pup1", "pup2", "pup3", "pup4", "pup5", "pup6", "pup7", "ReloadSouth", "ReloadNorth", "HealWest", "HealEast", "BoostBridgeWest", "BoostBridgeEast", "Jump1", "Jump2"],
+    triggers: &["pup1", "pup2", "pup3", "pup4", "pup5", "pup6", "pup7", "pup8", "pup9", "ReloadWest", "ReloadEast", "HealWest", "HealEast", "LeapWest", "LeapEast", "CurrentWest", "CurrentEast", "JumpNorth", "JumpSouth"],
     statics: &[],
 };
 const BLUE: MapSpec = MapSpec {
     id: "tt2_5",
-    name: "Thalamus Pass",
+    name: "Night of the Living Brains",
     world: "Blue",
-    triggers: &["pup1", "pup2", "pup3", "pup4", "pup5", "pup6", "pup7", "ReloadSouth", "ReloadNorth", "HealWest", "HealEast", "BoostSouth", "BoostNorth", "JumpSouth", "JumpNorth"],
-    statics: &["CircleStone"],
+    triggers: &["pup1", "pup2", "pup3", "pup4", "pup5", "pup6", "pup7", "ReloadSouth", "ReloadNorth", "HealWest", "HealEast", "BoostSouth", "BoostNorth", "JumpWest", "JumpEast"],
+    statics: &["CircleStone", "DoorSouth", "DoorNorth"],
 };
 const RED: MapSpec = MapSpec {
     id: "tt3_5",
-    name: "Cerebral Caldera",
+    name: "The Dark Cortex",
     world: "Red",
-    triggers: &["pup1", "pup2", "pup3", "pup4", "pup5", "pup6", "ReloadEast", "ReloadWest", "HealWest", "HealEast", "BoostSouth", "BoostNorth", "RiverJumpW", "RiverJumpE"],
+    triggers: &["pup1", "pup2", "pup3", "pup4", "pup5", "pup6", "pup7", "pup8", "pup9", "Reload", "HealWest", "HealEast", "BoostSouth", "BoostNorth", "RiverJumpN", "RiverJumpS"],
+    statics: &["DarkTower", "ValleyGate"],
+};
+
+const MOON1: MapSpec = MapSpec {
+    id: "tt4_1",
+    name: "Lunar Lobe",
+    world: "Moon",
+    triggers: &["pup1", "pup2", "pup3", "pup4", "pup5", "pup6", "pup7", "Reload", "HealNorth", "HealSouth", "BoostNorth", "BoostSouth", "JumpEast", "JumpWest"],
+    statics: &[],
+};
+const MOON2: MapSpec = MapSpec {
+    id: "tt4_2",
+    name: "Cortex Craters",
+    world: "Moon",
+    triggers: &["pup1", "pup2", "pup3", "pup4", "pup5", "pup6", "pup7", "Reload", "HealWest", "HealEast", "BoostWest", "BoostEast", "JumpEast", "JumpNorth"],
     statics: &[],
 };
 
@@ -106,7 +122,8 @@ fn place(e: &mut Engine, x: f32, y: f32, heading: f32) {
     }
     let (o, _) = player(e).unwrap();
     let z = ground(e, x, y) + 1.0;
-    e.host.game.as_mut().unwrap().set_transform(o, &format!("{x} {y} {z} 0 0 1 {heading}"));
+    // setTransform's angle is in radians (clockwise seen from above: the compass heading).
+    e.host.game.as_mut().unwrap().set_transform(o, &format!("{x} {y} {z} 0 0 1 {}", heading.to_radians()));
     // Still: setTransform keeps the velocity.
     let (_, id) = player(e).unwrap();
     if let Some(t) = e.host.game.as_mut().unwrap().world.tanks.iter_mut().find(|t| t.id == id) {
@@ -189,11 +206,12 @@ fn check_loads(spec: &MapSpec, mode: u32) {
     }
     let g = e.host.game.as_ref().unwrap();
     let ma = g.world.mission_area.unwrap();
-    assert!(ma.x == ma.y && ma.w == ma.h && ma.w == -2.0 * ma.x && (400.0..=512.0).contains(&ma.w), "{}: mission area {ma:?}", spec.id);
+    assert!(ma.x == ma.y && ma.w == ma.h && ma.w == -2.0 * ma.x && (280.0..=512.0).contains(&ma.w), "{}: mission area {ma:?}", spec.id);
     assert_eq!(g.world.flags.len(), usize::from(scrum), "{} mode {mode}: scrum ball", spec.id);
     let reloads = g.world.triggers.iter().filter(|t| t.def_name().eq_ignore_ascii_case("Reload")).count();
     let weapons = g.world.triggers.iter().filter(|t| t.def_name().eq_ignore_ascii_case("TestPowerup")).count();
-    assert!(reloads == 2 && weapons >= 6, "{}: {reloads} reload arches, {weapons} power-ups", spec.id);
+    // One arch on the Moon maps and tt3_5, two on the others.
+    assert!(reloads == if spec.world == "Moon" || spec.id == "tt3_5" { 1 } else { 2 } && weapons >= 6, "{}: {reloads} reload arches, {weapons} power-ups", spec.id);
     if scrum {
         let g = e.host.game.as_ref().unwrap();
         assert!(g.world.triggers.iter().any(|t| t.def_name().eq_ignore_ascii_case("DefaultGoal")), "{} mode {mode}: scrum goal", spec.id);
@@ -219,21 +237,46 @@ fn check_pads(e: &mut Engine, pads: &[&str]) {
 }
 
 #[test]
-fn amygdala_abyss_loads_in_all_modes() {
+fn neverending_stream_loads_in_all_modes() {
     tt_assets::require_game_data!();
     big_stack(|| (0..4).for_each(|m| check_loads(&GREEN, m)));
 }
 
 #[test]
-fn thalamus_pass_loads_in_all_modes() {
+fn night_of_the_living_brains_loads_in_all_modes() {
     tt_assets::require_game_data!();
     big_stack(|| (0..4).for_each(|m| check_loads(&BLUE, m)));
 }
 
 #[test]
-fn cerebral_caldera_loads_in_all_modes() {
+fn dark_cortex_loads_in_all_modes() {
     tt_assets::require_game_data!();
     big_stack(|| (0..4).for_each(|m| check_loads(&RED, m)));
+}
+
+#[test]
+fn lunar_lobe_loads_in_all_modes() {
+    tt_assets::require_game_data!();
+    big_stack(|| (0..4).for_each(|m| check_loads(&MOON1, m)));
+}
+
+#[test]
+fn cortex_craters_loads_in_all_modes() {
+    tt_assets::require_game_data!();
+    big_stack(|| (0..4).for_each(|m| check_loads(&MOON2, m)));
+}
+
+/// The Moon maps' gravity reaches the world (MissionInfo.gravity); the
+/// other maps keep the game's.
+#[test]
+fn moon_maps_have_low_gravity() {
+    tt_assets::require_game_data!();
+    big_stack(|| {
+        for (spec, g) in [(&MOON1, 0.45), (&GREEN, 1.0)] {
+            let e = start(&assets(), spec, 0);
+            assert_eq!(e.host.game.as_ref().unwrap().world.gravity, g, "{}", spec.id);
+        }
+    });
 }
 
 fn dump(path: &[Vec3]) {
@@ -244,10 +287,9 @@ fn dump(path: &[Vec3]) {
     }
 }
 
-/// The ravine centre line of tt1_5 (crates/tt-assets/examples/new_maps/ `g_ravine_x`).
-fn g_ravine_x(y: f32) -> f32 {
-    let t = ((y.abs() - 30.0) / 70.0).clamp(0.0, 1.0);
-    34.0 * t * t * (3.0 - 2.0 * t) * (y / 52.0).sin()
+/// The stream's line of tt1_5 (crates/tt-assets/examples/new_maps/river.rs `line_y`).
+fn stream_y(x: f32) -> f32 {
+    24.0 * (x / 36.0).sin() + 8.0 * (x / 15.0).sin()
 }
 
 const TANKS: [&str; 3] = ["Light", "Medium", "Heavy"];
@@ -269,17 +311,17 @@ fn check_jump(e: &mut Engine, label: &str, from: (f32, f32), to: (f32, f32), axi
 }
 
 #[test]
-fn amygdala_abyss_landmarks() {
+fn neverending_stream_landmarks() {
     tt_assets::require_game_data!();
     big_stack(|| {
         let mut e = start(&assets(), &GREEN, 0);
-        let notch = ground(&e, 4.0, 0.0);
-        let bank = ground(&e, 24.0, 0.0);
-        assert!((6.0..=10.0).contains(&(bank - notch)), "the notch is {} m deep", bank - notch);
+        // The stream bed under the banks.
+        let (bed, bank) = (ground(&e, -100.0, stream_y(-100.0)), ground(&e, -100.0, stream_y(-100.0) + 40.0));
+        assert!(bank - bed > 6.0, "the stream bed is {} m under the bank", bank - bed);
         // No wall on the map (inside the plateau edge) is steeper than about 50 degrees.
         let mut steepest = (0.0f32, 0.0, 0.0);
-        for j in -22..=22 {
-            for i in -22..=22 {
+        for j in -18..=18 {
+            for i in -18..=18 {
                 let (x, y) = (i as f32 * 8.0, j as f32 * 8.0);
                 let s = ((ground(&e, x + 8.0, y) - ground(&e, x, y)).abs()).max((ground(&e, x, y + 8.0) - ground(&e, x, y)).abs()) / 8.0;
                 if s > steepest.0 {
@@ -288,116 +330,149 @@ fn amygdala_abyss_landmarks() {
             }
         }
         assert!(steepest.0 < 1.25, "steepest grid slope {:.2} at ({}, {})", steepest.0, steepest.1, steepest.2);
-        // The ravine road through the notch under the land bridge.
-        place(&mut e, g_ravine_x(-70.0), -70.0, 0.0);
-        let path = drive_line(&mut e, (4.0, -60.0), (4.0, 60.0), 25_000, |p| p.y > 40.0);
+        // Over each end ford, both ways, bank to bank.
+        for x in [-142.0f32, 142.0] {
+            let y0 = stream_y(x);
+            for s in [1.0f32, -1.0] {
+                place(&mut e, x, y0 - s * 60.0, if s > 0.0 { 0.0 } else { 180.0 });
+                let path = drive_line(&mut e, (x, y0 - s * 60.0), (x, y0 + s * 70.0), 20_000, |p| (p.y - y0) * s > 50.0);
+                dump(&path);
+                let end = *path.last().unwrap();
+                assert!((end.y - y0) * s > 50.0, "ford at x {x} ({}): stopped at {end}", if s > 0.0 { "north" } else { "south" });
+            }
+        }
+        // Down the north bank's ford into the island's channel.
+        let y0 = stream_y(-26.0);
+        place(&mut e, -26.0, y0 + 90.0, 180.0);
+        let path = drive_line(&mut e, (-26.0, y0 + 90.0), (-26.0, y0), 20_000, |p| p.y < y0 + 34.0);
         dump(&path);
-        let end = *path.last().unwrap();
-        let through = path.iter().filter(|p| p.y.abs() < 6.0).map(|p| p.z).fold(f32::MIN, f32::max);
-        assert!(end.y > 40.0 && through < notch + 4.0, "ravine road: end {end}, highest in the notch {through} (notch floor {notch})");
-        shot(&mut e, "tt1_5_notch", Vec3::new(10.0, 46.0, notch + 5.0), Vec3::new(0.0, 0.0, notch + 6.0));
-        // Out of the ravine up the ramp on the east wall at y = -50.
-        let rx = g_ravine_x(-50.0);
-        place(&mut e, rx, -50.0, 90.0);
-        let floor = tank(&e).pos.z;
-        let path = drive_line(&mut e, (rx, -50.0), (rx + 100.0, -50.0), 20_000, |p| p.x > rx + 80.0);
-        dump(&path);
-        let end = *path.last().unwrap();
-        assert!(end.z > floor + 8.0, "ravine ramp: stopped at {end} (floor {floor})");
-        shot(&mut e, "tt1_5_land_bridge", Vec3::new(-30.0, -60.0, bank + 16.0), Vec3::new(4.0, 0.0, notch + 4.0));
-        check_pads(&mut e, &["Jump1", "Jump2"]);
+        assert!(path.last().unwrap().y < y0 + 34.0, "island ford: stopped at {}", path.last().unwrap());
+        let island = Vec3::new(-4.0, stream_y(-4.0) + 3.0, ground(&e, -4.0, stream_y(-4.0) + 3.0));
+        shot(&mut e, "tt1_5_island", island + Vec3::new(-40.0, -55.0, 14.0), island + Vec3::new(0.0, 0.0, 6.0));
+        check_pads(&mut e, &["JumpNorth", "JumpSouth", "CurrentWest", "CurrentEast"]);
     });
 }
 
-/// The notch jump on tt1_5, both ways, for each tank type, driving from a
-/// standstill 40 m before the lip.
+/// The leaps over the stream on tt1_5, for each tank type, driving from a
+/// standstill 40 m before the pad: the tank lands on the far bank.
 #[test]
-fn amygdala_abyss_notch_jump_every_tank() {
+fn neverending_stream_leaps_every_tank() {
     tt_assets::require_game_data!();
     big_stack(|| {
         for (t, name) in TANKS.iter().enumerate() {
             let mut e = start_with(&assets(), &GREEN, 0, t as u8);
-            let bank = ground(&e, 24.0, 0.0);
-            check_jump(&mut e, &format!("{name} east"), (-58.0, 0.0), (60.0, 0.0), true, 24.0, (-2.0, 8.0), bank);
-            check_jump(&mut e, &format!("{name} west"), (66.0, 0.0), (-60.0, 0.0), true, 16.0, (-2.0, 8.0), bank);
+            for (pad, s) in [("LeapWest", -1.0f32), ("LeapEast", 1.0)] {
+                let p: Vec3 = trigger(&e, pad).transform.translation.into();
+                let y0 = stream_y(p.x);
+                let far = ground(&e, p.x, y0 + s * 38.0);
+                check_jump(&mut e, &format!("{name} {pad}"), (p.x, p.y - s * 40.0), (p.x, y0 + s * 90.0), false, (y0 + s * 36.0) * s, (y0 - 12.0, y0 + 12.0), far);
+            }
             let _ = std::fs::remove_dir_all(e.host.fs.data_dir());
         }
     });
 }
 
+/// The witch's gullies' centre radius on tt2_5 (crates/tt-assets/examples/new_maps/halloween.rs `GULLY_R`; east and west of the hill).
+const GULLY_R: f32 = 98.0;
+
 #[test]
-fn thalamus_pass_landmarks() {
+fn night_of_the_living_brains_landmarks() {
     tt_assets::require_game_data!();
     big_stack(|| {
         let mut e = start(&assets(), &BLUE, 0);
-        let floor = ground(&e, 0.0, -92.0);
-        let wall = ground(&e, -20.0, -92.0).min(ground(&e, 20.0, -92.0));
-        assert!(wall - floor > 8.0, "slot canyon walls {} m", wall - floor);
-        place(&mut e, 0.0, -150.0, 0.0);
-        let path = drive_line(&mut e, (0.0, -150.0), (0.0, -40.0), 25_000, |p| p.y > -50.0);
-        dump(&path);
-        assert!(path.last().unwrap().y > -50.0, "slot canyon: stopped at {}", path.last().unwrap());
-        shot(&mut e, "tt2_5_slot_canyon", Vec3::new(4.0, -132.0, floor + 7.0), Vec3::new(0.0, -92.0, floor + 5.0));
+        // The ritual hill over the sunken pumpkin patch; the gullies deep.
+        let (top, basin) = (ground(&e, 0.0, -18.0), ground(&e, -40.0, -50.0));
+        assert!(top - basin > 10.0, "the hill is {} m over the patch", top - basin);
+        for side in [-1.0f32, 1.0] {
+            let floor = ground(&e, side * GULLY_R, 0.0);
+            let bank = ground(&e, side * (GULLY_R + 28.0), 0.0).min(ground(&e, side * (GULLY_R - 28.0), 0.0));
+            assert!(bank - floor > 6.0, "the gully at x {} is {} m deep", side * GULLY_R, bank - floor);
+        }
+        let (floor, bank) = (ground(&e, -GULLY_R, 0.0), ground(&e, -GULLY_R + 26.0, -30.0));
+        shot(&mut e, "tt2_5_gully", Vec3::new(-GULLY_R + 26.0, -30.0, bank + 6.0), Vec3::new(-GULLY_R, 10.0, floor + 2.0));
+        // Up the hill and through the south doorway into the circle.
         let gap = (360.0f32 / 14.0 * 6.5 + 7.0).to_radians();
         let (gx, gy) = (gap.sin(), gap.cos());
-        place(&mut e, gx * 66.0, gy * 66.0, (-gx).atan2(-gy).to_degrees());
-        let path = drive_line(&mut e, (gx * 66.0, gy * 66.0), (0.0, 0.0), 15_000, |p| p.truncate().length() < 15.0);
+        place(&mut e, gx * 70.0, gy * 70.0, (-gx).atan2(-gy).to_degrees());
+        let path = drive_line(&mut e, (gx * 70.0, gy * 70.0), (0.0, 0.0), 20_000, |p| p.truncate().length() < 14.0);
         dump(&path);
-        assert!(path.last().unwrap().truncate().length() < 15.0, "stone circle: stopped at {}", path.last().unwrap());
-        shot(&mut e, "tt2_5_stone_circle", Vec3::new(gx * 72.0, gy * 72.0, 135.0), Vec3::new(0.0, 0.0, 122.0));
-        check_pads(&mut e, &["BoostSouth", "BoostNorth", "JumpSouth", "JumpNorth"]);
-        // The boost pad before the south slot canyon from tank height (it
-        // lies flush on its platform at the foot of the canyon's run-in).
-        let p: Vec3 = trigger(&e, "BoostSouth").transform.translation.into();
-        let z = ground(&e, p.x + 7.0, p.y - 9.0) + 2.0;
-        shot(&mut e, "tt2_5_boost_south", Vec3::new(p.x + 7.0, p.y - 9.0, z), p + Vec3::new(0.0, 0.0, 0.3));
+        assert!(path.last().unwrap().truncate().length() < 14.0, "stone circle: stopped at {}", path.last().unwrap());
+        shot(&mut e, "tt2_5_stone_circle", Vec3::new(gx * 54.0, gy * 54.0, top + 8.0), Vec3::new(0.0, 0.0, top + 3.0));
+        check_pads(&mut e, &["BoostSouth", "BoostNorth", "JumpWest", "JumpEast"]);
     });
 }
 
+/// The jumps over tt2_5's gullies, for each tank type, driving from a
+/// standstill 30 m before the pad: the tank carries over the gully's
+/// floor (no lower than 4 m under its far rim) and drives on out of it.
 #[test]
-fn cerebral_caldera_landmarks() {
+fn night_of_the_living_brains_jumps_every_tank() {
+    tt_assets::require_game_data!();
+    big_stack(|| {
+        for (t, name) in TANKS.iter().enumerate() {
+            let mut e = start_with(&assets(), &BLUE, 0, t as u8);
+            for (pad, s) in [("JumpWest", -1.0f32), ("JumpEast", 1.0)] {
+                let p: Vec3 = trigger(&e, pad).transform.translation.into();
+                let far = ground(&e, s * (GULLY_R + 24.0), p.y);
+                let gap = if s > 0.0 { (GULLY_R - 6.0, GULLY_R + 6.0) } else { (-GULLY_R - 6.0, -GULLY_R + 6.0) };
+                check_jump(&mut e, &format!("{name} {pad}"), (p.x - s * 30.0, p.y), (s * (GULLY_R + 60.0), p.y), true, GULLY_R + 24.0, gap, far);
+            }
+            let _ = std::fs::remove_dir_all(e.host.fs.data_dir());
+        }
+    });
+}
+
+/// The gorge of tt3_5's south arm (crates/tt-assets/examples/new_maps/dark_cortex.rs `GORGE`) and its jump lanes (x from it).
+const R_GORGE: (f32, f32) = (-48.0, -96.0);
+const R_JUMPS: [f32; 2] = [-10.0, 10.0];
+
+#[test]
+fn dark_cortex_landmarks() {
     tt_assets::require_game_data!();
     big_stack(|| {
         let mut e = start(&assets(), &RED, 0);
-        let river = ground(&e, 96.0, 0.0);
-        let bank = ground(&e, 96.0, 20.0);
-        assert!(bank - river > 6.0, "the east gorge is {} m deep", bank - river);
-        shot(&mut e, "tt3_5_ramp_jump", Vec3::new(60.0, -50.0, bank + 12.0), Vec3::new(96.0, 0.0, river + 4.0));
-        // Over the west causeway.
-        let cx = -98.0;
-        place(&mut e, cx, -60.0, 0.0);
-        let path = drive_line(&mut e, (cx, -60.0), (cx, 70.0), 20_000, |p| p.y > 45.0);
+        let river = ground(&e, R_GORGE.0, R_GORGE.1);
+        let bank = ground(&e, R_GORGE.0 + R_JUMPS[0], R_GORGE.1 + 20.0);
+        assert!(bank - river > 6.0, "the gorge is {} m deep", bank - river);
+        // The lava sea is level, over 20 m under the fortress's top by the tower.
+        let (sea, top) = (ground(&e, 140.0, 0.0), ground(&e, 60.0, 0.0));
+        assert!((ground(&e, 130.0, 20.0) - sea).abs() < 0.2 && top - sea > 20.0, "sea {sea}, top {top}");
+        shot(&mut e, "tt3_5_gorge", Vec3::new(R_GORGE.0 - 40.0, R_GORGE.1 - 50.0, bank + 12.0), Vec3::new(R_GORGE.0, R_GORGE.1, river + 4.0));
+        // Over the north arm by the fords either side of its island.
+        place(&mut e, 52.0, 34.0, 0.0);
+        let path = drive_line(&mut e, (52.0, 34.0), (54.0, 120.0), 25_000, |p| p.y > 108.0);
         dump(&path);
-        assert!(path.last().unwrap().y > 45.0, "causeway: stopped at {}", path.last().unwrap());
-        shot(&mut e, "tt3_5_caldera", Vec3::new(-15.0, -90.0, 140.0), Vec3::new(0.0, 0.0, 115.0));
-        // The volcano's foot from tank height (south gap, east, north-west).
-        for (k, (x, y)) in [(4.0, -40.0), (36.0, 6.0), (-26.0, 24.0)].into_iter().enumerate() {
-            let z = ground(&e, x, y) + 2.0;
-            shot(&mut e, &format!("tt3_5_volcano_{k}"), Vec3::new(x, y, z), Vec3::new(0.0, 0.0, 108.0));
-        }
-        check_pads(&mut e, &["RiverJumpW", "RiverJumpE"]);
+        assert!(path.last().unwrap().y > 108.0, "island fords: stopped at {}", path.last().unwrap());
+        shot(&mut e, "tt3_5_fords", Vec3::new(20.0, 120.0, 124.0), Vec3::new(52.0, 76.0, 104.0));
+        // A tank at the tower's foot, for scale.
+        place(&mut e, 56.0, -4.0, 70.0);
+        let z = ground(&e, 36.0, 6.0) + 9.0;
+        shot(&mut e, "tt3_5_tower", Vec3::new(36.0, 6.0, z), Vec3::new(66.0, -6.0, z + 6.0));
+        check_pads(&mut e, &["RiverJumpN", "RiverJumpS"]);
     });
 }
 
 /// The gorge jumps on tt3_5, both ways, for each tank type, driving from a
-/// standstill 22 m before the boost pad.
+/// standstill 14 m before the boost pad.
 #[test]
-fn cerebral_caldera_gorge_jump_every_tank() {
+fn dark_cortex_gorge_jump_every_tank() {
     tt_assets::require_game_data!();
     big_stack(|| {
         for (t, name) in TANKS.iter().enumerate() {
             let mut e = start_with(&assets(), &RED, 0, t as u8);
-            let bank = ground(&e, 96.0, 20.0);
-            check_jump(&mut e, &format!("{name} north"), (82.0, -56.0), (82.0, 60.0), false, 20.0, (-4.0, 4.0), bank);
-            check_jump(&mut e, &format!("{name} south"), (110.0, 56.0), (110.0, -60.0), false, 20.0, (-4.0, 4.0), bank);
+            let (gx, gy) = R_GORGE;
+            let bank = ground(&e, gx + R_JUMPS[0], gy + 20.0);
+            check_jump(&mut e, &format!("{name} north"), (gx + R_JUMPS[0], gy - 56.0), (gx + R_JUMPS[0], gy + 60.0), false, gy + 20.0, (gy - 4.0, gy + 4.0), bank);
+            check_jump(&mut e, &format!("{name} south"), (gx + R_JUMPS[1], gy + 56.0), (gx + R_JUMPS[1], gy - 60.0), false, -(gy - 20.0), (gy - 4.0, gy + 4.0), bank);
             let _ = std::fs::remove_dir_all(e.host.fs.data_dir());
         }
     });
 }
 
-/// Every prop of the new maps is planted: no point of the bottom of its
-/// bounds (as placed: turned, scaled; sampled over the whole bottom face;
-/// a tree's trunk circle) is above the terrain (rocks at least 0.2 m under,
+/// Every prop of the new maps is planted: no foot of its geometry (as
+/// placed: turned, scaled; `Shape::base_points`: a skeleton's rib ends and
+/// skull, a tree's roots, a rock's underside) is above the terrain (rocks
+/// and trees at least 0.2 m under,
 /// the stone circle's standing stones at least 0.5 m), and the point nearest
 /// the surface is no more than 1.5 m under it. The def shapes (power-
 /// ups, arches, pads, the volcano) too: their round base (the circle in
@@ -410,13 +485,13 @@ fn new_map_props_touch_the_ground() {
     use glam::Vec3;
     let root = assets();
     let mut bad = Vec::new();
-    for spec in [&GREEN, &BLUE, &RED] {
+    for spec in [&GREEN, &BLUE, &RED, &MOON1, &MOON2] {
         let dir = root.join("missions");
         let m = tt_assets::data::mission::load(&dir.join(format!("{}.ron", spec.id))).unwrap();
         let t = tt_assets::terrain::Terrain::parse(&std::fs::read(dir.join(format!("{}.ter", spec.id))).unwrap()).unwrap();
         let terrain = tt_game::terrain::HeightField::from_terrain(&t, 8.0);
         let objects = m.scene_objects(|c| !c.unless.1.is_empty());
-        let (mut count, mut shaped) = (0, 0);
+        let (mut count, mut shaped, mut halloween) = (0, 0, 0);
         for o in objects.iter().flat_map(|o| o.walk()) {
             let class = o.class.to_ascii_lowercase();
             let db = o.get("def").unwrap_or_default().to_ascii_lowercase();
@@ -438,10 +513,12 @@ fn new_map_props_touch_the_ground() {
             let shape = tt_assets::dts::Shape::parse(&std::fs::read(&path).unwrap()).unwrap();
             let xf = tt_game::mission::object_transform(o);
             let (lo, hi) = (Vec3::from(shape.bounds.min), Vec3::from(shape.bounds.max));
-            let tree = shape_name.to_ascii_lowercase().contains("tree");
             let round = class != "prop" && db != "reload";
-            let foot: Vec<Vec3> = if tree {
-                (0..8).map(|k| k as f32 * std::f32::consts::FRAC_PI_4).map(|a| xf.transform_point3(Vec3::new(1.2 * a.cos(), 1.2 * a.sin(), 0.0))).collect()
+            let foot: Vec<Vec3> = if class == "prop" {
+                // Every foot of its geometry (a skeleton's rib ends and
+                // skull, a tree's roots, a rock's underside).
+                let down = xf.matrix3.transpose() * Vec3::NEG_Z;
+                shape.base_points(down.into()).into_iter().map(|c| xf.transform_point3(Vec3::from(c))).collect()
             } else if round {
                 // The circle in the bounds, filled.
                 let r = (hi.x - lo.x).min(hi.y - lo.y) / 2.0;
@@ -472,11 +549,29 @@ fn new_map_props_touch_the_ground() {
             };
             let nearest = foot.iter().map(|c| c.z - terrain.height(c.x, c.y)).fold(f32::MIN, f32::max);
             let p = xf.translation;
-            let standing_stone = spec.id == "tt2_5" && class == "prop" && (28.0..42.0).contains(&p.truncate().length()) && xf.matrix3.z_axis.z > 0.9;
+            let standing_stone = spec.id == "tt2_5" && shape_name.contains("/blue/rock") && (28.0..42.0).contains(&p.truncate().length()) && xf.matrix3.z_axis.z > 0.9;
+            // The trilithons' lintels lie on their uprights.
+            if o.name == "Lintel" {
+                continue;
+            }
             let (least, most) = match class.as_str() {
                 "volcano" => (-3.0, -1.0),
-                "prop" if tree => (-1.5, -0.05),
                 "prop" if standing_stone => (-1.5, -0.5),
+                // The Moon bases' landing pad is sunk 2 m (its top 0.4 m up) and
+                // the lander stands on it.
+                "prop" if shape_name.ends_with("landingpad.dts") => (-2.1, -1.6),
+                "prop" if shape_name.ends_with("lander.dts") => (0.3, 0.5),
+                // The Moon's crash sites: the wreck's parts half buried, tilted.
+                // tt3_5's starfighter: come down nose first into the lava sea,
+                // its tail and a wing high out of it.
+                "prop" if shape_name.ends_with("wreck_fighter.dts") => (-8.0, 12.0),
+                "prop" if shape_name.contains("/wreck_") => (-8.0, -0.1),
+                // The Halloween map's pumpkins sit on the ground,
+                // a few centimetres in.
+                "prop" if shape_name.contains("/halloween/") => (-1.0, -0.02),
+                // tt1_5's rowboats and logs lie on the
+                // ground, sunk a little.
+                "prop" if ["rowboat.dts", "driftlog.dts"].iter().any(|s| shape_name.ends_with(s)) => (-1.0, -0.05),
                 "prop" => (-1.5, -0.2),
                 _ => (-1.5, 0.1),
             };
@@ -488,14 +583,60 @@ fn new_map_props_touch_the_ground() {
             }
             if class == "prop" {
                 count += 1;
+                halloween += usize::from(shape_name.contains("/halloween/"));
             } else {
                 shaped += 1;
             }
         }
-        assert!(count > 50, "{}: {count} props", spec.id);
+        // The Moon maps: a base and a few dishes and panels (about 20 props).
+        assert!(count > 50 || spec.world == "Moon", "{}: {count} props", spec.id);
         assert!(shaped >= spec.triggers.len(), "{}: {shaped} def shapes", spec.id);
+        // The Halloween map's own props (jack-o'-lanterns, carved pumpkins)
+        // are among those checked.
+        assert!(spec.id != "tt2_5" || halloween > 60, "{}: {halloween} Halloween props", spec.id);
     }
     assert!(bad.is_empty(), "{} objects off the ground:\n{}", bad.len(), bad.join("\n"));
+}
+
+/// No pickup of the new maps is crowded by scenery: no foot of a prop
+/// (`Shape::base_points`, as placed) within 4.5 m of a power-up's or a
+/// heal's centre, nor within 8 m of a pad's or a reload arch's (they are
+/// bigger and driven onto at speed).
+#[test]
+fn new_map_pickups_clear_of_props() {
+    tt_assets::require_game_data!();
+    use glam::Vec3;
+    let root = assets();
+    let mut bad = Vec::new();
+    for spec in [&GREEN, &BLUE, &RED, &MOON1, &MOON2] {
+        let dir = root.join("missions");
+        let m = tt_assets::data::mission::load(&dir.join(format!("{}.ron", spec.id))).unwrap();
+        let objects = m.scene_objects(|c| !c.unless.1.is_empty());
+        let (mut pickups, mut feet) = (Vec::new(), Vec::new());
+        for o in objects.iter().flat_map(|o| o.walk()) {
+            let class = o.class.to_ascii_lowercase();
+            let db = o.get("def").unwrap_or_default().to_ascii_lowercase();
+            let xf = tt_game::mission::object_transform(o);
+            match class.as_str() {
+                "powerup" => pickups.push((o.name.clone(), xf.translation.truncate(), if db == "reload" { 8.0 } else { 4.5 })),
+                "boost" => pickups.push((o.name.clone(), xf.translation.truncate(), 8.0)),
+                "prop" => {
+                    let shape_name = o.get("shape").unwrap();
+                    let path = tt_assets::find_ci(&tt_assets::resolve(&root, &dir, shape_name)).unwrap();
+                    let shape = tt_assets::dts::Shape::parse(&std::fs::read(&path).unwrap()).unwrap();
+                    let down = xf.matrix3.transpose() * Vec3::NEG_Z;
+                    feet.extend(shape.base_points(down.into()).into_iter().map(|c| (shape_name.to_string(), xf.transform_point3(Vec3::from(c)).truncate())));
+                }
+                _ => {}
+            }
+        }
+        for (name, p, r) in &pickups {
+            if let Some((shape, q)) = feet.iter().find(|(_, q)| q.distance(*p) < *r) {
+                bad.push(format!("{}: {name} at ({:.1}, {:.1}): {shape} reaches ({:.1}, {:.1}), {:.1} m from it (allowed {r})", spec.id, p.x, p.y, q.x, q.y, q.distance(*p)));
+            }
+        }
+    }
+    assert!(bad.is_empty(), "{} pickups crowded:\n{}", bad.len(), bad.join("\n"));
 }
 
 /// Every pad of the new maps lies flush on the ground: the bottom face of
@@ -510,7 +651,7 @@ fn new_map_pads_lie_flush() {
     use glam::Vec3;
     let root = assets();
     let mut bad = Vec::new();
-    for spec in [&GREEN, &BLUE, &RED] {
+    for spec in [&GREEN, &BLUE, &RED, &MOON1, &MOON2] {
         let dir = root.join("missions");
         let m = tt_assets::data::mission::load(&dir.join(format!("{}.ron", spec.id))).unwrap();
         let t = tt_assets::terrain::Terrain::parse(&std::fs::read(dir.join(format!("{}.ter", spec.id))).unwrap()).unwrap();
@@ -591,7 +732,7 @@ fn arches(spec: &MapSpec) -> Vec<(String, glam::Affine3A, Vec3, Vec3)> {
         .filter(|o| o.class.eq_ignore_ascii_case("powerup") && o.get("def").is_some_and(|d| d.eq_ignore_ascii_case("reload")))
         .map(|o| (o.name.clone(), tt_game::mission::object_transform(o), lo, hi))
         .collect();
-    assert_eq!(out.len(), 2, "{}: reload arches", spec.id);
+    assert_eq!(out.len(), if spec.world == "Moon" || spec.id == "tt3_5" { 1 } else { 2 }, "{}: reload arches", spec.id);
     out
 }
 
@@ -605,7 +746,7 @@ fn new_map_arches_stand_level() {
     tt_assets::require_game_data!();
     let root = assets();
     let mut bad = Vec::new();
-    for spec in [&GREEN, &BLUE, &RED] {
+    for spec in [&GREEN, &BLUE, &RED, &MOON1, &MOON2] {
         let t = tt_assets::terrain::Terrain::parse(&std::fs::read(root.join("missions").join(format!("{}.ter", spec.id))).unwrap()).unwrap();
         let terrain = tt_game::terrain::HeightField::from_terrain(&t, 8.0);
         for (name, xf, lo, hi) in arches(spec) {
@@ -654,7 +795,7 @@ fn new_map_arches_stand_level() {
 fn new_map_arches_drive_through() {
     tt_assets::require_game_data!();
     big_stack(|| {
-        for spec in [&GREEN, &BLUE, &RED] {
+        for spec in [&GREEN, &BLUE, &RED, &MOON1, &MOON2] {
             let mut e = start(&assets(), spec, 0);
             for (name, xf, _, _) in arches(spec) {
                 let p = Vec3::from(xf.translation).truncate();

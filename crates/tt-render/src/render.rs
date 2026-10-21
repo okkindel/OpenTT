@@ -707,6 +707,9 @@ pub(crate) fn texture(device: &wgpu::Device, queue: &wgpu::Queue, size: u32, lay
     upload(device, queue, size, layers, mips, format, &data)
 }
 
+/// The most sky sprites a sky draws (`Scene::sky_sprites`).
+pub const MAX_SKY_SPRITES: usize = 2;
+
 /// A texture (array) from layer-major data with all `mips` levels.
 fn upload(device: &wgpu::Device, queue: &wgpu::Queue, size: u32, layers: u32, mips: u32, format: wgpu::TextureFormat, data: &[u8]) -> wgpu::TextureView {
     let tex = device.create_texture_with_data(
@@ -763,10 +766,14 @@ impl Renderer {
         // sRGB so the display-space factor q/32 modulates the texture as the
         // engine's 8-bit blend does.
         let lightmap = texture(device, queue, scene.lightmap_size, 1, wgpu::TextureFormat::Rgba8UnormSrgb, &scene.lightmap);
-        // Linear format: the detail map is a multiplier around 0.5, not a colour.
-        let detail_size = if scene.detail.is_some() { crate::textures::size() } else { 2 };
-        let flat_detail = vec![128u8; (detail_size * detail_size * 4) as usize];
-        let detail = texture(device, queue, detail_size, 1, wgpu::TextureFormat::Rgba8Unorm, scene.detail.as_deref().unwrap_or(&flat_detail));
+        // Linear format: the detail and macro colour maps are multipliers
+        // around 0.5, not colours; a flat 2 x 2 stand-in when the terrain has
+        // none (the shader then skips the macro map: `terrain.w` is 0).
+        let multiplier = |img: &Option<Vec<u8>>| match img {
+            Some(px) => texture(device, queue, crate::textures::size(), 1, wgpu::TextureFormat::Rgba8Unorm, px),
+            None => texture(device, queue, 2, 1, wgpu::TextureFormat::Rgba8Unorm, &[128; 16]),
+        };
+        let (detail, macro_tex) = (multiplier(&scene.detail), multiplier(&scene.macro_tex));
         let terrain_normals = if settings.extras.normal_maps {
             layers_texture(device, queue, &normal_layers(&scene.material_files), wgpu::TextureFormat::Rgba8Unorm)
         } else {
@@ -849,6 +856,7 @@ impl Renderer {
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
+                tex_entry(11, wgpu::TextureViewDimension::D2),
             ],
         });
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -866,6 +874,7 @@ impl Renderer {
                 wgpu::BindGroupEntry { binding: 8, resource: wgpu::BindingResource::TextureView(&atlas_view) },
                 wgpu::BindGroupEntry { binding: 9, resource: wgpu::BindingResource::TextureView(&terrain_normals) },
                 wgpu::BindGroupEntry { binding: 10, resource: wgpu::BindingResource::Sampler(&normal_sampler) },
+                wgpu::BindGroupEntry { binding: 11, resource: wgpu::BindingResource::TextureView(&macro_tex) },
             ],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -979,14 +988,39 @@ impl Renderer {
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
+                    tex_entry(2, wgpu::TextureViewDimension::D2Array),
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer { ty: wgpu::BufferBindingType::Uniform, has_dynamic_offset: false, min_binding_size: None },
+                        count: None,
+                    },
                 ],
             });
+            // Sky sprites (`Scene::sky_sprites`): their images as layers (a
+            // transparent stand-in when there are none: two layers, so its
+            // view is an array as the layout wants; one sprite gets a blank
+            // second layer too) and, per sprite, its direction and the
+            // tangent of its angular radius.
+            let (sprite_size, mut sprite_layers) = if scene.sky_sprites.is_empty() { (2, vec![vec![0u8; 16]]) } else { (crate::textures::size(), scene.sky_sprites.iter().map(|s| s.image.clone()).collect()) };
+            if sprite_layers.len() == 1 {
+                sprite_layers.push(vec![0u8; sprite_layers[0].len()]);
+            }
+            let sprites = texture(device, queue, sprite_size, sprite_layers.len() as u32, wgpu::TextureFormat::Rgba8UnormSrgb, &sprite_layers.concat());
+            let mut info = [[0.0f32; 4]; 1 + MAX_SKY_SPRITES];
+            info[0][0] = scene.sky_sprites.len().min(MAX_SKY_SPRITES) as f32;
+            for (slot, s) in info[1..].iter_mut().zip(&scene.sky_sprites) {
+                *slot = [s.dir.x, s.dir.y, s.dir.z, s.radius.tan()];
+            }
+            let sprite_info = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("sky sprites"), contents: bytemuck::cast_slice(&info), usage: wgpu::BufferUsages::UNIFORM });
             let group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("sky"),
                 layout: &sky_layout,
                 entries: &[
                     wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&faces) },
                     wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&clamp) },
+                    wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&sprites) },
+                    wgpu::BindGroupEntry { binding: 3, resource: sprite_info.as_entire_binding() },
                 ],
             });
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -1336,7 +1370,7 @@ impl Renderer {
             clear: wgpu::Color { r: lin(f.x), g: lin(f.y), b: lin(f.z), a: 1.0 },
             far: scene.visible_distance.max(100.0) * 1.2,
             scene_params: [scene.fog_distance, scene.visible_distance, scene.terrain_size as f32, 32.0],
-            terrain_params: [scene.terrain_origin, scene.square_size, scene.terrain_size as f32, 0.0],
+            terrain_params: [scene.terrain_origin, scene.square_size, scene.terrain_size as f32, if scene.macro_tex.is_some() { 1.0 } else { 0.0 }],
             fog_volumes: {
                 let mut v = [[0.0; 4]; 3];
                 for (slot, f) in v.iter_mut().zip(&scene.fog_volumes) {
@@ -2114,7 +2148,17 @@ impl Renderer {
         }
         if let Some(post) = self.post.as_ref() {
             let tan_y = (view.fov_deg.to_radians() * 0.5).tan();
-            let params = crate::post::ViewParams { near: self.near, far: self.far, tan_half_x: tan_y * vw as f32 / vh as f32, tan_half_y: tan_y, visible: self.scene_params[1] };
+            let params = crate::post::ViewParams {
+                near: self.near,
+                far: self.far,
+                tan_half_x: tan_y * vw as f32 / vh as f32,
+                tan_half_y: tan_y,
+                visible: self.scene_params[1],
+                fog_distance: self.scene_params[0],
+                cam_z: view.camera.pos.z,
+                up: [right.z, up.z, -forward.z],
+                vols: self.fog_volumes,
+            };
             post.run(queue, &mut enc, target, [vx, vy, vw, vh], !view.clear, params, &mark);
         }
         if scaled {

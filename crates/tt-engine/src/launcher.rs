@@ -72,6 +72,10 @@ pub struct Launcher {
     /// Where imports go.
     target: PathBuf,
     started: Instant,
+    /// The game data is another version's ([`crate::gamedata::stale`]):
+    /// the game opens on the re-import screen, importing again
+    /// ([`SetupFlow::refresh`]).
+    pub refresh: bool,
     /// Why the launcher stopped, if it failed.
     pub error: Option<String>,
 }
@@ -80,13 +84,13 @@ impl Launcher {
     /// Starts with the game (the game data is there).
     pub fn game(app: App, target: PathBuf, factory: AppFactory) -> Launcher {
         let assets = app.root.clone();
-        Launcher { phase: Phase::Game(Box::new(app)), factory, setup_gfx: None, assets, target, started: Instant::now(), error: None }
+        Launcher { phase: Phase::Game(Box::new(app)), factory, setup_gfx: None, assets, target, started: Instant::now(), refresh: false, error: None }
     }
 
     /// Starts with the first-run screen (no game data in `assets`).
     pub fn first_run(assets: PathBuf, target: PathBuf, factory: AppFactory) -> Launcher {
         let flow = SetupFlow::new(SetupMode::FirstRun, target.clone(), None);
-        Launcher { phase: Phase::Setup(Box::new(flow)), factory, setup_gfx: None, assets, target, started: Instant::now(), error: None }
+        Launcher { phase: Phase::Setup(Box::new(flow)), factory, setup_gfx: None, assets, target, started: Instant::now(), refresh: false, error: None }
     }
 
     /// The import screen's state, while it is up.
@@ -136,7 +140,10 @@ impl Launcher {
             return;
         };
         drop(app);
-        let flow = SetupFlow::new(SetupMode::Reimport, self.target.clone(), (!source.is_empty()).then_some(source));
+        let mut flow = SetupFlow::new(SetupMode::Reimport, self.target.clone(), (!source.is_empty()).then_some(source));
+        if std::mem::take(&mut self.refresh) {
+            flow.refresh();
+        }
         self.open_setup(el, window, flow);
     }
 
@@ -251,7 +258,12 @@ impl Launcher {
 impl ApplicationHandler for Launcher {
     fn resumed(&mut self, el: &ActiveEventLoop) {
         match &mut self.phase {
-            Phase::Game(app) => app.resumed(el),
+            Phase::Game(app) => {
+                app.resumed(el);
+                if self.refresh {
+                    self.start_reimport(el);
+                }
+            }
             Phase::Setup(_) if self.setup_gfx.is_none() => {
                 let attrs = crate::icon::with_icon(Window::default_attributes()).with_title(tt_assets::product::WINDOW_TITLE).with_inner_size(PhysicalSize::new(1280, 720));
                 match el.create_window(attrs) {

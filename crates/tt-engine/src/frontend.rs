@@ -289,6 +289,7 @@ impl Frontend {
                 tt_render::loadstats::milestone("scene + renderer ready", false);
                 self.renderer = Some(r);
                 self.fx = Some(gfx::FxState::new(&s));
+                self.dynlights.set_scene(&s, &self.root);
                 self.scene = Some(s);
             }
             Some(Err(e)) => engine.host.log.warn(&format!("scene: {e}")),
@@ -389,6 +390,10 @@ impl Frontend {
             } else {
                 r.set_point_lights(&[]);
             }
+        }
+        // The scene's will-o'-the-wisps (dynlights' sprites).
+        if let Some(gv) = game_view.as_mut() {
+            gv.sprites.extend(self.dynlights.wisp_sprites());
         }
         let th = Instant::now();
         let hud = engine.hud_view(size, (self.wall() * 1000.0) as u64, game_view.as_ref().map(|g| (&g.camera, g.hfov)));

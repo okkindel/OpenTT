@@ -46,18 +46,20 @@ exactly once, either as made from the game install or as OpenTT's own (`ours`).
 A test (`tests/import.rs`) checks both: the mapping is what the `SOURCES.md`
 tables say, and it covers the tree.
 
-OpenTT's own files (`ours`, 34; copied as they are):
+OpenTT's own files (`ours`, 52; copied as they are):
 
 | Files | What |
 |---|---|
 | `data/*.ron` | the game's data tables in the engine's RON schema (`tt_assets::data::defs`, `tt_gameplay::client::binds`): tanks, projectiles, power-ups, explosions, bot drivers, cameras, sound descriptions, the solo campaign, the power-up table, the client sounds, the music, the default key bindings; authored and maintained in this repository |
-| `missions/tt1_5.{ron,ter}`, `tt2_5`, `tt3_5` | OpenTT's maps (`new_maps` example) |
+| `missions/tt1_5.{ron,ter}`, `tt2_5`, `tt3_5`, `tt4_1`, `tt4_2` | OpenTT's maps (`new_maps` example; `tt4_*` the Moon's) |
 | `missions/poweruptest.{ron,ter}` | the Power-up Test arena |
 | `missions/catalog.ron` | the menus' map list (order, worlds, hidden mission files; `docs/modding.md`) |
 | `models/projectiles/mortarrocket.dts`, `mortarrocket.png`, `mortarrockethot.png` | the Mortar's rocket (`mortar_rocket` example) |
 | `models/projectiles/scatterprojectile.png` | the Scatter shot's pellet (drawn from scratch) |
 | `models/reticles/scatterreticle.png` | the Scatter shot's cone brackets (drawn from scratch) |
 | `sound/voice/voc{Area,Bounce,Health,Mortar,Reload,Scatter,Speedy}.ogg` | the Piper announcer lines |
+| `sound/music/spacefighter.ogg` | the Moon maps' music ("Space Fighter Loop", Kevin MacLeod, CC BY 4.0) |
+| `terrain/moon/*`, `terrain/detail/moon_detail.png`, `sky/moon*` | the Moon's terrain textures and sky (their normal maps are made at import, as every terrain texture's) (`tools/moon-assets/moon_gen.py`) |
 | `ui/credits.txt` | the credits |
 
 Also OpenTT's own, outside `assets/`: the fonts (`crates/tt-gui/assets/fonts`, OFL),
@@ -114,7 +116,7 @@ Result: no unexpected differences.
 | pixel-identical | 3 | the team dots (not upscaled: `.jpg` + mask merged) |
 | ¼ of the repository's size | 145 + 3 | the upscaled textures (and the recoloured ones made from them) |
 | same set, same size | 113 | the normal maps |
-| `picture placeholder` (expected) | 4 | OpenTT's own maps' pictures (the game's import renders them) |
+| `picture placeholder` (expected) | 6 | OpenTT's own maps' pictures (the game's import renders them) |
 | `sound regenerated` (expected) | 4 | the ffmpeg sounds: same length to the sample, loudness within 0.6 dB, not byte-identical (Vorbis encoder) |
 
 The game runs from an imported directory unchanged: `opentt --assets DIR
@@ -167,6 +169,11 @@ that the files are converted on this computer and stay there.
   (the date). Settings → Game data shows both and **Re-import...** runs
   the same screen again (the running game is shut down first and booted
   again afterwards, also after Cancel).
+* After an update (the imported data's `.ours-version`, written only by
+  an import, is another version's: `tt_engine::gamedata::stale`) the game
+  opens on that screen and imports again from `game_data.source` (or asks
+  for the folder); until then our own files are refreshed at start
+  (`tt_import::refresh_ours`), and runs without a window say to run `--import DIR`.
 
 `opentt --import DIR [--assets OUT]` runs the same import without a window
 (progress on stderr) and exits.

@@ -526,6 +526,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 
 [[package]]
+name = "ctrlc"
+version = "3.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0b1fab2ae45819af2d0731d60f2afe17227ebb1a1538a236da84c93e9a60162"
+dependencies = [
+ "dispatch2",
+ "nix",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "cursor-icon"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1026,6 +1037,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "itoa"
+version = "1.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
+
+[[package]]
 name = "jni"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1366,6 +1383,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys 0.3.1",
+]
+
+[[package]]
+name = "nix"
+version = "0.31.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf20d2fde8ff38632c426f1165ed7436270b44f199fc55284c38276f9db47c3d"
+dependencies = [
+ "bitflags 2.13.2",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
 ]
 
 [[package]]
@@ -2186,6 +2215,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_json"
+version = "1.0.154"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7e9cc8b1b85264074fbcc02a88680c4096b1e47df8f739dceb03bf482f04bd6"
+dependencies = [
+ "itoa",
+ "memchr",
+ "serde",
+ "serde_core",
+ "zmij",
+]
+
+[[package]]
 name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2529,16 +2571,17 @@ checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 
 [[package]]
 name = "tt-assets"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "image",
  "ron",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
 name = "tt-audio"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "cpal",
  "hound",
@@ -2548,9 +2591,10 @@ dependencies = [
 
 [[package]]
 name = "tt-engine"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bytemuck",
+ "ctrlc",
  "egui",
  "egui-wgpu",
  "egui-winit",
@@ -2576,7 +2620,7 @@ dependencies = [
 
 [[package]]
 name = "tt-game"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "glam",
  "tt-assets",
@@ -2585,7 +2629,7 @@ dependencies = [
 
 [[package]]
 name = "tt-gameplay"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ron",
  "serde",
@@ -2596,7 +2640,7 @@ dependencies = [
 
 [[package]]
 name = "tt-gui"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ab_glyph",
  "image",
@@ -2604,7 +2648,7 @@ dependencies = [
 
 [[package]]
 name = "tt-import"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "image",
  "lewton",
@@ -2615,14 +2659,14 @@ dependencies = [
 
 [[package]]
 name = "tt-master"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "tt-net",
 ]
 
 [[package]]
 name = "tt-menu"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "egui",
  "egui-wgpu",
@@ -2635,11 +2679,11 @@ dependencies = [
 
 [[package]]
 name = "tt-net"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "tt-render"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bytemuck",
  "glam",
@@ -2651,7 +2695,7 @@ dependencies = [
 
 [[package]]
 name = "tt-shell"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ron",
  "serde",
@@ -2661,7 +2705,7 @@ dependencies = [
 
 [[package]]
 name = "tt-viewer"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "glam",
  "image",
@@ -3497,6 +3541,12 @@ name = "zlib-rs"
 version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b268e58e7c693d7c271f93ffc4ba3b380412554231c85bf61ca7af91042a4112"
+
+[[package]]
+name = "zmij"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[package]]
 name = "zune-core"

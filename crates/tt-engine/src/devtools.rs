@@ -292,6 +292,9 @@ fn screenshot(engine: &mut Engine, a: &DevArgs, assets: &Path, dev_mission: bool
             }
             fe.reload_prefs();
             fe.dynlights = Default::default();
+            if let Some(sc) = fe.scene.as_ref() {
+                fe.dynlights.set_scene(sc, &fe.root);
+            }
             // Settings that need a new renderer apply in `step`.
             fe.step(engine, &off.device, &off.queue, 0.0);
             fe.draw(engine, &off.device, &off.queue, &off.view, off.size, 300.0);

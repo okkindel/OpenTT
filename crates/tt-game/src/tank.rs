@@ -186,11 +186,11 @@ impl Tank {
     /// ([`crate::data::ProjectileParams::pitch_n_for_reach`]) from the muzzle to the point's
     /// horizontal distance and height (plus the projectile ray's offset `radius`). The muzzle
     /// moves a little with the pitch: solved twice.
-    pub fn high_angle_pitch_n(&self, p: &ProjectileParams, yaw_n: f32, point: Vec3) -> f32 {
+    pub fn high_angle_pitch_n(&self, p: &ProjectileParams, yaw_n: f32, point: Vec3, world_g: f32) -> f32 {
         let mut pn = self.pitch_n;
         for _ in 0..2 {
             let p0 = Vec3::from(self.muzzle_at(yaw_n, pn).translation);
-            pn = p.pitch_n_for_reach((point - p0).truncate().length(), point.z + p.radius - p0.z);
+            pn = p.pitch_n_for_reach((point - p0).truncate().length(), point.z + p.radius - p0.z, world_g);
         }
         pn
     }
@@ -200,10 +200,10 @@ impl Tank {
     /// heading, which on a tilted hull shifts as the barrel pitches, so the
     /// yaw is corrected until that heading points at the point
     /// ([`Tank::high_angle_pitch_n`] for the pitch).
-    pub fn high_angle_aim(&self, p: &ProjectileParams, yaw_n: f32, point: Vec3) -> (f32, f32) {
+    pub fn high_angle_aim(&self, p: &ProjectileParams, yaw_n: f32, point: Vec3, world_g: f32) -> (f32, f32) {
         let range = self.data.turret_yaw_range.to_radians().max(1e-3);
         let mut yaw = yaw_n;
-        let mut pn = self.high_angle_pitch_n(p, yaw, point);
+        let mut pn = self.high_angle_pitch_n(p, yaw, point, world_g);
         for _ in 0..10 {
             let m = self.muzzle_at(yaw, pn);
             let want = (point - Vec3::from(m.translation)).truncate();
@@ -217,7 +217,7 @@ impl Tank {
                 break;
             }
             yaw = (yaw - err / range).clamp(-1.0, 1.0);
-            pn = self.high_angle_pitch_n(p, yaw, point);
+            pn = self.high_angle_pitch_n(p, yaw, point, world_g);
         }
         (yaw, pn)
     }
@@ -236,8 +236,10 @@ pub fn clearance(terrain: Option<&HeightField>, rot: Mat3, trans: Vec3, p: Vec3)
 
 /// §3.3 `updateMove`: drive, brake, coast, anti-slide, gravity and turn,
 /// followed by §3.4 `updateSuspension`. Works on `tank.pos/rot/vel` in place
-/// (starting from the pose at the beginning of the tick).
-pub fn update_move(tank: &mut Tank, mv: &Move, terrain: Option<&HeightField>) {
+/// (starting from the pose at the beginning of the tick), under the
+/// mission's gravity scale `world_g` ([`crate::World::gravity`]).
+pub fn update_move(tank: &mut Tank, mv: &Move, terrain: Option<&HeightField>, world_g: f32) {
+    let gravity = GRAVITY * world_g;
     let a = tank.data.clone();
     let start_pos = tank.pos;
     let (r, f, u) = (tank.rot.x_axis, tank.rot.y_axis, tank.rot.z_axis);
@@ -247,7 +249,7 @@ pub fn update_move(tank: &mut Tank, mv: &Move, terrain: Option<&HeightField>) {
         let vn = vel.dot(u).min(0.0);
         vel -= u * vn;
     } else if !tank.any_contact {
-        vel.z += GRAVITY * DT;
+        vel.z += gravity * DT;
     }
 
     if tank.any_contact {
@@ -286,13 +288,13 @@ pub fn update_move(tank: &mut Tank, mv: &Move, terrain: Option<&HeightField>) {
     tank.pos = start_pos + vel * DT;
     tank.rot = rot;
     // M keeps the old translation: probes are sampled at the old position.
-    update_suspension(tank, start_pos, terrain);
+    update_suspension(tank, start_pos, terrain, world_g);
 }
 
 /// §3.4: fits the hull to the four outer probes and applies the lift rules.
 /// `m_trans` is the translation of the matrix the probes are sampled with
 /// (the position at the start of the tick — the one-tick lag).
-pub fn update_suspension(tank: &mut Tank, m_trans: Vec3, terrain: Option<&HeightField>) {
+pub fn update_suspension(tank: &mut Tank, m_trans: Vec3, terrain: Option<&HeightField>, world_g: f32) {
     let a = tank.data.clone();
     let g = &a.geometry;
     let m_rot = tank.rot;
@@ -337,7 +339,7 @@ pub fn update_suspension(tank: &mut Tank, m_trans: Vec3, terrain: Option<&Height
         tank.wheel_vel = [0.0; 4];
     } else if tank.any_contact {
         for (w, &touch) in tank.wheel_vel.iter_mut().zip(&contact) {
-            *w = if touch { 0.0 } else { *w + GRAVITY * DT };
+            *w = if touch { 0.0 } else { *w + GRAVITY * world_g * DT };
         }
         let w = tank.wheel_vel;
         tank.wheel_vel[0] = 0.9 * w[0] + 0.1 * w[3];
@@ -349,12 +351,12 @@ pub fn update_suspension(tank: &mut Tank, m_trans: Vec3, terrain: Option<&Height
 }
 
 /// Spawn snap: drop to the terrain height, then fit once.
-pub fn snap_to_ground(tank: &mut Tank, terrain: Option<&HeightField>) {
+pub fn snap_to_ground(tank: &mut Tank, terrain: Option<&HeightField>, world_g: f32) {
     if let Some(t) = terrain {
         tank.pos.z = t.height(tank.pos.x, tank.pos.y);
     }
     let p = tank.pos;
-    update_suspension(tank, p, terrain);
+    update_suspension(tank, p, terrain, world_g);
 }
 
 /// §5.1 turret aim with auto-level. `old_rot` is the body rotation at the start of

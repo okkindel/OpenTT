@@ -48,9 +48,11 @@ pub struct GameView {
 /// What lights a power-up / pad casts (dynamic lights extra).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Lamp {
-    /// None (the Reload arch).
     #[default]
     None,
+    /// The Reload arch: a bluish-white flicker while its lightning
+    /// (`electro`) is drawn.
+    Arch,
     /// Weapon / health pick-up: its lamp IFL's flash.
     PowerUp,
     /// Boost / jump pad: a faint tint of its arrow IFL.

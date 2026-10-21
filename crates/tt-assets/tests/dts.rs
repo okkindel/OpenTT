@@ -36,9 +36,12 @@ fn shapes() -> Vec<(PathBuf, u16, Vec<u8>)> {
 fn all_shapes_parse() {
     tt_assets::require_game_data!();
     let all = shapes();
-    // 48 of the game, plus OpenTT's mortarrocket.dts (examples/mortar_rocket.rs)
-    // and devbox.dts (examples/powerup_terrain.rs).
-    assert_eq!(all.len(), 50);
+    // 48 of the game, plus OpenTT's mortarrocket.dts (examples/mortar_rocket.rs),
+    // devbox.dts (examples/powerup_terrain.rs), the fifteen Moon props and tt1_5's
+    // two (examples/gltf_to_dts.rs, [`MOON_PROPS`]) and tt2_5's three Halloween
+    // props (models/props/halloween/) and tt3_5's darktower.dts
+    // (examples/dark_cortex.rs) and wreck_fighter.dts (examples/gltf_to_dts.rs).
+    assert_eq!(all.len(), 72);
     let mut parsed = 0;
     for (p, ver, data) in &all {
         let name = p.display();
@@ -106,5 +109,66 @@ fn all_shapes_parse() {
             }
         }
     }
-    assert_eq!(parsed, 49);
+    assert_eq!(parsed, 71);
+}
+
+/// The Moon props converted from CC0 glTF models by examples/gltf_to_dts.rs
+/// (`assets/models/SOURCES.md`): triangles of the visible detail, height (m).
+const MOON_PROPS: &[(&str, usize, f32)] = &[
+    ("models/props/moon/lander.dts", 1464, 7.0),
+    ("models/props/moon/landingpad.dts", 478, 2.4),
+    ("models/props/moon/basemodule.dts", 732, 4.35),
+    ("models/props/moon/radardish.dts", 972, 5.0),
+    ("models/props/moon/solarpanel.dts", 812, 3.0),
+    ("models/props/moon/boulder.dts", 196, 3.82),
+    ("models/props/moon/boulder2.dts", 68, 2.55),
+    ("models/props/moon/rockslab.dts", 44, 1.49),
+    ("models/props/moon/rockspire.dts", 176, 5.0),
+    ("models/props/moon/rubble.dts", 60, 0.28),
+    ("models/props/moon/wreck_engine.dts", 300, 6.0),
+    ("models/props/moon/wreck_tank.dts", 130, 5.0),
+    ("models/props/moon/wreck_nose.dts", 50, 4.0),
+    ("models/props/moon/wreck_sphere.dts", 192, 2.6),
+    ("models/props/moon/wreck_pipe.dts", 80, 3.0),
+    // tt1_5 "The Neverending Stream".
+    ("models/props/green/rowboat.dts", 224, 0.98),
+    ("models/props/green/driftlog.dts", 372, 1.56),
+    // tt3_5 "The Dark Cortex"'s crashed starfighter.
+    ("models/props/red/wreck_fighter.dts", 280, 6.86),
+];
+
+/// Each stands on its origin and has a solid `Collision-1` detail (the
+/// extruded hull of its footprint) as tall as the shape.
+#[test]
+fn moon_props() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets");
+    for &(rel, tris, height) in MOON_PROPS {
+        let s = Shape::parse(&std::fs::read(dir.join(rel)).unwrap()).unwrap_or_else(|e| panic!("{rel}: {e}"));
+        assert_eq!(s.detail0_geometry().iter().map(|r| r.triangles.len()).sum::<usize>(), tris, "{rel}");
+        assert!(s.bounds.min[2].abs() < 1e-4 && (s.bounds.max[2] - height).abs() < 0.01, "{rel}: {:?}", s.bounds);
+        let c = s.detail_levels.iter().position(|d| d.name == "Collision-1").unwrap_or_else(|| panic!("{rel}: no collision"));
+        let mesh = s.detail_objects(c).find_map(|o| s.detail_mesh(c, o)).expect("collision mesh");
+        let top = s.meshes[mesh].vertices.iter().map(|v| v[2]).fold(0.0, f32::max);
+        assert!((top - height).abs() < 0.01, "{rel}: collision top {top}");
+    }
+}
+
+/// `Shape::base_points` of a turned, unevenly scaled shape placed as the
+/// new maps' `Map::rest` places it (the highest foot on the ground, every
+/// other under it), down taken through the transpose of rotation × scale:
+/// a log (6.5 m along shape x) pitched 40 degrees with scale [1, 0.6, 0.65]
+/// rests on its lower end, its lowest vertex half a metre under flat
+/// ground (the inverse would take its underside along the whole length
+/// for the base and bury that end 4 m).
+#[test]
+fn base_points_of_a_tilted_scaled_log() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets");
+    let s = Shape::parse(&std::fs::read(dir.join("models/props/green/driftlog.dts")).unwrap()).unwrap();
+    let scale = [1.0f32, 0.6, 0.65];
+    let (sn, cs) = 40f32.to_radians().sin_cos();
+    let r = [[cs, 0.0, sn], [0.0, 1.0, 0.0], [-sn, 0.0, cs]];
+    let placed_z = |p: &[f32; 3]| (0..3).map(|k| r[2][k] * p[k] * scale[k]).sum::<f32>();
+    let ground = s.base_points(std::array::from_fn(|k| -r[2][k] * scale[k])).iter().map(placed_z).fold(f32::MIN, f32::max);
+    let lowest = s.detail0_geometry().iter().flat_map(|g| g.positions.clone()).map(|p| placed_z(&p)).fold(f32::MAX, f32::min);
+    assert!(ground - lowest < 0.6, "the lowest vertex {} m under the ground", ground - lowest);
 }

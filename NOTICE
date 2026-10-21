@@ -40,12 +40,76 @@ Announcer lines of the power-ups
   License:   The generated recordings are distributed under the same terms
              as OpenTT (GPL-3.0).
 
-Mortar rocket model and textures, Scatter shot pellet, the maps tt1_5,
-tt2_5, tt3_5 and poweruptest, credits text
-  Made for OpenTT (procedural generators in crates/tt-assets/examples and
-  hand-written mission files); GPL-3.0 like the code. The missions name
-  textures, skies and shapes of the game by path; those files are not
-  included and come from the user's own install via tt-import.
+Moon base props (lander, landing pad, domed base module)
+  Files:     assets/models/props/moon/lander.dts, landingpad.dts,
+             basemodule.dts and their .png textures
+  Source:    KayKit Space Base Bits 1.0 by Kay Lousberg (www.kaylousberg.com),
+             https://github.com/KayKit-Game-Assets/KayKit-Space-Base-Bits-1.0
+             (lander_A, landingpad_large, basemodule_E), converted to DTS by
+             crates/tt-assets/examples/gltf_to_dts.rs; the textures derived
+             from the kit's atlas, weathered (our edit)
+  License:   CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+
+Moon base props (radar dish, solar panel)
+  Files:     assets/models/props/moon/radardish.dts, solarpanel.dts and
+             their .png textures
+  Source:    "Roof Radar" (https://poly.pizza/m/V7XQDxF8JC) and "Solar Panel"
+             (https://poly.pizza/m/ah89Y79JdT) by Quaternius, converted to
+             DTS by crates/tt-assets/examples/gltf_to_dts.rs; the textures
+             derived from their atlas, weathered (our edit)
+  License:   CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+
+Moon rocks and crash site (boulders, rock slab, spires, rubble, wreck parts)
+  Files:     assets/models/props/moon/boulder.dts, boulder2.dts,
+             rockslab.dts, rockspire.dts, rubble.dts, wreck_engine.dts,
+             wreck_tank.dts, wreck_nose.dts, wreck_sphere.dts, wreck_pipe.dts
+             and their .png textures
+  Source:    Space Kit 2.0 by Kenney (www.kenney.nl),
+             https://kenney.nl/assets/space-kit (meteor_detailed, meteor,
+             meteor_half, rock_largeA, rocks_smallA, rocket_baseA,
+             rocket_fuelB, rocket_topA, machine_barrelLarge, pipe_straight),
+             converted to DTS by crates/tt-assets/examples/gltf_to_dts.rs;
+             recoloured and weathered (our edit)
+  License:   CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+
+The Dark Cortex's crashed starfighter
+  Files:     assets/models/props/red/wreck_fighter.dts, wreck_fighter.png,
+             wreck_fighter_glow.png
+  Source:    Space Kit 2.0 by Kenney (www.kenney.nl),
+             https://kenney.nl/assets/space-kit (craft_speederA),
+             converted to DTS by crates/tt-assets/examples/gltf_to_dts.rs;
+             recoloured, burnt dark and weathered, its trim glowing (our edit)
+  License:   CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+
+Halloween props (jack-o'-lanterns, carved pumpkins)
+  Files:     assets/models/props/halloween/*.dts, halloween.png and the
+             *_glow.png textures
+  Source:    Graveyard Kit 5.0 by Kenney (www.kenney.nl),
+             https://kenney.nl/assets/graveyard-kit (pumpkin-carved,
+             pumpkin-tall-carved; Textures/colormap.png unchanged as
+             halloween.png), converted to DTS by
+             crates/tt-assets/examples/gltf_to_dts.rs; the glowing parts
+             moved to flat self-illuminated colours (our edit)
+  License:   CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+
+Stream props of tt1_5 (rowboat, fallen log)
+  Files:     assets/models/props/green/rowboat.dts, driftlog.dts
+             and their .png textures
+  Source:    "Boat" (https://poly.pizza/m/5UEl54KsuC) by Quaternius, "Wooden Log"
+             (https://poly.pizza/m/hGUUIfOq6U) by Voxel_dev, converted to DTS
+             by crates/tt-assets/examples/gltf_to_dts.rs; the textures
+             weathered or recoloured (our edit)
+  License:   CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+
+Music of the Moon maps
+  Files:     assets/sound/music/spacefighter.ogg
+  Source:    "Space Fighter Loop" Kevin MacLeod (incompetech.com),
+             https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100672;
+             the quiet intro (first 20.2 s) cut so it loops in the action,
+             level +2 dB with a limiter, Ogg Vorbis q5
+  License:   Licensed under Creative Commons: By Attribution 4.0 License,
+             http://creativecommons.org/licenses/by/4.0/ (credited in the
+             game's credits)
 
 ThinkTanks
   OpenTT is not affiliated with the authors or publishers of ThinkTanks.

@@ -242,13 +242,14 @@ made for this game) under the new id. The parts that matter:
   objects: [
     Group(
       name: "MissionGroup",
-      music_track: "Lush",                  // Lush, Spooky or Frantic
+      music_track: "Lush",                  // Lush, Spooky, Frantic or Lunar
       children: [
         Info(
           name: "MissionInfo",
           display_name: "My Map",           // the name in the menus
           desc0: "One line about the map.",
-          extra: [("world", "2")],          // 1 green, 2 blue, 3 red, 0 special
+          extra: [("world", "2")],          // 1 green, 2 blue, 3 red, 4 the Moon, 0 special
+          gravity: 0.45,                    // optional: the share of the normal gravity (1)
         ),
         MissionArea(name: "MissionArea", area: (-216, -216, 432, 432), flight_ceiling: 200, flight_ceiling_range: 0, floor: 90),
         Sky(name: "Sky", material_list: "sky/sky_day.dml", ...),
@@ -297,8 +298,9 @@ mission files found:
 
 Maps the catalog lists come first, in its order; the other maps follow by
 world (special ones last) and id. A map's world is its catalog entry's,
-else its `MissionInfo` field `world`, else 0. Worlds 1 to 3 decide the
-colour the menus show and are the maps Quick Play draws from; world 0 maps
+else its `MissionInfo` field `world`, else 0. Worlds 1 to 4 decide the
+colour the menus show; worlds 1 to 3 are the maps Quick Play draws from
+(the Moon's, world 4, are in the lists and the `MOON` rotation); world 0 maps
 (test arenas) are only in the lists. A mod may have its own
 `missions/catalog.ron`: catalogs are merged (an entry of the same id
 changes the fields it sets — `world`, `name`, `music` — new entries are

@@ -433,7 +433,7 @@ impl ServerHost for Bridge<'_> {
     }
 
     fn maps(&mut self, world: Option<u8>) -> Vec<String> {
-        crate::shell::missions(self.h).iter().filter(|m| world.map_or(m.world > 0, |w| m.world == w)).map(|m| tt_assets::layout::mission(&m.id)).collect()
+        crate::shell::missions(self.h).iter().filter(|m| world.map_or((1..=3).contains(&m.world), |w| m.world == w)).map(|m| tt_assets::layout::mission(&m.id)).collect()
     }
 
     fn load_info(&mut self, file: &str) -> String {

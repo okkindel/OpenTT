@@ -882,6 +882,38 @@ impl Shape {
     pub fn detail0_geometry(&self) -> Vec<RenderMesh> {
         self.detail_geometry(0)
     }
+
+    /// The points of the highest detail's geometry (shape space) that rest
+    /// on the ground when the shape lies with `down` (a direction in shape
+    /// space) pointing into it: the side of the bounds facing `down` most
+    /// is the base, and every vertex within 0.3 m of it (or beyond it; of
+    /// the geometry's own extreme that way when none comes that near) is a
+    /// foot, with the midpoints and centres of the triangles made only of
+    /// feet (so a dip under a wide base face is found too). A skeleton's
+    /// rib ends and skull, a tree's roots, a rock's underside.
+    pub fn base_points(&self, down: [f32; 3]) -> Vec<[f32; 3]> {
+        let a = (0..3).max_by(|&i, &j| down[i].abs().total_cmp(&down[j].abs())).unwrap();
+        let s = if down[a] < 0.0 { -1.0 } else { 1.0 };
+        // How far a point is along `down`'s axis towards the base.
+        let along = |p: &[f32; 3]| s * p[a];
+        let plane = if s > 0.0 { self.bounds.max[a] } else { -self.bounds.min[a] };
+        let geo = self.detail0_geometry();
+        let far = geo.iter().flat_map(|g| &g.positions).map(along).fold(f32::MIN, f32::max);
+        let cut = plane.min(far) - 0.3;
+        let mut out = Vec::new();
+        for g in &geo {
+            let foot: Vec<bool> = g.positions.iter().map(|p| along(p) >= cut).collect();
+            out.extend(g.positions.iter().zip(&foot).filter(|(_, f)| **f).map(|(p, _)| *p));
+            for t in &g.triangles {
+                if t.iter().all(|&i| foot[i as usize]) {
+                    let [p, q, r] = t.map(|i| g.positions[i as usize]);
+                    let mid = |u: [f32; 3], v: [f32; 3]| [(u[0] + v[0]) / 2.0, (u[1] + v[1]) / 2.0, (u[2] + v[2]) / 2.0];
+                    out.extend([mid(p, q), mid(q, r), mid(r, p), [(p[0] + q[0] + r[0]) / 3.0, (p[1] + q[1] + r[1]) / 3.0, (p[2] + q[2] + r[2]) / 3.0]]);
+                }
+            }
+        }
+        out
+    }
 }
 
 fn assemble(a: &mut Alloc, version: u16) -> Result<Shape, Error> {

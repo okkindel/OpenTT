@@ -866,9 +866,11 @@ impl MenuBackend for Backend<'_> {
     fn refresh_servers(&mut self) {
         let mut host = self.host.borrow_mut();
         if host.netgame.query.source == ServerSource::Internet {
-            match crate::netgame::master_addr(&host.shell.prefs) {
-                Some(m) => crate::netgame::query::query_master(&mut host, m, true),
-                None => host.log.warn("server list: no master server (net.master_server)"),
+            let masters = crate::netgame::master_addrs(&host.shell.prefs);
+            if masters.is_empty() {
+                host.log.warn("server list: no master server (net.master_server)");
+            } else {
+                crate::netgame::query::query_master(&mut host, &masters, true);
             }
             return;
         }
@@ -1075,7 +1077,7 @@ impl MenuBackend for Backend<'_> {
         let host = self.host.borrow();
         let binds = host.input.bindings(crate::input::MOVE_MAP);
         // (function, label) in display order.
-        const ACTIONS: [(&str, &str); 14] = [
+        const ACTIONS: [(&str, &str); 13] = [
             ("moveforward", "Forward"),
             ("movebackward", "Backward"),
             ("moveleft", "Turn left"),
@@ -1083,10 +1085,9 @@ impl MenuBackend for Backend<'_> {
             ("yaw", "Aim left/right"),
             ("pitch", "Aim up/down"),
             ("mousefire", "Fire"),
-            ("alttrigger", "Alternate fire"),
             ("sendspawncommand", "Respawn"),
             ("togglemessagehud", "Chat"),
-            ("togglemessagehud2", "Team chat"),
+            ("teammessagehud", "Team chat"),
             ("pagemessagehudup", "Chat page up"),
             ("pagemessagehuddown", "Chat page down"),
             ("escapefromgame", "Menu"),

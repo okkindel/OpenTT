@@ -1,7 +1,8 @@
 name: Release
 
 # A tag v<version> (the workspace version of Cargo.toml) builds the
-# packages on Linux, Windows and macOS (and the standalone master server)
+# packages on Linux, Windows and macOS (and the standalone master server on
+# Linux and Windows)
 # and publishes them as a GitHub release. The scripts are in packaging/ (packaging/README.md).
 
 on:
@@ -93,13 +94,10 @@ jobs:
           targets: aarch64-apple-darwin, x86_64-apple-darwin
       - uses: Swatinem/rust-cache@v2
       - run: packaging/package-macos.sh --universal
-      - run: packaging/package-master.sh
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: |
-            target/dist/*.dmg
-            target/dist/*.tar.gz
+          path: target/dist/*.dmg
           if-no-files-found: error
 
   publish:
@@ -136,5 +134,5 @@ jobs:
               right-click → Open (or System Settings → Privacy & Security →
               Open Anyway).
             * Master server only (to host a list of internet games):
-              `opentt-master-*` (Linux and macOS `.tar.gz`, Windows `.zip`);
+              `opentt-master-server-*` (Linux `.tar.gz`, Windows `.zip`);
               usage in its `README.txt`.

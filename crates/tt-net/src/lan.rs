@@ -284,12 +284,11 @@ pub struct LanBrowser<T: Datagram> {
     pub extra_broadcast: Vec<Ipv4Addr>,
     /// Query 127.0.0.1 as well (servers on this machine without broadcast).
     pub loopback: bool,
-    /// The master server of the current internet query and its list nonce.
-    master: Option<(SocketAddr, u64)>,
-    /// Servers the master listed (queried for their info).
+    /// The master servers of the current internet query: (address, list
+    /// nonce, list pages received).
+    masters: Vec<(SocketAddr, u64, u8)>,
+    /// Servers the masters listed, without duplicates (queried for their info).
     master_list: Vec<SocketAddr>,
-    /// List pages received.
-    master_pages: u8,
 }
 
 /// How long a query nonce is accepted.
@@ -331,37 +330,40 @@ pub fn guess_subnet_broadcast() -> Option<Ipv4Addr> {
 
 impl<T: Datagram> LanBrowser<T> {
     pub fn new(transport: T, seed: u64) -> Self {
-        LanBrowser { transport, rng: Rng::new(seed), pending: Vec::new(), servers: Vec::new(), extra_broadcast: Vec::new(), loopback: true, master: None, master_list: Vec::new(), master_pages: 0 }
+        LanBrowser { transport, rng: Rng::new(seed), pending: Vec::new(), servers: Vec::new(), extra_broadcast: Vec::new(), loopback: true, masters: Vec::new(), master_list: Vec::new() }
     }
 
-    /// Asks a master server for its list (page by page); every listed
-    /// server is then queried for its info, with an introduction through
-    /// the master so servers behind NAT can answer (hole punching).
-    pub fn query_master(&mut self, master: SocketAddr, now: Duration) {
-        let nonce = self.rng.next_u64();
-        self.master = Some((master, nonce));
+    /// Asks master servers for their lists (page by page); every listed
+    /// server (once, however many masters list it) is then queried for its
+    /// info, with an introduction through the master that listed it so
+    /// servers behind NAT can answer (hole punching). A master that does
+    /// not answer only lists nothing.
+    pub fn query_master(&mut self, masters: &[SocketAddr], now: Duration) {
+        self.masters = masters.iter().map(|&m| (m, self.rng.next_u64(), 0)).collect();
         self.master_list.clear();
-        self.master_pages = 0;
-        self.request_page(0);
+        for i in 0..self.masters.len() {
+            self.request_page(i, 0);
+        }
         let _ = now;
     }
 
-    fn request_page(&mut self, page: u8) {
-        if let Some((m, nonce)) = self.master {
-            let p = MasterPacket::ListRequest { version: MASTER_VERSION, nonce, page };
-            let _ = self.transport.send_to(&p.encode(), m);
-        }
+    fn request_page(&mut self, i: usize, page: u8) {
+        let (m, nonce, _) = self.masters[i];
+        let p = MasterPacket::ListRequest { version: MASTER_VERSION, nonce, page };
+        let _ = self.transport.send_to(&p.encode(), m);
     }
 
     /// Repeats the info queries (and the list request while nothing came)
     /// of the current internet query: lost packets, and the first query to
     /// a server behind NAT is often dropped before its punch arrives.
     pub fn resend_master(&mut self, now: Duration) {
-        if self.master.is_none() {
+        if self.masters.is_empty() {
             return;
         }
-        if self.master_pages == 0 {
-            self.request_page(0);
+        for i in 0..self.masters.len() {
+            if self.masters[i].2 == 0 {
+                self.request_page(i, 0);
+            }
         }
         let list = self.master_list.clone();
         if !list.is_empty() {
@@ -369,31 +371,28 @@ impl<T: Datagram> LanBrowser<T> {
         }
     }
 
-    /// Servers the master listed in the current internet query.
+    /// Servers the masters listed in the current internet query (each once).
     pub fn master_list(&self) -> &[SocketAddr] {
         &self.master_list
     }
 
     fn on_master(&mut self, data: &[u8], from: SocketAddr, now: Duration) {
-        let Some((m, nonce)) = self.master else { return };
         let Ok(MasterPacket::ListReply { nonce: n, page, pages, servers }) = MasterPacket::decode(data) else { return };
-        if from != m || n != nonce {
-            return;
-        }
-        self.master_pages = self.master_pages.max(page.saturating_add(1));
+        let Some(i) = self.masters.iter().position(|&(m, nonce, _)| m == from && nonce == n) else { return };
+        self.masters[i].2 = self.masters[i].2.max(page.saturating_add(1));
         let new: Vec<SocketAddr> = servers.into_iter().filter(|a| !self.master_list.contains(a)).collect();
         self.master_list.extend(new.iter().copied());
         for &s in &new {
             if crate::master::is_public(s.ip()) {
                 let p = MasterPacket::IntroduceRequest { version: MASTER_VERSION, nonce: self.rng.next_u64(), server: s };
-                let _ = self.transport.send_to(&p.encode(), m);
+                let _ = self.transport.send_to(&p.encode(), from);
             }
         }
         if !new.is_empty() {
             self.query(&new, now);
         }
         if page.saturating_add(1) < pages {
-            self.request_page(page + 1);
+            self.request_page(i, page + 1);
         }
     }
 
@@ -485,7 +484,7 @@ impl<T: Datagram> LanBrowser<T> {
     /// Stops accepting replies to queries sent so far.
     pub fn cancel(&mut self) {
         self.pending.clear();
-        self.master = None;
+        self.masters.clear();
     }
 }
 

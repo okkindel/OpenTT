@@ -95,13 +95,14 @@ fn overlay_and_map_list() {
         // The map list: the game's maps in the catalog's order, then the mod's.
         let list = tt_engine::shell::missions(&mut e.host).to_vec();
         let ids: Vec<&str> = list.iter().map(|m| m.id.as_str()).collect();
-        let game = ["tt1_1", "tt1_2", "tt1_3", "tt1_4", "tt1_5", "tt2_1", "tt2_2", "tt2_3", "tt2_4", "tt2_5", "tt3_1", "tt3_2", "tt3_3", "tt3_4", "tt3_5", "poweruptest"];
-        assert_eq!(&ids[..16], game);
-        assert_eq!(ids.len(), 17, "{ids:?}");
-        let m = &list[16];
+        let game = ["tt1_1", "tt1_2", "tt1_3", "tt1_4", "tt1_5", "tt2_1", "tt2_2", "tt2_3", "tt2_4", "tt2_5", "tt3_1", "tt3_2", "tt3_3", "tt3_4", "tt3_5", "tt4_1", "tt4_2", "poweruptest"];
+        assert_eq!(&ids[..18], game);
+        assert_eq!(ids.len(), 19, "{ids:?}");
+        let m = &list[18];
         assert_eq!((m.id.as_str(), m.name.as_str(), m.world, m.music.as_str()), ("modarena", "Mod Arena", 2, "Lush"));
         assert_eq!(list[12].name, "Neurotic Nexus");
-        assert_eq!(list[15].world, 0);
+        assert_eq!(list[15].world, 4);
+        assert_eq!(list[17].world, 0);
         // A disabled mod is not used.
         assert!(!e.host.fs.exists("missions/OffMap.ron"));
         // The mod map is a mission like the others.

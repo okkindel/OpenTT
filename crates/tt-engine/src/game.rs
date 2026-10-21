@@ -374,11 +374,13 @@ pub struct CameraParams {
     pub smooth_turn: f32,
     pub smooth_up: f32,
     pub fov: f32,
+    /// The camera never goes below the mission floor.
+    pub floor: f32,
 }
 
 impl Default for CameraParams {
     fn default() -> Self {
-        CameraParams { focus_dist: 10.1, focus_up_dist: 0.9, backup_dist: 6.2, float_height: 6.22, smooth: 0.33, smooth_turn: 0.77, smooth_up: 0.75, fov: 90.0 }
+        CameraParams { focus_dist: 10.1, focus_up_dist: 0.9, backup_dist: 6.2, float_height: 6.22, smooth: 0.33, smooth_turn: 0.77, smooth_up: 0.75, fov: 90.0, floor: -100.0 }
     }
 }
 
@@ -414,7 +416,7 @@ impl ChaseCam {
         let mut cam = pos - fwd * cd.backup_dist;
         let gz = ground(cam.x, cam.y).unwrap_or(f32::MIN);
         cam.z = cam.z.max(gz) + cd.float_height;
-        cam.z = cam.z.max(-100.0);
+        cam.z = cam.z.max(cd.floor);
         if let Some(pc) = prev_cam.filter(|pc| (cam - *pc).length() <= 50.0) {
             let f = cd.smooth.clamp(0.1, 1.0).powf(t);
             cam = cam.lerp(pc, f);
@@ -448,7 +450,7 @@ pub fn free_eye_height(pos: Vec3, yaw: f32, cd: &CameraParams, ground: impl Fn(f
     let fwd = Vec3::new(yaw.sin(), yaw.cos(), 0.0);
     let cam = pos - fwd * cd.backup_dist;
     let gz = ground(cam.x, cam.y).unwrap_or(f32::MIN);
-    (cam.z.max(gz) + cd.float_height).max(-100.0) - pos.z
+    (cam.z.max(gz) + cd.float_height).max(cd.floor) - pos.z
 }
 
 /// Camera aim's free camera. Returns the view and the pitch it shows
@@ -559,6 +561,14 @@ impl GameSim {
             if let [x, y, w, h] = floats(&field(ma, "area"))[..] {
                 sim.world.mission_area = Some(tt_game::MissionArea { x, y, w, h });
             }
+            if let Some(f) = ma.get("floor") {
+                sim.world.floor = tt_game::fields::atof(f);
+            }
+        }
+        // The mission's gravity scale (`MissionInfo.gravity`, 1 when
+        // unset): server and clients load the same mission file.
+        if let Some(g) = objects().find(|o| class_of(o) == "info").map(|o| tt_game::fields::atof(&field(o, "gravity"))).filter(|g| *g > 0.0) {
+            sim.world.gravity = g;
         }
         let mut static_cache: HashMap<String, Option<Arc<StaticShape>>> = HashMap::new();
         for (_, o) in &mission.nodes {
@@ -847,7 +857,7 @@ impl GameSim {
 
     /// Camera def of a tank's def (`camera = DefaultTankCamera`).
     pub fn camera_data(&self, t: TankId) -> CameraParams {
-        let cd = CameraParams::default();
+        let cd = CameraParams { floor: self.world.floor, ..CameraParams::default() };
         let Some(cam) = self.def_fields(EntityKind::Tank(t)).and_then(|d| d.get("camera").map(str::to_string)).and_then(|c| self.db.fields(&c)) else { return cd };
         let f = |n: &str, d: f32| match cam.get(n) {
             Some(v) if !v.is_empty() => tt_game::fields::atof(v),
@@ -862,6 +872,7 @@ impl GameSim {
             smooth_turn: f("cam_smooth_turn", cd.smooth_turn),
             smooth_up: f("cam_smooth_up", cd.smooth_up),
             fov: f("cam_fov", cd.fov),
+            floor: cd.floor,
         }
     }
 
@@ -1042,11 +1053,11 @@ impl GameSim {
         // (with the hull's turn of the coming tick kept out).
         if let Some(p) = t.current.as_ref().filter(|p| p.high_angle()) {
             let turn_n = turn / range;
-            let (y, pitch_n) = t.high_angle_aim(p, (yaw_n + turn_n).clamp(-1.0, 1.0), point);
+            let (y, pitch_n) = t.high_angle_aim(p, (yaw_n + turn_n).clamp(-1.0, 1.0), point, self.world.gravity);
             let yaw_n = if beyond == 0.0 { (y - turn_n).clamp(-1.0, 1.0) } else { yaw_n };
             return Some(TurretTarget { point, yaw_n, pitch_n, beyond });
         }
-        let (speed, grav) = t.current.as_ref().map_or((100.0, 0.0), |p| (p.velocity, -10.0 * p.gravity_scale));
+        let (speed, grav) = t.current.as_ref().map_or((100.0, 0.0), |p| (p.velocity, -p.fall(self.world.gravity)));
         // Height of the shell's path over the aim point where it passes it
         // horizontally (decreasing in pitchN: + = barrel down).
         let over = |pitch_n: f32| {
@@ -1807,6 +1818,16 @@ mod tests {
         assert!((below(&m) - (DEFAULT_HALF_VFOV - FREE_TANK_MARGIN)).abs() < 1e-3);
         let (tall, _) = free_view(Vec3::ZERO, 0.3, FREE_PITCH_RANGE.1, cd.float_height, 0.64, &cd, flat);
         assert!(look_pitch(&tall) > look_pitch(&m) + 0.1);
+    }
+
+    #[test]
+    fn camera_stays_at_the_mission_floor() {
+        // A tank 20 m down in the pit under floor 95: the eye stays at 95.
+        let cd = CameraParams { floor: 95.0, ..CameraParams::default() };
+        let pit = |_: f32, _: f32| Some(75.0);
+        assert_eq!(free_eye_height(Vec3::new(0.0, 0.0, 75.0), 0.0, &cd, pit), 20.0);
+        let m = ChaseCam::default().update(0.0, Vec3::new(0.0, 0.0, 75.0), Mat3::IDENTITY, &cd, pit);
+        assert_eq!(m.translation.z, 95.0);
     }
 
     #[test]

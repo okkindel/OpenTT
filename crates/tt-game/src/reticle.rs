@@ -198,7 +198,7 @@ impl World {
             }
         }
         if let Some((pos, normal)) = centre.filter(|_| ringed) {
-            let reach = carpet_reach(t, p, pos.z - t.pos.z);
+            let reach = carpet_reach(t, p, pos.z - t.pos.z, self.gravity);
             rings.push(ReticleSprite { pos, dir: normal, size: 2.0 * (reach + p.blast_radius) });
         }
         Some(Reticle { dots, spots, rings, image: data.image.clone(), spot_image: data.spot_image.clone(), ring_image: data.ring_image.clone() })
@@ -214,8 +214,8 @@ impl World {
         let m = t.muzzle();
         let origin = t.pos;
         let p0 = Vec3::from(m.translation) - origin;
-        let v = dir * p.launch_speed(t.pitch_n);
-        let g = -10.0 * p.gravity_scale;
+        let v = dir * p.launch_speed(t.pitch_n, self.gravity);
+        let g = -p.fall(self.gravity);
         // A high-angle arc follows the simulation's ticks (explicit Euler:
         // g·DT·s/2 above the parabola), so the spot and ring sit where the
         // shell really lands (it flies long and falls fast).
@@ -270,11 +270,11 @@ impl World {
 /// volleys from the next shot, each with its own jitter) on level ground
 /// at the height `dz` relative to the tank, along the same arcs as the
 /// reticle's (the simulation's ticks).
-fn carpet_reach(t: &Tank, p: &ProjectileParams, dz: f32) -> f32 {
+fn carpet_reach(t: &Tank, p: &ProjectileParams, dz: f32, world_g: f32) -> f32 {
     let m = t.muzzle();
     let p0 = Vec3::from(m.translation) - t.pos;
-    let v = p.launch_speed(t.pitch_n);
-    let a = -5.0 * p.gravity_scale;
+    let v = p.launch_speed(t.pitch_n, world_g);
+    let a = -5.0 * p.gravity_scale * world_g;
     let euler = a * crate::DT;
     // p0.z + (v·d.z − euler)·s + a·s² = dz, the later root.
     let land = |d: Vec3| {

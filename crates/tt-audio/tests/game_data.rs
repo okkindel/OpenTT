@@ -74,7 +74,8 @@ fn audio_defs_resolve_and_decode() {
     }
     assert_eq!(db.descriptions().len(), 15);
     assert_eq!(db.profiles().len(), 43);
-    assert_eq!(db.music_tracks().len(), 3);
+    // Lush, Spooky, Frantic and the Moon's Lunar.
+    assert_eq!(db.music_tracks().len(), 4);
 
     let music = db.description("AudioMusic").unwrap();
     assert!(music.is_looping && music.is_streaming && !music.is_3d);

@@ -15,8 +15,17 @@
 //!   animation: weapon / health pick-ups flash cyan / red once per 1.7 s
 //!   `ambient` cycle (`powerupLight02..07` / `healthLight02..07`) and are
 //!   dark in between (frame 01 is black); pads give a faint tint that
-//!   flickers with their arrow frames. The Reload arch has no light;
-//! * the ejected brain jar's rocket: a faint flickering flame.
+//!   flickers with their arrow frames;
+//! * the Reload arch: a light bluish-white flicker around it while its
+//!   lightning (`electro`, ~0.47 s of the `activate` thread) is drawn;
+//! * the ejected brain jar's rocket: a faint flickering flame;
+//! * the new maps' lamps ([`Glow`]): the Halloween map's jack-o'-lantern props (by file
+//!   name), and tt3_5's ember wisps (a mission's `Wisp` objects of kind "ember",
+//!   [`tt_render::Scene::wisps`]: no shape, no collision): a few small orange-yellow sparks
+//!   rising from the lava and fading, drawn as additive sprites
+//!   ([`DynLights::wisp_sprites`], `models/effects/ember.png`). They fade out with distance
+//!   from the camera (no popping where the nearest are kept; a bigger one, the giant
+//!   jack-o'-lantern, later) and give way to the other lights.
 //!
 //! The Area power-up's blast (a shape about 45 m wide) is a big one too.
 //!
@@ -50,10 +59,82 @@ const POWERUP_HEIGHT: f32 = 1.5;
 const PAD_INTENSITY: f32 = 0.25;
 const PAD_RADIUS: f32 = 4.5;
 const PAD_HEIGHT: f32 = 1.0;
+/// Reload arch lightning: bluish white, per unit of the lit IFL frames'
+/// brightest channel (about 0.12..0.23), reaching a few metres past the posts.
+const ARC: [f32; 3] = [0.75, 0.85, 1.0];
+const ARC_INTENSITY: f32 = 2.5;
+const ARC_REACH: f32 = 4.0;
+const ARC_HEIGHT: f32 = 2.5;
 const ROCKET_RADIUS: f32 = 3.0;
 const ROCKET_INTENSITY: f32 = 0.15;
 /// Lights further than this from the camera are dropped.
 const MAX_DISTANCE: f32 = 160.0;
+/// Prop lamps and wisps fade out from the first to the second distance (m)
+/// from the camera and rank below the other lights by `PROP_RANK`.
+const PROP_FADE: (f32, f32) = (55.0, 85.0);
+const PROP_RANK: f32 = 0.25;
+/// The ember wisps' spark sprite.
+const EMBER_TEXTURE: &str = "models/effects/ember.png";
+
+/// A light of the scene's own.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Glow {
+    /// A jack-o'-lantern: orange, flickering gently.
+    Lantern,
+    /// An ember wisp of `size` (1: normal), pulsing slowly.
+    Wisp { size: f32 },
+}
+
+impl Glow {
+    /// The lamp a prop's shape carries: the Halloween props
+    /// (`props/halloween/`) by the start of their file name, `lantern*` a
+    /// jack-o'-lantern.
+    fn of_prop(shape: &Path) -> Option<Glow> {
+        let dir = shape.parent().and_then(|d| d.file_name())?.to_string_lossy().to_ascii_lowercase();
+        let stem = shape.file_stem()?.to_string_lossy().to_ascii_lowercase();
+        match dir.as_str() {
+            "halloween" if stem.starts_with("lantern") => Some(Glow::Lantern),
+            _ => None,
+        }
+    }
+
+    /// Colour (times its intensity) and radius (m) at scale 1.
+    fn light(self) -> ([f32; 3], f32) {
+        match self {
+            Glow::Lantern => ([1.0, 0.45, 0.1], 7.0),
+            Glow::Wisp { .. } => ([1.0, 0.42, 0.1], 6.0),
+        }
+    }
+
+    /// How bright it is at `t` seconds (its own `phase`).
+    fn flicker(self, t: f32, phase: f32) -> f32 {
+        match self {
+            Glow::Lantern => 0.86 + 0.1 * (7.3 * t + phase).sin() * (3.1 * t + 2.0 * phase).sin() + 0.04 * (17.0 * t + 3.0 * phase).sin(),
+            Glow::Wisp { .. } => 0.6 + 0.4 * (0.5 + 0.5 * (1.3 * t + phase).sin()),
+        }
+    }
+}
+
+/// A prop's lamp or a wisp, placed.
+#[derive(Clone, Copy, Debug)]
+struct PropLamp {
+    glow: Glow,
+    pos: Vec3,
+    radius: f32,
+    phase: f32,
+}
+
+impl PropLamp {
+    /// Where it is at `t` seconds: a wisp drifts a little round its spot,
+    /// bobbing up and down.
+    fn pos_at(&self, t: f32) -> Vec3 {
+        let ph = self.phase;
+        match self.glow {
+            Glow::Wisp { .. } => self.pos + Vec3::new(0.8 * (0.31 * t + ph).sin(), 0.8 * (0.27 * t + 2.0 * ph).cos(), 0.45 * (0.9 * t + 3.0 * ph).sin()),
+            _ => self.pos,
+        }
+    }
+}
 
 struct Flash {
     pos: Vec3,
@@ -72,6 +153,8 @@ pub struct DynLights {
     lamps: HashMap<(PathBuf, String), Vec<[f32; 3]>>,
     time: f32,
     out: Vec<PointLight>,
+    props: Vec<PropLamp>,
+    ember_texture: PathBuf,
 }
 
 /// Brightness-weighted mean colour of an image, strongest channel = 1.
@@ -119,6 +202,63 @@ fn ifl_tick(time: f32) -> usize {
 }
 
 impl DynLights {
+    /// The scene's lamps from now on: its props' and its wisps; `root` the
+    /// asset directory (the wisps' sprites).
+    pub fn set_scene(&mut self, scene: &tt_render::Scene, root: &Path) {
+        self.set_props(&scene.props);
+        for (k, &(pos, size)) in scene.wisps.iter().enumerate() {
+            let glow = Glow::Wisp { size };
+            self.props.push(PropLamp { glow, pos, radius: glow.light().1 * size.clamp(0.5, 2.0), phase: k as f32 * 2.399_963 });
+        }
+        self.ember_texture = root.join(EMBER_TEXTURE);
+    }
+
+    /// The ember wisps as drawn now: additive sparks rising 6 m in 4 s
+    /// each, drifting, fading as they go, pulsing with their light.
+    pub fn wisp_sprites(&self) -> Vec<tt_render::Sprite> {
+        let mut out = Vec::new();
+        for p in &self.props {
+            let Glow::Wisp { size } = p.glow else { continue };
+            let k = p.glow.flicker(self.time, p.phase);
+            for s in 0..8 {
+                let ph = p.phase + s as f32 * 2.399_963;
+                let h = (0.25 * self.time + ph * 0.37).fract();
+                let r = size * (0.6 + 1.2 * (ph * 1.7).sin().abs());
+                let spark = p.pos + Vec3::new(r * (ph + 0.7 * h).cos(), r * (ph + 0.7 * h).sin(), 6.0 * size * h);
+                out.push(tt_render::Sprite {
+                    texture: self.ember_texture.clone(),
+                    pos: spark,
+                    size: 0.4 * size * (1.0 - 0.5 * h),
+                    color: [1.0, 1.0, 1.0, (1.0 - h) * k],
+                    blend: tt_render::SpriteBlend::Additive,
+                    rotation: 0.4 * self.time + p.phase,
+                    ..Default::default()
+                });
+            }
+        }
+        out
+    }
+
+    /// The props (shape file, transform) with a lamp ([`Glow::of_prop`]):
+    /// it sits inside the shape's bounds, low (the ground around catches
+    /// it).
+    fn set_props(&mut self, props: &[(PathBuf, glam::Mat4)]) {
+        self.props = props
+            .iter()
+            .filter_map(|(shape, xf)| {
+                let glow = Glow::of_prop(shape)?;
+                let b = tt_render::pose::shape(shape).map(|s| s.bounds)?;
+                let (lo, hi) = (Vec3::from(b.min), Vec3::from(b.max));
+                let at = Vec3::new(0.5, 0.5, 0.45);
+                let pos = xf.transform_point3(lo + (hi - lo) * at);
+                let scale = xf.x_axis.truncate().length();
+                // Each its own flicker.
+                let phase = ((pos.x * 12.9898 + pos.y * 78.233).sin() * 43758.547).fract() * std::f32::consts::TAU;
+                Some(PropLamp { glow, pos, radius: glow.light().1 * scale.clamp(0.5, 3.5), phase })
+            })
+            .collect();
+    }
+
     fn color_of(&mut self, path: &Path, fallback: [f32; 3]) -> [f32; 3] {
         *self.colors.entry(path.to_path_buf()).or_insert_with(|| image_color(path).unwrap_or(fallback))
     }
@@ -197,6 +337,16 @@ impl DynLights {
         for (g, anim) in glows.iter().zip(anims) {
             let (k, radius, height) = match anim.lamp {
                 Lamp::None => continue,
+                // The arch's bolt: lit only while drawn, flickering with its
+                // IFL frames (electro + rechargelight), over the arch's size.
+                Lamp::Arch if g.shown.iter().any(|o| o.eq_ignore_ascii_case("electro")) => {
+                    let m = self.lamp_color(&g.shape, anim).into_iter().fold(0.0, f32::max);
+                    let radius = tt_render::pose::shape(&g.shape).map_or(6.0, |s| s.radius) + ARC_REACH;
+                    let pos = g.transform.transform_point3(Vec3::Z * ARC_HEIGHT);
+                    cands.push((0.0, PointLight { pos, radius, color: ARC.map(|v| v * m * ARC_INTENSITY) }));
+                    continue;
+                }
+                Lamp::Arch => continue,
                 Lamp::PowerUp => (POWERUP_INTENSITY, POWERUP_RADIUS, POWERUP_HEIGHT),
                 Lamp::Pad => (PAD_INTENSITY, PAD_RADIUS, PAD_HEIGHT),
             };
@@ -217,13 +367,27 @@ impl DynLights {
                 cands.push((0.0, PointLight { pos: *pos, radius: ROCKET_RADIUS, color: FIRE.map(|v| v * ROCKET_INTENSITY * flicker) }));
             }
         }
+        let props_from = cands.len();
+        for p in &self.props {
+            let pos = p.pos_at(self.time);
+            let d = pos.distance(camera);
+            // Big lamps (the giant jack-o'-lantern) reach further, so fade later.
+            let k = (p.radius / 7.0).max(1.0);
+            let (near, far) = (PROP_FADE.0 * k, PROP_FADE.1 * k);
+            let fade = 1.0 - (((d - near) / (far - near)).clamp(0.0, 1.0));
+            if fade <= 0.0 {
+                continue;
+            }
+            let k = p.glow.flicker(self.time, p.phase) * fade * fade;
+            cands.push((0.0, PointLight { pos, radius: p.radius, color: p.glow.light().0.map(|v| v * k) }));
+        }
         let s = strength.clamp(0.0, 2.0);
         // The strongest at the camera: intensity × radius over distance.
-        for c in &mut cands {
+        for (i, c) in cands.iter_mut().enumerate() {
             c.1.color = c.1.color.map(|v| v * s);
             let d = c.1.pos.distance(camera);
             let k = c.1.color[0].max(c.1.color[1]).max(c.1.color[2]);
-            c.0 = if d > MAX_DISTANCE + c.1.radius { -1.0 } else { k * c.1.radius / (d + c.1.radius) };
+            c.0 = if d > MAX_DISTANCE + c.1.radius { -1.0 } else { k * c.1.radius / (d + c.1.radius) * if i >= props_from { PROP_RANK } else { 1.0 } };
         }
         cands.retain(|c| c.0 > 1e-4);
         cands.sort_by(|a, b| b.0.total_cmp(&a.0));
@@ -261,5 +425,60 @@ mod tests {
         assert!(at(&mut dl, 1.7 + 10.5 / 30.0).is_some());
         let none = TriggerAnim { ifl: tt_render::pose::sequence_ifl(&shape, "ambient", 10.5 / 30.0), lamp: Lamp::None };
         assert!(dl.update(0.0, &[], None, std::slice::from_ref(&inst), &[none], &[], Vec3::ZERO, 1.0).is_empty());
+    }
+
+    /// The Reload arch: dark until its lightning shows (0.13 s into
+    /// `activate`), a bluish-white light about the arch's size while the
+    /// bolt is drawn (flickering with its frames), dark once it is gone.
+    #[test]
+    fn arch_lightning_lights() {
+        let Some(shape) = common("recharge.dts") else { return };
+        let mut dl = DynLights::default();
+        let mut at = |t: f32| {
+            let (nodes, hidden, shown, ifl) = crate::engine::trigger_pose(&shape, "ambient", 5.0, &[("activate", t)]);
+            let inst = tt_render::DynamicInstance { shape: shape.clone(), nodes, hidden, shown, ..Default::default() };
+            dl.update(0.0, &[], None, &[inst], &[TriggerAnim { ifl, lamp: Lamp::Arch }], &[], Vec3::new(0.0, 8.0, 2.0), 1.0).first().copied()
+        };
+        assert!(at(0.05).is_none(), "dark before the bolt");
+        let lit: Vec<PointLight> = (5..18).map(|i| at(i as f32 / 30.0).expect("lit while the bolt is drawn")).collect();
+        for l in &lit {
+            assert!(l.color[2] >= l.color[1] && l.color[1] > l.color[0] && l.color[0] > 0.6 * l.color[2], "bluish white: {:?}", l.color);
+            assert!((0.2..0.8).contains(&l.color[2]), "light, not blinding: {:?}", l.color);
+            assert!((6.0..20.0).contains(&l.radius), "about the arch: {}", l.radius);
+        }
+        assert!(lit.windows(2).any(|w| w[0].color != w[1].color), "flickers");
+        assert!(at(0.7).is_none() && at(2.0).is_none(), "dark once the bolt is gone");
+    }
+
+    /// The Halloween props' lamps: chosen by the shape's name (only in
+    /// `props/halloween/`); a jack-o'-lantern lights orange around it,
+    /// flickers gently, fades out with distance and gives way to the
+    /// other lights when there are too many.
+    #[test]
+    fn prop_lamps_glow() {
+        let dir = tt_assets::layout::default_dir().join("models/props/halloween");
+        assert_eq!(Glow::of_prop(&dir.join("lantern_tall.dts")), Some(Glow::Lantern));
+        assert_eq!(Glow::of_prop(&dir.join("pumpkin_carved.dts")), None);
+        assert_eq!(Glow::of_prop(Path::new("models/props/green/rowboat.dts")), None);
+        let Some(shape) = tt_assets::find_ci(&dir.join("lantern.dts")) else { return };
+        let mut dl = DynLights::default();
+        dl.set_props(&[(shape.clone(), glam::Mat4::from_translation(Vec3::new(10.0, 0.0, 100.0)))]);
+        let cam = Vec3::new(10.0, -8.0, 103.0);
+        let lit: Vec<PointLight> = (0..30).map(|_| *dl.update(0.05, &[], None, &[], &[], &[], cam, 1.0).first().expect("the lantern lights")).collect();
+        for l in &lit {
+            assert!(l.color[0] > 0.6 && l.color[1] < 0.6 * l.color[0] && l.color[2] < 0.2 * l.color[0], "orange: {:?}", l.color);
+            assert!((0.3..1.0).contains(&(l.pos.z - 100.0)) && (5.0..10.0).contains(&l.radius), "inside the pumpkin, lighting around it: {l:?}");
+        }
+        assert!(lit.windows(2).any(|w| w[0].color != w[1].color), "flickers");
+        let max = lit.iter().map(|l| l.color[0]).fold(0.0, f32::max);
+        assert!(lit.iter().all(|l| l.color[0] > 0.75 * max), "gently");
+        // Faded out far away.
+        assert!(dl.update(0.0, &[], None, &[], &[], &[], Vec3::new(10.0, PROP_FADE.1 + 5.0, 100.0), 1.0).is_empty());
+        // Many lanterns: the strongest MAX_POINT_LIGHTS kept, an explosion first.
+        let many: Vec<(PathBuf, glam::Mat4)> = (0..40).map(|k| (shape.clone(), glam::Mat4::from_translation(Vec3::new(k as f32 * 2.0, 0.0, 100.0)))).collect();
+        dl.set_props(&many);
+        let out = dl.update(0.0, &[("x".to_string(), Vec3::new(30.0, 0.0, 100.0))], None, &[], &[], &[], cam, 1.0).to_vec();
+        assert_eq!(out.len(), MAX_POINT_LIGHTS);
+        assert!(out.iter().any(|l| (l.pos.x - 30.0).abs() < 0.1 && l.pos.z > 100.9), "the explosion is kept");
     }
 }

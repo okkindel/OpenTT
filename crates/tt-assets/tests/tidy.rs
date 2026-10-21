@@ -210,8 +210,11 @@ impl Walk {
                 for l in literals(&text) {
                     if l.starts_with("~/") || l.starts_with("./") || l.to_ascii_lowercase().starts_with("game/") {
                         self.problems.push(format!("{rel}: {l:?} is not an asset path"));
-                    } else if let Some(p) = asset_path(&l) {
-                        self.reference(p, rel);
+                    } else {
+                        // A list such as sky_sprites: "sky/a.png 8 9 5; sky/b.png ...".
+                        for p in l.split(';').filter_map(|s| s.split_whitespace().next()).filter_map(asset_path) {
+                            self.reference(p, rel);
+                        }
                     }
                 }
             }

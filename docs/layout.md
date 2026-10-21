@@ -33,6 +33,7 @@ beside the `.dts`.
 | `models/items/` | 108 | Power-ups, health and reload pads (`powerup`, `health`, `recharge`), boost and jump pads, the scrum ball and goal, with their animated textures. |
 | `models/volcano/` | 10 | The volcano, its rocks and eruption sprite. |
 | `models/props/{green,blue,red}/` | 38 | Scenery of each world: rocks, trees, bones. |
+| `models/props/moon/` | 30 | Moon props (the base: lander, landing pad, domed module, radar dish, solar panel; rocks; the crash site's wreck parts) converted from third-party CC0 1.0 glTF models (KayKit, Quaternius, Kenney) by `examples/gltf_to_dts.rs`, each with its own weathered texture (`--weather`). |
 | `models/markers/` | 1 | The editor's marker shape (`octahedron.dts`, a pre-v19 DTS the game never draws; the marker defs name it). |
 | `sky/` | 18 | Sky boxes: one list per sky (`sky_day.dml`, `skyblue.dml`, `skyred.dml`, five textures each: four sides, top). |
 | `terrain/{green,blue,red}/` | 24 | Terrain textures of each world (the `.ter` files name them). |
@@ -107,6 +108,7 @@ Files the repository generates, and the tools that write them:
 | `assets/missions/poweruptest.ter` | `cargo run -p tt-assets --example powerup_terrain` |
 | `assets/missions/<id>.png` | `cargo run --release -p tt-engine --example mission_picture -- <id> --camera … --out assets/missions/<id>.png` (poses in `missions/SOURCES.md`) |
 | `crates/tt-engine/icon/opentt-*.png`, `opentt.ico` (the application icon, from `opentt-source.png`, supplied by the author) | `cargo run --release --manifest-path crates/tt-engine/icon/gen/Cargo.toml` (`icon/README.md`: use, desktop entry, install) |
+| `assets/models/props/moon/*` (from CC0 glTF/GLB models; sources and options in `models/SOURCES.md`) | `cargo run -p tt-assets --example gltf_to_dts -- IN.gltf OUT.dts --height M --texture NAME`; preview: `cargo run -p tt-render --example shape_preview -- OUT.png A.dts B.dts …` |
 | `assets/models/projectiles/MortarRocket*` | `cargo run -p tt-assets --example mortar_rocket -- assets/models/projectiles` |
 | `assets/models/**/*.normal.png`, `assets/terrain/**/*.normal.png` | `cargo run --release -p tt-assets --example normal_maps -- assets` (also their `SOURCES.md` rows) |
 | every file made from the game install (all but OpenTT's own) | (`docs/import.md`): rebuilds them from an install; `crates/tt-import/mapping.ron` (from the `SOURCES.md` tables: `tt-import mapping`) says how |
@@ -252,7 +254,10 @@ seamlessly; alpha channels and `.alpha` masks upscaled separately as greyscale,
 the masks later merged into the alpha channel of their image). Images with both
 sides ≤ 16 px were copied unchanged.
 
-Each `SOURCES.md` table gives, per file, the game path it comes from (or OpenTT's
-tool that made it) and how. The data tables of `data/` are the project's own
-authored data (`data/SOURCES.md`). The Power-up Test dev map has its own generated
-grid texture and box prop (`terrain/dev/`, `models/props/dev/`).
+Each `SOURCES.md` table gives, per file, the game path it comes from (or OpenTT's tool that
+made it) and how. The data tables of `data/` are the project's own authored data
+(`data/SOURCES.md`). The Power-up Test dev map has its own generated grid texture and box prop
+(`terrain/dev/`, `models/props/dev/`). The Moon props (`models/props/moon/`) come from
+neither: they are third-party models released under CC0 1.0 (KayKit Space Base Bits by Kay
+Lousberg; Quaternius on poly.pizza; Kenney's Space Kit), converted and weathered by OpenTT;
+their rows in `models/SOURCES.md` give each source and author.

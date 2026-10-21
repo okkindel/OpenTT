@@ -49,15 +49,26 @@ pub fn log_text(source: &Path, target: &Path, ok: bool, lines: &[String]) -> Str
     t
 }
 
-/// Brings our own files in an imported asset directory (one the game's
-/// import or `tt-import` made) to this version when the game was updated
-/// since the import ([`tt_import::refresh_ours`]; the game's files are
-/// not needed).
-pub fn refresh_ours(assets: &Path) {
-    let same = |d: &Path| d.canonicalize().ok().is_some_and(|d| assets.canonicalize().is_ok_and(|a| a == d));
-    if !assets.join(tt_import::OURS_VERSION).exists() && !tt_assets::layout::imported_candidates().iter().any(|d| same(d)) {
-        return;
+/// Whether `assets` is an imported asset directory (one the game's import
+/// or `tt-import` made) of another version of the program: its stamp
+/// ([`tt_import::OURS_VERSION`]) differs, or an imported `gamedata/` has
+/// none. The game then imports it again (`docs/import.md`).
+pub fn stale(assets: &Path) -> bool {
+    stale_in(assets, &tt_assets::layout::imported_candidates())
+}
+
+fn stale_in(assets: &Path, imported: &[PathBuf]) -> bool {
+    let same = |d: &PathBuf| d.canonicalize().ok().is_some_and(|d| assets.canonicalize().is_ok_and(|a| a == d));
+    match std::fs::read_to_string(assets.join(tt_import::OURS_VERSION)) {
+        Ok(v) => v.trim() != env!("CARGO_PKG_VERSION"),
+        Err(_) => imported.iter().any(same),
     }
+}
+
+/// Brings our own files in a [`stale`] asset directory to this version
+/// ([`tt_import::refresh_ours`]; the game's files are not needed): the
+/// fallback until it is imported again.
+pub fn refresh_ours(assets: &Path) {
     match tt_import::refresh_ours(assets) {
         Ok(true) => eprintln!("game data: our own files in {} updated to {}", assets.display(), env!("CARGO_PKG_VERSION")),
         Ok(false) => {}
@@ -397,6 +408,22 @@ impl SetupFlow {
         }
     }
 
+    /// The game was updated since the import ([`stale`]): imports again
+    /// from the recorded folder when it is there, else asks for it; a note
+    /// says why.
+    pub fn refresh(&mut self) {
+        let path = self.ui.path.trim().to_string();
+        if Path::new(&path).is_dir() {
+            self.handle(SetupAction::Import(path));
+        }
+        let v = env!("CARGO_PKG_VERSION");
+        self.ui.note = Some(if self.importing() {
+            format!("Updated to {v}: refreshing the game data from your ThinkTanks folder.")
+        } else {
+            format!("Updated to {v}: import the game data again from your ThinkTanks folder (Back keeps the current data).")
+        });
+    }
+
     /// Runs the import to its end (no window): `Ok` with the report, or
     /// the message the screen would show.
     pub fn run_blocking(&mut self, path: &str, mut on_progress: impl FnMut(&SetupProgress)) -> Result<Report, String> {
@@ -460,5 +487,26 @@ mod tests {
         assert_eq!(target_for(g, false), g);
         assert_eq!(target_for(Path::new("/x/mydata"), true), Path::new("/x/mydata"));
         assert_eq!(target_for(Path::new("/x/assets"), false), tt_assets::layout::import_target());
+    }
+
+    #[test]
+    fn stale_data() {
+        let d = std::env::temp_dir().join(format!("tt-stale-{}", std::process::id()));
+        let g = d.join(tt_assets::layout::IMPORTED);
+        std::fs::create_dir_all(&g).unwrap();
+        let imported = [g.clone()];
+        assert!(stale_in(&g, &imported), "an imported directory without a stamp");
+        assert!(!stale_in(&g, &[]), "no stamp and not imported (the repository's assets/)");
+        std::fs::write(g.join(tt_import::OURS_VERSION), "0.1.2").unwrap();
+        assert!(stale_in(&g, &imported) && stale_in(&g, &[]), "another version's");
+        std::fs::write(g.join(tt_import::OURS_VERSION), format!("{}\n", env!("CARGO_PKG_VERSION"))).unwrap();
+        assert!(!stale_in(&g, &imported), "this version's");
+        let _ = std::fs::remove_dir_all(&d);
+        assert!(!stale(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets")), "the repository's assets/");
+        // No recorded folder (or a gone one): the screen asks for it.
+        let mut flow = SetupFlow::new(SetupMode::Reimport, d.clone(), Some("/nonexistent/ThinkTanks".into()));
+        flow.refresh();
+        assert!(!flow.importing() && flow.ui.error.is_none());
+        assert!(flow.ui.note.as_deref().is_some_and(|n| n.starts_with(&format!("Updated to {}", env!("CARGO_PKG_VERSION")))));
     }
 }

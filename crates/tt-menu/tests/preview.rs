@@ -175,6 +175,7 @@ fn menu_previews() {
         ("48_online_players", { let mut s = MenuState::at(Screen::Online); s.join_sel = Some("IP:192.168.1.31:28000".into()); s.show_players = true; s }, [1280, 720]),
         ("49_online_internet_no_master", { let mut s = MenuState::at(Screen::Online); s.set_server_source(tt_menu::ServerSource::Internet); s }, [1280, 720]),
         ("50_online_internet", { let mut s = MenuState::at(Screen::Online); s.set_server_source(tt_menu::ServerSource::Internet); s }, [1280, 720]),
+        ("51_online_masters", { let mut s = MenuState::at(Screen::Online); s.set_server_source(tt_menu::ServerSource::Internet); s.masters = Some(tt_menu::MastersEdit { rows: vec!["master.example.org:28100".into(), "tt.example.net".into(), String::new()], focus: 2, invalid: false }); s }, [1280, 720]),
     ];
     // `TT_MENU_PREVIEW_ONLY=<text>`: only the shots whose name contains it.
     if let Some(only) = std::env::var("TT_MENU_PREVIEW_ONLY").ok().filter(|s| !s.is_empty()) {
@@ -194,11 +195,11 @@ fn menu_previews() {
         if *name == "14_loading" {
             backend.loading = Some(tt_menu::Loading { map: "Greymatter Gorge".into(), phase: "Loading objects".into(), progress: 0.62 });
         }
-        if name.starts_with("49_") || name.starts_with("50_") {
+        if name.starts_with("49_") || name.starts_with("50_") || name.starts_with("51_") {
             backend.source = tt_menu::ServerSource::Internet;
         }
-        if *name == "50_online_internet" {
-            backend.master = "master.example.org:28100".into();
+        if *name == "50_online_internet" || *name == "51_online_masters" {
+            backend.master = "master.example.org:28100, tt.example.net".into();
             backend.internet_servers = MockBackend::example_servers();
         }
         if *name == "41_online_join_empty" {

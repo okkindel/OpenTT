@@ -11,7 +11,7 @@ a tag `v<version>`; locally they need the tools listed below.
 | `opentt-<version>-linux-x86_64.AppImage` | `package-linux.sh appimage` | Linux |
 | `opentt-<version>-windows-x86_64.zip` | `package-windows.sh` (Windows, Git Bash) or `cross-windows.sh` (Linux) | Windows / Linux |
 | `opentt-<version>-macos-universal.dmg` | `package-macos.sh --universal` | macOS |
-| `opentt-master-<version>-<os>-<arch>.tar.gz` / `.zip` (Windows): the master server alone | `package-master.sh` | Linux, macOS, Windows |
+| `opentt-master-server-<version>-<os>-<arch>.tar.gz` / `.zip` (Windows): the master server alone | `package-master.sh` | Linux, Windows |
 
 `<version>` is the workspace version of `Cargo.toml` (or `$VERSION`). Every
 package carries `LICENSE` (GPL-3.0), `NOTICE`, `README.md` and the licence

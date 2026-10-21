@@ -142,7 +142,7 @@ pub struct Server<T: Datagram> {
     flood: HashMap<SocketAddr, (f64, Duration)>,
     /// Per-connection malformed packets in the current second: (window start, count).
     malformed: HashMap<ConnId, (Duration, u32)>,
-    master: MasterLink,
+    masters: Vec<MasterLink>,
 }
 
 /// Registration with a master server (see [`crate::master`]).
@@ -194,49 +194,66 @@ impl<T: Datagram> Server<T> {
             stats: EndpointStats::default(),
             flood: HashMap::new(),
             malformed: HashMap::new(),
-            master: MasterLink::default(),
+            masters: Vec::new(),
         }
     }
 
-    /// Registers with (heartbeats to) a master server, or stops (`None`:
-    /// a closing heartbeat takes this server off the old master's list).
-    /// `server_id` is the instance id of the `Info` replies.
-    pub fn set_master(&mut self, master: Option<SocketAddr>, server_id: u64, now: Duration) {
-        if self.master.status.master == master {
-            self.master.server_id = server_id;
-            return;
-        }
-        if let Some(old) = self.master.status.master {
-            if self.master.status.registered {
-                self.send_heartbeat(old, true);
+    /// Registers with (heartbeats to) these master servers, each with its
+    /// own challenge and NAT state; a master left out of the list gets a
+    /// closing heartbeat that takes this server off its list (`&[]`: off
+    /// all). `server_id` is the instance id of the `Info` replies.
+    pub fn set_master(&mut self, masters: &[SocketAddr], server_id: u64, now: Duration) {
+        for i in (0..self.masters.len()).rev() {
+            if self.masters[i].status.master.is_none_or(|m| !masters.contains(&m)) {
+                if self.masters[i].status.registered {
+                    self.send_heartbeat(i, true);
+                }
+                self.masters.remove(i);
             }
         }
-        let nonce = self.rng.next_u64();
-        self.master = MasterLink { status: MasterStatus { master, ..Default::default() }, server_id, nonce, punch: (PUNCH_RATE, now), ..Default::default() };
+        for &m in masters {
+            match self.masters.iter_mut().find(|l| l.status.master == Some(m)) {
+                Some(l) => l.server_id = server_id,
+                None => {
+                    let nonce = self.rng.next_u64();
+                    self.masters.push(MasterLink { status: MasterStatus { master: Some(m), ..Default::default() }, server_id, nonce, punch: (PUNCH_RATE, now), ..Default::default() });
+                }
+            }
+        }
     }
 
-    /// Registration state with the master server.
+    /// Registration state with the master servers: the first registered
+    /// one, else the first one (`master: None` without any).
     pub fn master_status(&self) -> &MasterStatus {
-        &self.master.status
+        static NONE: MasterStatus = MasterStatus { master: None, registered: false, public_addr: None, introductions: 0 };
+        let all = || self.masters.iter().map(|l| &l.status);
+        all().find(|s| s.registered).or(all().next()).unwrap_or(&NONE)
     }
 
-    fn send_heartbeat(&mut self, to: SocketAddr, closing: bool) {
-        let m = &self.master;
+    /// Registration state with each master server.
+    pub fn master_statuses(&self) -> impl Iterator<Item = &MasterStatus> {
+        self.masters.iter().map(|l| &l.status)
+    }
+
+    fn send_heartbeat(&mut self, i: usize, closing: bool) {
+        let m = &self.masters[i];
+        let Some(to) = m.status.master else { return };
         let p = MasterPacket::Heartbeat { version: MASTER_VERSION, nonce: m.nonce, cookie: m.cookie, server_id: m.server_id, closing };
         let _ = self.transport.send_to(&p.encode(), to);
     }
 
     fn master_timers(&mut self, now: Duration) {
-        let Some(to) = self.master.status.master else { return };
-        let m = &mut self.master;
-        if m.status.registered && m.last_ack.is_some_and(|a| now.saturating_sub(a) > crate::master::ENTRY_LIFETIME) {
-            m.status.registered = false;
-            m.cookie = 0;
-        }
-        let every = if m.status.registered { HEARTBEAT_INTERVAL } else { HEARTBEAT_RETRY };
-        if m.last_sent.is_none_or(|t| now.saturating_sub(t) >= every) {
-            m.last_sent = Some(now);
-            self.send_heartbeat(to, false);
+        for i in 0..self.masters.len() {
+            let m = &mut self.masters[i];
+            if m.status.registered && m.last_ack.is_some_and(|a| now.saturating_sub(a) > crate::master::ENTRY_LIFETIME) {
+                m.status.registered = false;
+                m.cookie = 0;
+            }
+            let every = if m.status.registered { HEARTBEAT_INTERVAL } else { HEARTBEAT_RETRY };
+            if m.last_sent.is_none_or(|t| now.saturating_sub(t) >= every) {
+                m.last_sent = Some(now);
+                self.send_heartbeat(i, false);
+            }
         }
     }
 
@@ -245,30 +262,31 @@ impl<T: Datagram> Server<T> {
             self.stats.malformed += 1;
             return;
         };
-        if Some(from) != self.master.status.master {
+        let Some(i) = self.masters.iter().position(|l| l.status.master == Some(from)) else {
             // Punches from introduced peers (and anything else) are ignored.
             return;
-        }
+        };
+        let m = &mut self.masters[i];
         match p {
-            MasterPacket::HeartbeatChallenge { nonce, cookie } if nonce == self.master.nonce => {
-                self.master.cookie = cookie;
-                self.master.last_sent = Some(now);
-                self.send_heartbeat(from, false);
+            MasterPacket::HeartbeatChallenge { nonce, cookie } if nonce == m.nonce => {
+                m.cookie = cookie;
+                m.last_sent = Some(now);
+                self.send_heartbeat(i, false);
             }
-            MasterPacket::HeartbeatAck { nonce, public } if nonce == self.master.nonce => {
-                self.master.status.registered = true;
-                self.master.status.public_addr = Some(public);
-                self.master.last_ack = Some(now);
+            MasterPacket::HeartbeatAck { nonce, public } if nonce == m.nonce => {
+                m.status.registered = true;
+                m.status.public_addr = Some(public);
+                m.last_ack = Some(now);
             }
             MasterPacket::Introduce { client } => {
-                let (tokens, at) = self.master.punch;
+                let (tokens, at) = m.punch;
                 let tokens = (tokens + now.saturating_sub(at).as_secs_f64() * PUNCH_RATE).min(PUNCH_RATE);
                 if tokens < 1.0 {
-                    self.master.punch = (tokens, now);
+                    m.punch = (tokens, now);
                     return;
                 }
-                self.master.punch = (tokens - 1.0, now);
-                self.master.status.introductions += 1;
+                m.punch = (tokens - 1.0, now);
+                m.status.introductions += 1;
                 let punch = MasterPacket::Punch { nonce: self.rng.next_u64() }.encode();
                 for _ in 0..PUNCHES {
                     let _ = self.transport.send_to(&punch, client);

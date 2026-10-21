@@ -1,6 +1,6 @@
 [package]
 name = "tt-net"
-description = "Network transport: UDP datagrams, packet acks, reliable/unreliable channels, cookie handshake, link simulator (docs/netcode.md stage 1)"
+description = "Network transport: UDP datagrams, packet acks, reliable/unreliable channels, cookie handshake, link simulator"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -8,6 +8,6 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 
-# No dependencies on purpose (docs/netcode.md §3.1): std UdpSocket, an own
-# SipHash-2-4 for the handshake cookie and an own SplitMix64 RNG.
+# No dependencies on purpose: std UdpSocket, an own SipHash-2-4 for the handshake
+# cookie and an own SplitMix64 RNG.
 [dependencies]

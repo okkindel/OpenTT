@@ -1,4 +1,4 @@
-//! Network play over tt-net (docs/netcode.md).
+//! Network play over tt-net.
 //!
 //! * **Server** (dedicated or listen): `allowConnections(1)` opens a
 //!   [`tt_net::Server`]. Each accepted peer is a connection id of its own
@@ -1015,7 +1015,7 @@ fn connect_request(h: &mut EngineHost, pending: tt_net::PendingId, addr: SocketA
     };
     if let Some(s) = h.netgame.server.as_mut() {
         s.set_timeout(id, LOADING_TIMEOUT);
-        let _ = s.drain_events(); // our own Connected
+        let _ = s.drain_events(); // OpenTT's own Connected
     }
     if let Some(r) = h.netgame.remotes.get_mut(&obj) {
         r.conn = Some(id);

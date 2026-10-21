@@ -438,7 +438,7 @@ fn offscreen_menu_frames() {
         let mut frames = |e: &mut Engine, n: u32| {
             for _ in 0..n {
                 fe.step(e, &off.device, &off.queue, 1000.0 / 60.0);
-                fe.draw(e, &off.device, &off.queue, &off.view, off.size, 1000.0 / 60.0);
+                fe.draw(e, off.target(), 1000.0 / 60.0);
             }
             off.wait();
         };

@@ -11,6 +11,8 @@ homepage.workspace = true
 [dependencies]
 tt-game = { path = "../tt-game" }
 tt-assets = { path = "../tt-assets" }
+# The default master servers (`tt_net::master`; tt-net has no dependencies).
+tt-net = { path = "../tt-net" }
 serde = { version = "1", features = ["derive"] }
 ron = "0.12"
 

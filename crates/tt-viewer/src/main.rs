@@ -5,15 +5,16 @@
 //!           [--camera X Y Z YAW_DEG PITCH_DEG] [--time SECONDS]
 //! ```
 //! Shows a mission (an id, `tt1_1`, or its `.ron` file) as a static scene
-//! (terrain, sky, shapes; only the defs the mission declares itself). `opentt
-//! --mission tt1_1` shows it with the game's defs. `--assets` defaults to the
-//! asset directory (`$TT_ASSETS`, else `./assets`, else the repository's).
+//! (terrain, sky, shapes; only the
+//! defs the mission declares itself). `opentt --mission tt1_1`
+//! shows it with the game's defs. `--assets` defaults to the asset
+//! directory (`$TT_ASSETS`, else `./assets`, else the repository's).
 //! Window controls: WASD move, Q/E down/up, Shift faster, right mouse drag or
 //! arrow keys to look around.
 
 
 use glam::Vec3;
-use tt_render::{gpu, Camera, Renderer, Scene};
+use tt_render::{gpu, Camera, Renderer, Scene, Target};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -79,7 +80,7 @@ fn screenshot(args: &Args, scene: &Scene) -> Result<(), String> {
     let target = gpu::render_target(&device, "screenshot", args.size, format);
     let mut renderer = Renderer::new(&device, &queue, format, scene);
     let camera = initial_camera(scene, args.camera);
-    renderer.render(&device, &queue, &target.create_view(&Default::default()), w, h, &camera, args.time);
+    renderer.render(Target { device: &device, queue: &queue, view: &target.create_view(&Default::default()), size: args.size }, &camera, args.time);
     let pixels = gpu::read_rgba(&device, &queue, &target, args.size, format);
     let out = args.screenshot.as_ref().unwrap();
     image::save_buffer(out, &pixels, w, h, image::ColorType::Rgba8).map_err(|e| e.to_string())?;
@@ -180,7 +181,8 @@ impl ApplicationHandler for App {
                 match gfx.surface.get_current_texture() {
                     Ok(frame) => {
                         let view = frame.texture.create_view(&Default::default());
-                        gfx.renderer.render(&gfx.device, &gfx.queue, &view, gfx.config.width, gfx.config.height, &self.camera, self.start.elapsed().as_secs_f32());
+                        let target = Target { device: &gfx.device, queue: &gfx.queue, view: &view, size: (gfx.config.width, gfx.config.height) };
+                        gfx.renderer.render(target, &self.camera, self.start.elapsed().as_secs_f32());
                         frame.present();
                     }
                     Err(_) => gfx.surface.configure(&gfx.device, &gfx.config),

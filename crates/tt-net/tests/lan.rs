@@ -1,6 +1,6 @@
-//! LAN discovery (docs/netcode.md §5.6): a [`LanBrowser`] finds servers by
-//! broadcast on a `MemNet` and over real UDP on loopback (where broadcast
-//! may be unavailable, the 127.0.0.1 query must still find the server).
+//! LAN discovery: a [`LanBrowser`] finds servers by broadcast on a `MemNet` and over
+//! real UDP on loopback (where broadcast may be unavailable, the 127.0.0.1 query
+//! must still find the server).
 
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};

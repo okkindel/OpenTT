@@ -12,12 +12,12 @@ fn asset_files() -> BTreeSet<String> {
 
 /// Whether the repository's `assets/` is the full asset directory with all
 /// its provenance tables (the private repository); a checkout with only
-/// our own files there (the game data imported elsewhere) skips the tests
+/// OpenTT's own files there (the game data imported elsewhere) skips the tests
 /// of the whole tree.
 fn full_repo_assets(test: &str) -> bool {
     let full = tt_assets::testdata::present_in(&tt_import::repo_assets()) && tt_assets::testdata::mode() != tt_assets::testdata::Mode::Skip;
     if !full {
-        eprintln!("{test}: skipped, the repository's assets/ holds our own files only");
+        eprintln!("{test}: skipped, the repository's assets/ holds the built-in files only");
     }
     full
 }

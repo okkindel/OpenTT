@@ -1,5 +1,4 @@
-//! Client-side prediction, reconciliation and clock sync (docs/netcode.md
-//! §2.2, §2.5, stage 5).
+//! Client-side prediction, reconciliation and clock sync.
 //!
 //! The client steps its own tank at once with exactly the move the server
 //! will apply (the move as it decodes from the wire). Each snapshot carries

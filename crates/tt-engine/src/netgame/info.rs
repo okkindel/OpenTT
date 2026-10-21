@@ -1,5 +1,5 @@
-//! Server side of LAN discovery (docs/netcode.md §5.6): what a server that
-//! accepts connections answers to `InfoQuery` packets.
+//! Server side of LAN discovery: what a server that accepts connections answers to
+//! `InfoQuery` packets.
 //!
 //! The reply comes from the server's session (the game mode label, the
 //! info line of platform, world and mission name, the player list of team

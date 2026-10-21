@@ -1,5 +1,5 @@
 //! Master (lobby) server protocol: internet server lists and NAT
-//! introductions (docs/netcode.md §5.11).
+//! introductions.
 //!
 //! It does three things:
 //!
@@ -44,6 +44,10 @@ pub const MASTER_VERSION: u16 = 1;
 pub const MASTER_MAGIC: [u8; 4] = *b"TTMS";
 /// The master's default UDP port (the game uses 28000–28009).
 pub const DEFAULT_MASTER_PORT: u16 = 28100;
+/// The master servers (`host[:port]`) a new install lists its games on and
+/// asks for internet games; existing installs get each one added to their
+/// list once (a user who removes one keeps it removed).
+pub const DEFAULT_MASTER_SERVERS: &[&str] = &["opentt.moatetc.xyz"];
 /// Heartbeats, registrations and introduction requests are padded to this.
 pub const SMALL_REQUEST_SIZE: usize = 64;
 /// List requests are padded to this (a full list page is not larger).

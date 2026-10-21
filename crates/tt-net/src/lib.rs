@@ -1,5 +1,4 @@
-//! `tt-net`: the network transport
-//! (docs/netcode.md, stage 1).
+//! `tt-net`: the network transport.
 //!
 //! * [`Datagram`]: the socket trait, with [`UdpTransport`] (std, non-blocking)
 //!   and [`MemNet`]/[`MemLink`] (in-memory, deterministic [`LinkConditions`]
@@ -60,7 +59,7 @@ pub use transport::{Datagram, LinkConditions, LinkStats, MemLink, MemNet, Restri
 /// def manifest names the data files by domain (`sounds`, `effects`, `weapons`,
 /// `pickups`, `tanks`, ...). 10: asset file names are lowercase (docs/layout.md §
 /// Naming): the mission files the messages carry are `missions/tt1_1.ron`, not
-/// `missions/TT1_1.ron`. 11: our own data vocabulary: the def fingerprint hashes the
+/// `missions/TT1_1.ron`. 11: OpenTT's own data vocabulary: the def fingerprint hashes the
 /// defs under their new class and field names (`ProjectileDef`, `blast_radius`, ...),
 /// the messages are `DefManifest`/`DefsDone`/`ReplicasDone`/ `ReplicaReset` (same tags),
 /// mission objects are `Prop`, `Group`, ...
@@ -69,7 +68,7 @@ pub const PROTOCOL_VERSION: u16 = 11;
 pub const GAME_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// The game type a server announces (LAN answers, the master list): the
 /// same for every build of this code base, whatever its product name, so
-/// they list and join each other's games (docs/netcode.md).
+/// they list and join each other's games.
 pub const GAME_TYPE: &str = "OpenTT";
 
 /// The product name for the network's own texts (the router's port-mapping

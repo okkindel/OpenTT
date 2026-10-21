@@ -1,6 +1,6 @@
-//! Delayed datagrams go out on the next `send_to`/`recv_from` once due,
-//! so the resolution is the caller's tick. Without conditions a
-//! [`SimLink`] is a plain pass-through.
+//! Delayed datagrams go out on the next `send_to`/`recv_from` once due, so the
+//! resolution is the caller's tick. Without conditions a [`SimLink`] is a plain
+//! pass-through.
 
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};

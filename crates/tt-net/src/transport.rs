@@ -1,6 +1,6 @@
-//! Datagram transports (docs/netcode.md §3.1): the [`Datagram`] trait, the
-//! real [`UdpTransport`] and the in-memory [`MemNet`]/[`MemLink`] with a
-//! deterministic [`LinkConditions`] simulator on a virtual clock.
+//! Datagram transports: the [`Datagram`] trait, the real [`UdpTransport`] and the
+//! in-memory [`MemNet`]/[`MemLink`] with a deterministic [`LinkConditions`]
+//! simulator on a virtual clock.
 
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};

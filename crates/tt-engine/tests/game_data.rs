@@ -149,7 +149,7 @@ fn import_flow_then_a_mission() {
     assert!(seen.len() >= 3, "{seen:?}");
     assert!(gamedata::present(&target));
     assert!(!tt_import::import::sibling(&target, ".tmp").exists());
-    assert!(target.join("missions/tt1_5.ron").exists(), "our own files are built in");
+    assert!(target.join("missions/tt1_5.ron").exists(), "the new maps are built in");
 
     // A mission headless on the imported data; the source goes to the settings.
     let data = base.join("data");

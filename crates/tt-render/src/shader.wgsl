@@ -195,7 +195,7 @@ fn fs_terrain(i: TerrainOut) -> @location(0) vec4<f32> {
         // A display-space factor (as the lightmap's), on the linear colour.
         c = c * pow(macro_c, vec3<f32>(2.2));
     }
-    // Pure modulate by the baked lightmap, no overbright (engine-notes §1.3).
+    // Pure modulate by the baked lightmap, no overbright.
     var lit = c * baked;
     var shading_n = normalize(i.normal);
     let dist = distance(i.world, g.camera.xyz);
@@ -540,10 +540,10 @@ fn shade(i: ShapeOut, t: vec4<f32>) -> vec3<f32> {
 fn shade_n(i: ShapeOut, t: vec4<f32>, n: vec3<f32>) -> vec3<f32> {
     var light = vec3<f32>(g.extras.z);
     if ((i.flags & 1u) == 0u) {
-        // Fixed-function GL sun (engine-notes §1.4): directional light at
-        // -direction, ambient = Sun.ambient, diffuse = colour * k, the sum
-        // clamped like a GL colour and applied in display space. (GL lit per
-        // vertex; we evaluate N.L per pixel.)
+        // Fixed-function GL sun: directional light at -direction, ambient =
+        // Sun.ambient, diffuse = colour * k, the sum clamped like a GL
+        // colour and applied in display space. (GL lit per vertex; we
+        // evaluate N.L per pixel.)
         let ng = normalize(i.normal);
         let d = g.ambient.rgb + g.sun_color.rgb * i.light * max(dot(ng, g.sun_dir.xyz), 0.0);
         light = to_linear(clamp(d, vec3<f32>(0.0), vec3<f32>(1.0)));

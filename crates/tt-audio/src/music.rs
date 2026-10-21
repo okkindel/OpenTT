@@ -1,3 +1,5 @@
+//! The game's music player.
+//!
 //! Each mission's `MissionGroup.music_track` names one of them, the server
 //! sends it with `MissionStartPhase1` and the client calls
 //! `MusicPlayer.setTrack(track)`; `MusicPlayer.stop()` runs on disconnect.

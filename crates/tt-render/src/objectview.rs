@@ -19,7 +19,7 @@
 //!   fog off, no lights installed — the shapes are drawn unlit (full texture colour).
 //!   [`ObjectLight::default`] reproduces that; a directional light can be used instead.
 
-use crate::render::{Camera, DynamicInstance, Renderer, View};
+use crate::render::{Camera, DynamicInstance, Renderer, Target, View};
 use glam::{Mat4, Vec3};
 use std::path::Path;
 
@@ -114,22 +114,11 @@ impl ObjectView {
         ObjectView { renderer: Renderer::objects_only(device, queue, format), background: Background::Keep, hfov: HFOV, near: 0.1, far: 2100.0, time: 0.0 }
     }
 
-    /// Renders `instances` into `viewport` (`[x, y, w, h]` of the
-    /// `width`×`height` target; None = all of it). Shapes are loaded on first
-    /// use and cached by path, as for [`Renderer::set_dynamic`].
-    #[allow(clippy::too_many_arguments)]
-    pub fn render(
-        &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        target: &wgpu::TextureView,
-        width: u32,
-        height: u32,
-        viewport: Option<[u32; 4]>,
-        instances: &[DynamicInstance],
-        camera: &Camera,
-        light: &ObjectLight,
-    ) {
+    /// Renders `instances` into `viewport` (`[x, y, w, h]` of the target;
+    /// None = all of it). Shapes are loaded on first use and cached by
+    /// path, as for [`Renderer::set_dynamic`].
+    pub fn render(&mut self, target: Target, viewport: Option<[u32; 4]>, instances: &[DynamicInstance], camera: &Camera, light: &ObjectLight) {
+        let Target { device, queue, size: (width, height), .. } = target;
         let (clear, bg) = match self.background {
             Background::Keep => (false, [0.0; 4]),
             Background::Color(c) => (true, [crate::srgb_to_linear(c[0]), crate::srgb_to_linear(c[1]), crate::srgb_to_linear(c[2]), c[3].clamp(0.0, 1.0)]),
@@ -139,7 +128,7 @@ impl ObjectView {
         let [w, h] = viewport.map_or([width, height], |v| [v[2], v[3]]);
         let aspect = w.max(1) as f32 / h.max(1) as f32;
         let view = View { camera: *camera, fov_deg: crate::render::vertical_fov(self.hfov.to_degrees(), aspect), viewport, clear };
-        self.renderer.render_view(device, queue, target, width, height, &view, self.time);
+        self.renderer.render_view(target, &view, self.time);
     }
 
     /// The tank-selection preview: `tank` with `brain` mounted at

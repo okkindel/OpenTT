@@ -1,3 +1,5 @@
+//! The dedicated server's console, on stdin/stdout.
+//!
 //! Lines are read on a thread and executed between ticks ([`Console::poll`]),
 //! so the server never blocks on input. The console is a typed command
 //! table ([`Command`], plan D6), no script interpreter:

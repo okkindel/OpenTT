@@ -1037,12 +1037,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "itoa"
-version = "1.0.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
-
-[[package]]
 name = "jni"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2215,19 +2209,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_json"
-version = "1.0.154"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7e9cc8b1b85264074fbcc02a88680c4096b1e47df8f739dceb03bf482f04bd6"
-dependencies = [
- "itoa",
- "memchr",
- "serde",
- "serde_core",
- "zmij",
-]
-
-[[package]]
 name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2571,17 +2552,16 @@ checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 
 [[package]]
 name = "tt-assets"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "image",
  "ron",
  "serde",
- "serde_json",
 ]
 
 [[package]]
 name = "tt-audio"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "cpal",
  "hound",
@@ -2591,7 +2571,7 @@ dependencies = [
 
 [[package]]
 name = "tt-engine"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "bytemuck",
  "ctrlc",
@@ -2620,7 +2600,7 @@ dependencies = [
 
 [[package]]
 name = "tt-game"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "glam",
  "tt-assets",
@@ -2629,7 +2609,7 @@ dependencies = [
 
 [[package]]
 name = "tt-gameplay"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "ron",
  "serde",
@@ -2640,7 +2620,7 @@ dependencies = [
 
 [[package]]
 name = "tt-gui"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "ab_glyph",
  "image",
@@ -2648,7 +2628,7 @@ dependencies = [
 
 [[package]]
 name = "tt-import"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "image",
  "lewton",
@@ -2659,14 +2639,14 @@ dependencies = [
 
 [[package]]
 name = "tt-master"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "tt-net",
 ]
 
 [[package]]
 name = "tt-menu"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "egui",
  "egui-wgpu",
@@ -2679,11 +2659,11 @@ dependencies = [
 
 [[package]]
 name = "tt-net"
-version = "0.3.0"
+version = "0.3.1"
 
 [[package]]
 name = "tt-render"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "bytemuck",
  "glam",
@@ -2695,17 +2675,18 @@ dependencies = [
 
 [[package]]
 name = "tt-shell"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "ron",
  "serde",
  "tt-assets",
  "tt-game",
+ "tt-net",
 ]
 
 [[package]]
 name = "tt-viewer"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "glam",
  "image",
@@ -3541,12 +3522,6 @@ name = "zlib-rs"
 version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b268e58e7c693d7c271f93ffc4ba3b380412554231c85bf61ca7af91042a4112"
-
-[[package]]
-name = "zmij"
-version = "1.0.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[package]]
 name = "zune-core"

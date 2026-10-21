@@ -36,11 +36,9 @@ fn shapes() -> Vec<(PathBuf, u16, Vec<u8>)> {
 fn all_shapes_parse() {
     tt_assets::require_game_data!();
     let all = shapes();
-    // 48 of the game, plus OpenTT's mortarrocket.dts (examples/mortar_rocket.rs),
-    // devbox.dts (examples/powerup_terrain.rs), the fifteen Moon props and tt1_5's
-    // two (examples/gltf_to_dts.rs, [`MOON_PROPS`]) and tt2_5's three Halloween
-    // props (models/props/halloween/) and tt3_5's darktower.dts
-    // (examples/dark_cortex.rs) and wreck_fighter.dts (examples/gltf_to_dts.rs).
+    // 48 of the game, plus OpenTT's mortarrocket.dts, devbox.dts, the fifteen Moon props and tt1_5's
+    // two and tt2_5's three Halloween props (models/props/halloween/) and tt3_5's darktower.dts and
+    // wreck_fighter.dts.
     assert_eq!(all.len(), 72);
     let mut parsed = 0;
     for (p, ver, data) in &all {
@@ -112,8 +110,8 @@ fn all_shapes_parse() {
     assert_eq!(parsed, 71);
 }
 
-/// The Moon props converted from CC0 glTF models by examples/gltf_to_dts.rs
-/// (`assets/models/SOURCES.md`): triangles of the visible detail, height (m).
+/// The Moon props converted from CC0 glTF models (`assets/models/SOURCES.md`):
+/// triangles of the visible detail, height (m).
 const MOON_PROPS: &[(&str, usize, f32)] = &[
     ("models/props/moon/lander.dts", 1464, 7.0),
     ("models/props/moon/landingpad.dts", 478, 2.4),

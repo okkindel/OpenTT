@@ -214,7 +214,7 @@ fn bench(engine: &mut Engine, a: &DevArgs, assets: &Path, dev_mission: bool, sec
         fe.step(engine, &off.device, &off.queue, dt);
         fe.perf.add("step", ts.elapsed().as_secs_f64() * 1000.0);
         let a1 = allocs();
-        fe.draw(engine, &off.device, &off.queue, &off.view, off.size, dt);
+        fe.draw(engine, off.target(), dt);
         let a2 = allocs();
         // Allocation counts per frame (in the "ms" columns), after the load.
         if f >= 120 {
@@ -277,7 +277,7 @@ fn screenshot(engine: &mut Engine, a: &DevArgs, assets: &Path, dev_mission: bool
         if let Some(g) = engine.host.game.as_mut() {
             g.explosions = recent;
         }
-        fe.draw(engine, &off.device, &off.queue, &off.view, off.size, 300.0);
+        fe.draw(engine, off.target(), 300.0);
         off.save(out)?;
         // Developer aid for A/B comparisons: `TT_SCREENSHOT_ALT=commands`
         // (console commands separated by `|`, e.g. `set
@@ -297,7 +297,7 @@ fn screenshot(engine: &mut Engine, a: &DevArgs, assets: &Path, dev_mission: bool
             }
             // Settings that need a new renderer apply in `step`.
             fe.step(engine, &off.device, &off.queue, 0.0);
-            fe.draw(engine, &off.device, &off.queue, &off.view, off.size, 300.0);
+            fe.draw(engine, off.target(), 300.0);
             off.save(&out.with_extension("alt.png"))?;
         }
     }

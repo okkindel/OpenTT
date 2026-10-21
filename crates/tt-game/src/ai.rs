@@ -1,5 +1,5 @@
-//! Bots have no path finding: they steer through a local potential field
-//! towards a destination that their mode and tactic choose.
+//! Bots have no path finding: they steer through a local potential field towards a
+//! destination that their mode and tactic choose.
 
 use std::f32::consts::PI;
 use std::sync::Arc;
@@ -465,10 +465,10 @@ impl World {
         }
     }
 
-    // The conditions follow engine-notes §3.6 with the constants read from the code
-    // (70 % when hits > 3; snipe: !clearShot, or hits > 1.5 and 70 %, or the target
-    // closing faster than 5 m/s and 35 %; ram 20 %; flank when the target's velocity
-    // towards us is ≤ 5 m/s; back off when d² ≤ 2500 and stuck ≤ 0.5).
+    // Whether the bot changes its tactic: 70 % when hits > 3; snipe: no clear
+    // shot, or hits > 1.5 and 70 %, or the target closing faster than 5 m/s
+    // and 35 %; ram 20 %; flank when the target's velocity towards us is
+    // ≤ 5 m/s; back off when d² ≤ 2500 and stuck ≤ 0.5.
     fn should_change(&mut self, bot: &Bot, d2: f32, target_vel: f32) -> bool {
         if bot.hits > 3.0 && self.rng.rand_f() < 0.7 {
             return true;

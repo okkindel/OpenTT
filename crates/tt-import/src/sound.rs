@@ -1,4 +1,4 @@
-//! The built-in mixer: our sounds made from the game's (`How::Sound`)
+//! The built-in mixer: the sounds made from the game's (`How::Sound`)
 //! when ffmpeg is not there. It runs the same filter graphs (the subset
 //! `mapping.ron` uses: `asetrate`, `aresample`, `atrim`, `asetpts`,
 //! `asplit`, `adelay`, `volume`, `amix`, `bass`, `highpass`, `lowpass`,

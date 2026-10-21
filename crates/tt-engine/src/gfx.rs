@@ -9,6 +9,8 @@ pub const CLEAR: wgpu::Color = wgpu::Color { r: 0.02, g: 0.02, b: 0.03, a: 1.0 }
 
 pub use tt_render::gpu::{adapter_rank, device_limits, gpu, initial_camera, instance, read_rgba, render_target};
 
+pub use tt_render::Target;
+
 pub fn clear(device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView) {
     let mut enc = device.create_command_encoder(&Default::default());
     {
@@ -108,8 +110,7 @@ impl FxState {
 }
 
 /// Draws the scene from a game view (moving shapes lit by the lightmap).
-#[allow(clippy::too_many_arguments)]
-pub fn render_game_view(renderer: &mut Renderer, scene: &Scene, device: &wgpu::Device, queue: &wgpu::Queue, target: &wgpu::TextureView, size: (u32, u32), gv: &GameView, fx: Option<&FxState>, time: f32) {
+pub fn render_game_view(renderer: &mut Renderer, scene: &Scene, target: Target, gv: &GameView, fx: Option<&FxState>, time: f32) {
     let mut owned = GameView {
         camera: gv.camera,
         hfov: gv.hfov,
@@ -120,14 +121,14 @@ pub fn render_game_view(renderer: &mut Renderer, scene: &Scene, device: &wgpu::D
         sprites: gv.sprites.clone(),
         smoke: Vec::new(),
     };
-    render_game_view_taking(renderer, scene, device, queue, target, size, &mut owned, fx, time);
+    render_game_view_taking(renderer, scene, target, &mut owned, fx, time);
 }
 
 /// [`render_game_view`] that moves the instances out of `gv` (they are
 /// handed to the renderer as they are, lit, without copies): `gv.dynamic`,
 /// `ifl`, `triggers` and the triggers' IFL times are left empty.
-#[allow(clippy::too_many_arguments)]
-pub fn render_game_view_taking(renderer: &mut Renderer, scene: &Scene, device: &wgpu::Device, queue: &wgpu::Queue, target: &wgpu::TextureView, size: (u32, u32), gv: &mut GameView, fx: Option<&FxState>, time: f32) {
+pub fn render_game_view_taking(renderer: &mut Renderer, scene: &Scene, target: Target, gv: &mut GameView, fx: Option<&FxState>, time: f32) {
+    let Target { device, queue, size, .. } = target;
     let mut dynamic = std::mem::take(&mut gv.dynamic);
     let mut options: Vec<tt_render::render::InstanceOptions> =
         (0..dynamic.len()).map(|i| tt_render::render::InstanceOptions { shadow: true, ifl: gv.ifl.get_mut(i).map(std::mem::take).unwrap_or_default() }).collect();
@@ -145,7 +146,7 @@ pub fn render_game_view_taking(renderer: &mut Renderer, scene: &Scene, device: &
     let aspect = w.max(1) as f32 / h.max(1) as f32;
     let camera = Camera { pos: gv.camera.pos, yaw: gv.camera.yaw, pitch: gv.camera.pitch };
     let view = tt_render::View { camera, fov_deg: tt_render::vertical_fov(gv.hfov, aspect), viewport: Some([0, 0, w, h]), clear: true };
-    renderer.render_view(device, queue, target, w, h, &view, time);
+    renderer.render_view(target, &view, time);
 }
 
 /// Loads the game's moving shapes, sprites and the scene's explosion/particle
@@ -155,27 +156,24 @@ pub fn preload(renderer: &mut Renderer, scene: &Scene, device: &wgpu::Device, qu
 }
 
 /// One game frame: clear, the 3D game view over the whole target (while
-/// the game screen is up: `game_view`), then the 2D overlay.
-#[allow(clippy::too_many_arguments)]
+/// the game screen is up: `game`, the renderer with its scene and the view),
+/// then the 2D overlay.
 pub fn draw_game_frame(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    target: &wgpu::TextureView,
-    size: (u32, u32),
-    renderer: Option<(&mut Renderer, &Scene)>,
-    game_view: Option<&mut GameView>,
+    target: Target,
+    game: Option<(&mut Renderer, &Scene, &mut GameView)>,
     fx: Option<&FxState>,
     gui: Option<crate::gui_gpu::GuiFrame>,
     gui_renderer: &mut crate::gui_gpu::GuiRenderer,
     time: f32,
     perf: &mut crate::frontend::Perf,
 ) {
-    clear(device, queue, target);
-    if let (Some((r, scene)), Some(gv)) = (renderer, game_view) {
-        perf.time("render 3d", || render_game_view_taking(r, scene, device, queue, target, size, gv, fx, time));
+    let Target { device, queue, view, size } = target;
+    clear(device, queue, view);
+    if let Some((r, scene, gv)) = game {
+        perf.time("render 3d", || render_game_view_taking(r, scene, target, gv, fx, time));
     }
     if let Some(f) = gui {
-        perf.time("render gui", || gui_renderer.render(device, queue, target, size, &f));
+        perf.time("render gui", || gui_renderer.render(device, queue, view, size, &f));
     }
 }
 
@@ -192,8 +190,8 @@ pub fn screenshot(out: &Path, size: (u32, u32), scene: Option<&Scene>, game: Opt
         Some(s) => {
             let mut renderer = Renderer::new(&device, &queue, format, s);
             match game {
-                Some(gv) => render_game_view(&mut renderer, s, &device, &queue, &view, (w, h), gv, None, time),
-                None => renderer.render(&device, &queue, &view, w, h, &initial_camera(s), time),
+                Some(gv) => render_game_view(&mut renderer, s, Target { device: &device, queue: &queue, view: &view, size }, gv, None, time),
+                None => renderer.render(Target { device: &device, queue: &queue, view: &view, size }, &initial_camera(s), time),
             }
         }
         None => clear(&device, &queue, &view),
@@ -233,6 +231,11 @@ impl Offscreen {
         let texture = render_target(&device, "offscreen", size, format);
         let view = texture.create_view(&Default::default());
         Ok(Offscreen { device, queue, texture, view, size, format, adapter })
+    }
+
+    /// The target to draw a frame into.
+    pub fn target(&self) -> Target<'_> {
+        Target { device: &self.device, queue: &self.queue, view: &self.view, size: self.size }
     }
 
     /// Waits for the GPU to finish the submitted work.

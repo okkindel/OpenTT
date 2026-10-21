@@ -1,7 +1,7 @@
 //! The game server: rounds, scoring, bots, the solo campaign and target
 //! practice, the connections' join / leave / mission download, chat and
-//! server messages, power-ups, with OpenTT's additions (K/D/A with kill =
-//! 2 / assist = 1, the health-pack minimum).
+//! server messages, power-ups, with OpenTT's additions (K/D/A with
+//! kill = 2 / assist = 1, the health-pack minimum).
 //!
 //! The server owns its state, typed ([`state`]: the game setup, the
 //! session, the round, the campaign; [`Client`]s with their

@@ -1,8 +1,7 @@
-//! The engine's random number generator, bit-exact (docs/engine-notes.md §6).
+//! The engine's random number generator, bit-exact.
 //!
-//! `gRandGen` is MINSTD (×16807 mod 2³¹−1) computed with 32-bit wrapping
-//! arithmetic. The stored state is the plain MINSTD value; every output is
-//! XOR-ed with 0x075BD924.
+//! `gRandGen` is MINSTD (×16807 mod 2³¹−1) computed with 32-bit wrapping arithmetic.
+//! The stored state is the plain MINSTD value; every output is XOR-ed with 0x075BD924.
 //!
 //! [`World`](crate::World) keeps both.
 
@@ -171,7 +170,7 @@ mod tests {
     }
 }
 
-/// The game logic draws from it in the order the scripts did (docs/rust-native-plan.md risk R1).
+/// The game logic draws from it in the order the scripts did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EngineRng {
     seed: i32,

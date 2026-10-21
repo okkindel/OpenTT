@@ -37,6 +37,19 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tt_render::{PointLight, MAX_POINT_LIGHTS};
 
+/// A frame's light sources for [`DynLights::update`].
+#[derive(Clone, Copy, Default)]
+pub struct Sources<'a> {
+    /// The frame's new explosions (def, position).
+    pub explosions: &'a [(String, Vec3)],
+    pub fx: Option<&'a tt_render::fx::FxLibrary>,
+    /// The power-ups / pads shown, with their animation `anims`.
+    pub glows: &'a [tt_render::DynamicInstance],
+    pub anims: &'a [TriggerAnim],
+    /// The live projectiles (only the rocket flame lights).
+    pub projectiles: &'a [(u32, Vec3, Option<PathBuf>, &'a str)],
+}
+
 const FIRE: [f32; 3] = [1.0, 0.55, 0.2];
 const EXPLOSION_LIFE: f32 = 0.3;
 const EXPLOSION_RADIUS: f32 = 7.0;
@@ -279,12 +292,10 @@ impl DynLights {
         c
     }
 
-    /// Advances by `dt` seconds with this frame's new explosions, the
-    /// power-ups / pads shown (`glows`, with their animation `anims`) and
-    /// the live projectiles (only the rocket flame lights); returns the
-    /// lights for the view at `camera`, scaled by `strength` (0..2).
-    #[allow(clippy::too_many_arguments)]
-    pub fn update(&mut self, dt: f32, explosions: &[(String, Vec3)], fx: Option<&tt_render::fx::FxLibrary>, glows: &[tt_render::DynamicInstance], anims: &[TriggerAnim], projectiles: &[(u32, Vec3, Option<PathBuf>, &str)], camera: Vec3, strength: f32) -> &[PointLight] {
+    /// Advances by `dt` seconds with this frame's light sources; returns
+    /// the lights for the view at `camera`, scaled by `strength` (0..2).
+    pub fn update(&mut self, dt: f32, sources: Sources, camera: Vec3, strength: f32) -> &[PointLight] {
+        let Sources { explosions, fx, glows, anims, projectiles } = sources;
         self.time += dt;
         for f in &mut self.flashes {
             f.age += dt;
@@ -413,7 +424,7 @@ mod tests {
         let inst = tt_render::DynamicInstance { shape: shape.clone(), ..Default::default() };
         let at = |dl: &mut DynLights, t: f32| {
             let anim = TriggerAnim { ifl: tt_render::pose::sequence_ifl(&shape, "ambient", t), lamp: Lamp::PowerUp };
-            dl.update(0.0, &[], None, std::slice::from_ref(&inst), &[anim], &[], Vec3::new(0.0, 5.0, 2.0), 1.0).first().map(|l| l.color)
+            dl.update(0.0, Sources { glows: std::slice::from_ref(&inst), anims: &[anim], ..Default::default() }, Vec3::new(0.0, 5.0, 2.0), 1.0).first().map(|l| l.color)
         };
         assert_eq!(at(&mut dl, 0.1), None, "lamp dark before the flash");
         let c = at(&mut dl, 10.5 / 30.0).expect("lamp lit at frame 02");
@@ -424,7 +435,7 @@ mod tests {
         // Next cycle (1.7 s) flashes again.
         assert!(at(&mut dl, 1.7 + 10.5 / 30.0).is_some());
         let none = TriggerAnim { ifl: tt_render::pose::sequence_ifl(&shape, "ambient", 10.5 / 30.0), lamp: Lamp::None };
-        assert!(dl.update(0.0, &[], None, std::slice::from_ref(&inst), &[none], &[], Vec3::ZERO, 1.0).is_empty());
+        assert!(dl.update(0.0, Sources { glows: std::slice::from_ref(&inst), anims: &[none], ..Default::default() }, Vec3::ZERO, 1.0).is_empty());
     }
 
     /// The Reload arch: dark until its lightning shows (0.13 s into
@@ -437,7 +448,7 @@ mod tests {
         let mut at = |t: f32| {
             let (nodes, hidden, shown, ifl) = crate::engine::trigger_pose(&shape, "ambient", 5.0, &[("activate", t)]);
             let inst = tt_render::DynamicInstance { shape: shape.clone(), nodes, hidden, shown, ..Default::default() };
-            dl.update(0.0, &[], None, &[inst], &[TriggerAnim { ifl, lamp: Lamp::Arch }], &[], Vec3::new(0.0, 8.0, 2.0), 1.0).first().copied()
+            dl.update(0.0, Sources { glows: &[inst], anims: &[TriggerAnim { ifl, lamp: Lamp::Arch }], ..Default::default() }, Vec3::new(0.0, 8.0, 2.0), 1.0).first().copied()
         };
         assert!(at(0.05).is_none(), "dark before the bolt");
         let lit: Vec<PointLight> = (5..18).map(|i| at(i as f32 / 30.0).expect("lit while the bolt is drawn")).collect();
@@ -464,7 +475,7 @@ mod tests {
         let mut dl = DynLights::default();
         dl.set_props(&[(shape.clone(), glam::Mat4::from_translation(Vec3::new(10.0, 0.0, 100.0)))]);
         let cam = Vec3::new(10.0, -8.0, 103.0);
-        let lit: Vec<PointLight> = (0..30).map(|_| *dl.update(0.05, &[], None, &[], &[], &[], cam, 1.0).first().expect("the lantern lights")).collect();
+        let lit: Vec<PointLight> = (0..30).map(|_| *dl.update(0.05, Sources::default(), cam, 1.0).first().expect("the lantern lights")).collect();
         for l in &lit {
             assert!(l.color[0] > 0.6 && l.color[1] < 0.6 * l.color[0] && l.color[2] < 0.2 * l.color[0], "orange: {:?}", l.color);
             assert!((0.3..1.0).contains(&(l.pos.z - 100.0)) && (5.0..10.0).contains(&l.radius), "inside the pumpkin, lighting around it: {l:?}");
@@ -473,11 +484,11 @@ mod tests {
         let max = lit.iter().map(|l| l.color[0]).fold(0.0, f32::max);
         assert!(lit.iter().all(|l| l.color[0] > 0.75 * max), "gently");
         // Faded out far away.
-        assert!(dl.update(0.0, &[], None, &[], &[], &[], Vec3::new(10.0, PROP_FADE.1 + 5.0, 100.0), 1.0).is_empty());
+        assert!(dl.update(0.0, Sources::default(), Vec3::new(10.0, PROP_FADE.1 + 5.0, 100.0), 1.0).is_empty());
         // Many lanterns: the strongest MAX_POINT_LIGHTS kept, an explosion first.
         let many: Vec<(PathBuf, glam::Mat4)> = (0..40).map(|k| (shape.clone(), glam::Mat4::from_translation(Vec3::new(k as f32 * 2.0, 0.0, 100.0)))).collect();
         dl.set_props(&many);
-        let out = dl.update(0.0, &[("x".to_string(), Vec3::new(30.0, 0.0, 100.0))], None, &[], &[], &[], cam, 1.0).to_vec();
+        let out = dl.update(0.0, Sources { explosions: &[("x".to_string(), Vec3::new(30.0, 0.0, 100.0))], ..Default::default() }, cam, 1.0).to_vec();
         assert_eq!(out.len(), MAX_POINT_LIGHTS);
         assert!(out.iter().any(|l| (l.pos.x - 30.0).abs() < 0.1 && l.pos.z > 100.9), "the explosion is kept");
     }

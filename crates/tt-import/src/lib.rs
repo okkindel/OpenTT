@@ -1,6 +1,9 @@
+//! The asset importer: builds the game's asset directory from the player's
+//! ThinkTanks install plus OpenTT's own files (`docs/import.md`).
+//!
 //! * [`mapping`] – every asset file made from the game install (where from,
-//!   how) and OpenTT's own files (`mapping.ron`), among them the game's data
-//!   tables (`data/`), built into the program ([`OURS`]);
+//!   how) and OpenTT's own files (`mapping.ron`), among them the game's
+//!   data tables (`data/`), built into the program ([`OURS`]);
 //! * [`import`] – the import itself ([`import::import`]);
 //! * [`convert`] – missions to RON (with [`mis`], the mission file parser,
 //!   and [`decl`]);

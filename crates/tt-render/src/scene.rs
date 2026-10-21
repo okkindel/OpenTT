@@ -527,9 +527,9 @@ impl Scene {
         }
     }
 
-    /// Sun diffuse scale `k` for a moving shape at `pos` (engine-notes §1.4:
-    /// lightmap under the object minus the average ambient). Static shapes
-    /// get theirs at load time in [`ShapeSet::instances`](crate::shapes::ShapeSet).
+    /// Sun diffuse scale `k` for a moving shape at `pos` (the lightmap under the
+    /// object minus the average ambient). Static shapes get theirs at load time
+    /// in [`ShapeSet::instances`](crate::shapes::ShapeSet).
     pub fn shape_light(&self, pos: Vec3) -> f32 {
         crate::lighting::dynamic_factor(&self.sun, &self.light, pos)
     }

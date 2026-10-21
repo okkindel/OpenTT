@@ -3,7 +3,7 @@
 //! the directory is used.
 //!
 //! References are followed from the roots the game loads by name — the data
-//! files (`tt_assets::data`), the asset paths written in the crates' Rust
+//! files (`tt_assets::data`), the asset paths written in the crates' (and generators') Rust
 //! sources (a `{…}` in a format string matches any text, a `*` in a file
 //! pattern too) and in the RON files — through what the files themselves
 //! name: terrain materials (`.ter`), sky lists (`.dml`), shape materials
@@ -274,7 +274,7 @@ impl Walk {
         }
     }
 
-    /// Everything reachable from the data files and the crates' sources.
+    /// Everything reachable from the data files and the Rust sources.
     fn run() -> Walk {
         let mut w = Walk::new();
         let root = w.root.clone();
@@ -284,8 +284,12 @@ impl Walk {
         for r in roots {
             w.reference(&r, "tt_assets::data");
         }
+        // The generators' and capture tools' sources where the repository has them
+        // (not the script tools, which name the game's files).
         let mut sources = Vec::new();
-        rust_files(&repo().join("crates"), &mut sources);
+        for dir in ["crates", "internal/gen", "internal/capture"].map(|d| repo().join(d)).into_iter().filter(|d| d.is_dir()) {
+            rust_files(&dir, &mut sources);
+        }
         for f in sources {
             let from = f.strip_prefix(repo()).unwrap_or(&f).display().to_string();
             for l in literals(&std::fs::read_to_string(&f).unwrap()) {
@@ -329,12 +333,12 @@ fn assets_are_all_used() {
     tt_assets::require_game_data!();
     let w = Walk::run();
     let unused: Vec<&String> = w.files.keys().filter(|f| !w.used.contains(*f) && !f.ends_with("/SOURCES.md")).collect();
-    assert!(unused.is_empty(), "{} files of the asset directory are used by nothing (delete them, or move them to archive/):\n{}", unused.len(), unused.iter().map(|s| s.as_str()).collect::<Vec<_>>().join("\n"));
+    assert!(unused.is_empty(), "{} files of the asset directory are used by nothing (delete them, or move them out of the asset directory):\n{}", unused.len(), unused.iter().map(|s| s.as_str()).collect::<Vec<_>>().join("\n"));
 }
 
 /// Every directory of the repository's `assets/` has its provenance
 /// table, listing exactly its files (the full asset directory here; in a
-/// checkout with our own files only, those: the game data imported
+/// checkout with OpenTT's own files only, those: the game data imported
 /// elsewhere has no tables).
 #[test]
 fn every_file_has_its_provenance() {

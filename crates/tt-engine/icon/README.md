@@ -10,13 +10,6 @@ A cartoon tank driven by a brain in a jar, firing, on a desert battlefield.
   (Lanczos), 48 px and below a tighter square around the tank and its jar,
   lightly sharpened; rounded corners.
 
-  ```sh
-  cargo run --release --manifest-path crates/tt-engine/icon/gen/Cargo.toml -- [--sheet out/app-icon.png]
-  ```
-
-  `gen/` is a stand-alone crate (its own workspace, not built with the
-  game); `--sheet` also writes a contact sheet for review.
-
 ## Where it is used
 
 * Window icon: `src/icon.rs` embeds `opentt-256.png` and sets it on the game

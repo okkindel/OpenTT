@@ -21,8 +21,8 @@ fn files(ext: &str) -> Vec<PathBuf> {
 fn all_terrains_parse() {
     tt_assets::require_game_data!();
     let ters = files("ter");
-    // The 12 maps, OpenTT's Power-up Test, its three new maps and the
-    // two Moon maps.
+    // The 12 maps, OpenTT's Power-up Test, its three new maps and
+    // the two Moon maps.
     assert_eq!(ters.len(), 18);
     for p in ters {
         let t = tt_assets::terrain::Terrain::parse(&std::fs::read(&p).unwrap()).unwrap();

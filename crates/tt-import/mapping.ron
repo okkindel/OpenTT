@@ -1,6 +1,6 @@
 // The importer's mapping (crates/tt-import, docs/import.md): every asset file made
-// from the game install (game path -> asset path, how) and our own
-// files. Generated from assets/*/SOURCES.md by `tt-import mapping --assets assets`.
+// from the game install (game path -> asset path, how) and the
+// project's own files. Generated from assets/*/SOURCES.md by `tt-import mapping --assets assets`.
 #![enable(implicit_some)]
 #![enable(unwrap_variant_newtypes)]
 (

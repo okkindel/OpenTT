@@ -4,7 +4,7 @@
 #   opentt-<version>-linux-x86_64.tar.gz   portable: the binary, licences,
 #                                          example mods (mods/),
 #                                          desktop entry and icons
-#   opentt_<version>-1_amd64.deb           cargo-deb ([package.metadata.deb]
+#   opentt-<version>-linux-x86_64.deb      cargo-deb ([package.metadata.deb]
 #                                          of crates/tt-engine/Cargo.toml)
 #   opentt-<version>-linux-x86_64.AppImage appimagetool
 #
@@ -58,7 +58,7 @@ package_tar() {
 
 package_deb() {
     command -v cargo-deb >/dev/null || die "cargo-deb is missing: cargo install cargo-deb"
-    (cd "$ROOT" && cargo deb -p tt-engine --no-build --deb-version "$VERSION-1" -o "$DIST/")
+    (cd "$ROOT" && cargo deb -p tt-engine --no-build --deb-version "$VERSION-1" -o "$DIST/$NAME-$VERSION-linux-$ARCH.deb")
 }
 
 package_appimage() {

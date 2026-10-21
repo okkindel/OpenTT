@@ -1,3 +1,4 @@
+//! The game's string conversions, bit-exact.
 
 use std::borrow::Cow;
 

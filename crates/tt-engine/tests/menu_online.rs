@@ -1,7 +1,6 @@
-//! The Online menus (docs/archive/completeness.md WP-C, netcode stage 7) driven
-//! through the menu actions: an engine hosts a listen server (the host
-//! plays on it), a second engine finds it in the LAN list over `MemNet`
-//! and joins; the password prompt; the error dialogs; leaving.
+//! The Online menus driven through the menu actions: an engine hosts a listen server
+//! (the host plays on it), a second engine finds it in the LAN list over `MemNet` and
+//! joins; the password prompt; the error dialogs; leaving.
 
 use std::net::SocketAddr;
 use std::path::Path;

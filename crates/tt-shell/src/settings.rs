@@ -270,6 +270,9 @@ section! {
         master_server: String = "net.master_server",
         port_mapping: bool = "net.port_mapping",
         recent_servers: Vec<String> = "net.recent_servers",
+        /// The default master servers already added to `master_server`
+        /// (comma-separated; `Prefs::add_default_masters`).
+        default_masters_added: String = "net.default_masters_added",
     }
 }
 

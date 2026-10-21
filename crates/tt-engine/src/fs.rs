@@ -204,8 +204,7 @@ pub fn wildcard_match(pattern: &str, s: &str) -> bool {
 }
 
 /// Default user data directory: `$XDG_DATA_HOME/opentt` or
-/// `~/.local/share/opentt`
-/// ([`tt_assets::layout::user_data_dir`]).
+/// `~/.local/share/opentt` ([`tt_assets::layout::user_data_dir`]).
 pub fn default_data_dir() -> PathBuf {
     tt_assets::layout::user_data_dir()
 }

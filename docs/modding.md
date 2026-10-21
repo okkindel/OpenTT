@@ -18,10 +18,11 @@ Each mod is one folder in `mods/` of the user data directory:
 | Windows | `%APPDATA%\opentt\mods` |
 | macOS | `~/Library/Application Support/opentt/mods` |
 
-(`opentt` is the build's data directory name, `tt_assets::product::DATA_DIR`;
-`--data DIR` moves the whole user data directory, mods included.) The game also
-looks in `mods/` of the source checkout it was built in (development) and where
-an install keeps the mods it ships (the example mods below):
+(`opentt` is the build's data directory name,
+`tt_assets::product::DATA_DIR`; `--data DIR` moves the whole user data
+directory, mods included.) The game also looks in `mods/` of the source
+checkout it was built in (development) and where an install keeps the mods
+it ships (the example mods below):
 
 | Install | Mods that ship with it |
 |---|---|
@@ -311,35 +312,15 @@ added after the game's, `hidden` lists add up).
 The terrain file is a heightfield (128 × 128 squares of 8 m, a 1024 m
 block that repeats) with up to eight materials (`terrain/...png`) and
 their blend maps. Write one with `tt_assets::terrain::Terrain` (`new`,
-`to_bytes`). The terrain generator of the game's own maps is the best
-starting point: `crates/tt-assets/examples/new_maps/` builds three maps
-from noise, hand-placed features (valleys, ridges, mesas, a caldera) and
-erosion (`erosion.rs`), paints the materials by slope, and places spawns,
-power-ups, pads and scenery:
-
-```sh
-cargo run -p tt-assets --example new_maps -- --preview out/new-maps
-```
-
-Copy one map's function, change its features and materials, and write the
-`.ter` into your mod's `missions/`; `--preview DIR` writes shaded relief
-and slope images to check it. For the objects, start from the mission file
-of the map you copied (`missions/tt1_5.ron` and so on) and move the spawns,
-power-ups and scenery to the new terrain.
+`to_bytes`) into your mod's `missions/`. For the objects, start from the
+mission file of a similar map (`missions/tt1_5.ron` and so on) and move
+the spawns, power-ups and scenery to the new terrain.
 
 ### The picture
 
 `missions/<id>.png`, about 3:1 (the game's are 1528 × 528). The engine can
 render one from a camera pose (position, yaw and pitch in degrees, the
-horizontal field of view):
-
-```sh
-cargo run --release -p tt-engine --example mission_picture -- --assets DIR my_map \
-    --camera X Y Z YAW PITCH HFOV --out my_map.png
-```
-
-where `DIR` is a copy of the game data folder with the map's files in its
-`missions/`.
+horizontal field of view; `tt_engine::mission_picture`).
 
 ## Multiplayer
 

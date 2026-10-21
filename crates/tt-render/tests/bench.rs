@@ -4,7 +4,7 @@
 use glam::Vec3;
 use std::path::PathBuf;
 use std::time::Instant;
-use tt_render::{Camera, Renderer, Scene};
+use tt_render::{Camera, Renderer, Scene, Target};
 
 fn gpu() -> Option<(wgpu::Device, wgpu::Queue, String)> {
     let (adapter, device, queue) = pollster::block_on(tt_render::gpu::gpu(None, &tt_render::gpu::instance())).ok()?;
@@ -14,12 +14,12 @@ fn gpu() -> Option<(wgpu::Device, wgpu::Queue, String)> {
 /// Milliseconds per frame (GPU-complete) over `frames` frames.
 fn time_frames(device: &wgpu::Device, queue: &wgpu::Queue, r: &mut Renderer, view: &wgpu::TextureView, (w, h): (u32, u32), cam: &Camera, frames: u32) -> f64 {
     for i in 0..5 {
-        r.render(device, queue, view, w, h, cam, i as f32 * 0.016);
+        r.render(Target { device, queue, view, size: (w, h) }, cam, i as f32 * 0.016);
     }
     device.poll(wgpu::Maintain::Wait);
     let start = Instant::now();
     for i in 0..frames {
-        r.render(device, queue, view, w, h, cam, i as f32 * 0.016);
+        r.render(Target { device, queue, view, size: (w, h) }, cam, i as f32 * 0.016);
         device.poll(wgpu::Maintain::Wait);
     }
     start.elapsed().as_secs_f64() * 1000.0 / frames as f64
@@ -123,17 +123,16 @@ fn snapshot(device: &wgpu::Device, queue: &wgpu::Queue, r: &mut Renderer, cam: &
     let (w, h) = (960u32, 540u32);
     let format = wgpu::TextureFormat::Rgba8UnormSrgb;
     let tex = tt_render::gpu::render_target(device, "snapshot", (w, h), format);
-    r.render(device, queue, &tex.create_view(&Default::default()), w, h, cam, 0.5);
+    r.render(Target { device, queue, view: &tex.create_view(&Default::default()), size: (w, h) }, cam, 0.5);
     let px = tt_render::gpu::read_rgba(device, queue, &tex, (w, h), format);
     image::save_buffer(&path, &px, w, h, image::ColorType::Rgba8).unwrap();
     eprintln!("wrote {}", path.display());
 }
 
-/// Soft particles: a Mortar explosion (`MortarExplosion`: volcanoexplosion.png
-/// growing to 41 m) on flat ground from a chase camera, with the graphics
-/// extras off and on (both must render without validation errors); the
-/// extras view is saved to `TT_SOFT_OUT` (a .png path) for eyeballing:
-/// `TT_SOFT_OUT=out/soft-particles.png cargo test -p tt-render --test bench soft_particles_shot -- --ignored`.
+/// Soft particles: a Mortar explosion (`MortarExplosion`: volcanoexplosion.png growing to 41 m) on flat ground
+/// from a chase camera, with the graphics extras off and on (both must render without validation errors);
+/// the extras view is saved to `TT_SOFT_OUT` (a .png path) for eyeballing:
+/// `TT_SOFT_OUT=soft-particles.png cargo test -p tt-render --test bench soft_particles_shot -- --ignored`.
 #[test]
 #[ignore]
 fn soft_particles_shot() {

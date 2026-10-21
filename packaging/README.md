@@ -7,7 +7,7 @@ a tag `v<version>`; locally they need the tools listed below.
 | Package | Script | Runs on |
 |---|---|---|
 | `opentt-<version>-linux-x86_64.tar.gz` | `package-linux.sh tar` | Linux |
-| `opentt_<version>-1_amd64.deb` | `package-linux.sh deb` | Linux |
+| `opentt-<version>-linux-x86_64.deb` | `package-linux.sh deb` | Linux |
 | `opentt-<version>-linux-x86_64.AppImage` | `package-linux.sh appimage` | Linux |
 | `opentt-<version>-windows-x86_64.zip` | `package-windows.sh` (Windows, Git Bash) or `cross-windows.sh` (Linux) | Windows / Linux |
 | `opentt-<version>-macos-universal.dmg` | `package-macos.sh --universal` | macOS |

@@ -1,8 +1,7 @@
-//! Network play, stage 2 (docs/netcode.md): a dedicated server and a client
-//! engine complete the handshake, load the same mission through the script
-//! phases, reach the game, chat, and disconnect. In-process over `MemNet`
-//! (virtual time, lossy link) and over real UDP against the `opentt
-//! --dedicated` executable.
+//! Network play, stage 2: a dedicated server and a client engine complete the
+//! handshake, load the same mission through the script phases, reach the game, chat,
+//! and disconnect. In-process over `MemNet` (virtual time, lossy link) and over real
+//! UDP against the `opentt --dedicated` executable.
 
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -169,8 +168,8 @@ fn rejections_and_timeouts() {
     });
 }
 
-/// Real UDP on loopback: the `opentt --dedicated` executable as
-/// the server process, this process as the client.
+/// Real UDP on loopback: the `opentt --dedicated` executable as the
+/// server process, this process as the client.
 #[test]
 fn dedicated_executable_and_client_over_udp() {
     tt_assets::require_game_data!();
@@ -220,7 +219,7 @@ fn dedicated_executable_and_client_over_udp() {
         wait(&mut client, &mut tick, "mission world", &|c| c.host.game.is_some());
         assert!(!client.host.game.as_ref().unwrap().world.statics.is_empty());
         // Replication (stages 3–4): the server's bots appear as puppets and
-        // move; our own tank follows our moves (driving forward).
+        // move; OpenTT's own tank follows our moves (driving forward).
         wait(&mut client, &mut tick, "replicated tanks", &|c| c.host.netgame.client_rep().is_some_and(|r| r.tanks.len() >= 2) && tt_engine::netgame::control_object(&c.host).is_some());
         let positions = |c: &Engine| -> Vec<(u32, glam::Vec3)> {
             let rep = c.host.netgame.client_rep().unwrap();

@@ -1,7 +1,6 @@
-//! Network administration and status (docs/archive/completeness.md WP-D): the ban
-//! list (`BanList::add/addAbsolute/export`, checked on connect; saved as
-//! `banlist.ron`, [`tt_shell::banlist`]), the ping list for the player
-//! list's ping column, and the lag icon.
+//! Network administration and status: the ban list (`BanList::add/addAbsolute/export`,
+//! checked on connect; saved as `banlist.ron`, [`tt_shell::banlist`]), the ping list for
+//! the player list's ping column, and the lag icon.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 

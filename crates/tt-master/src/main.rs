@@ -1,4 +1,5 @@
-//! `tt-master [--port N] [--status SECONDS] [--local-address IP]`: the master server.
+//! `tt-master [--port N] [--status SECONDS] [--local-address IP] [--stats-port N [--stats-user NAME]]`:
+//! the master server (`/stats` password in `OPENTT_MASTER_STATS_PASSWORD`).
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();

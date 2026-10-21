@@ -1,5 +1,4 @@
-//! The scrum ball (`Flag`, docs/engine-notes.md §4): physics, pickup/push,
-//! retake cooldown and drop rules.
+//! The scrum ball: physics, pickup/push, retake cooldown and drop rules.
 
 use std::sync::Arc;
 

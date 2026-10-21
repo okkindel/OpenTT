@@ -201,9 +201,9 @@ fn turn_rate_in_degrees_per_second() {
     assert!((f.x.atan2(f.y).to_degrees() - 68.0 * 0.64).abs() < 0.01);
 }
 
-/// Bots rely on this (BackOff negates x itself); OpenTT's car-like reverse
-/// steering is a player-input option in tt-engine and must not leak into
-/// the sim.
+/// Bots rely on this (BackOff negates x itself); OpenTT's car-like
+/// reverse steering is a player-input option in tt-engine and must not leak
+/// into the sim.
 #[test]
 fn sim_turn_ignores_throttle_sign() {
     for y in [1.0, 0.0, -1.0] {
@@ -1547,7 +1547,7 @@ fn set_tank_transform_drops_from_15m_clear_of_airborne_tanks() {
     assert!((w.tank(b).unwrap().pos.z - ground).abs() < 1e-4);
 }
 
-// ------------------------------------------------- netcode stage 0 (docs/netcode.md §2.2, §2.4)
+// ------------------------------------------------- client-side prediction
 
 /// A varied move sequence: throttle, reverse, turns, turret aim.
 fn scripted_move(i: usize) -> Move {

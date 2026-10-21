@@ -12,14 +12,14 @@ usage: tt-import --game GAME_DIR --out ASSETS_DIR [--ours DIR] [--no-normal-maps
        tt-import mapping [--assets DIR] [--check]
 
 import     builds the asset directory ASSETS_DIR from the game install
-           (the directory with game/) and our own files (built in from
+           (the directory with game/) and the built-in files (built in from
            the repository's assets/; --ours DIR: from DIR)
 --normal-maps / --no-normal-maps
            generate the normal maps (*.normal.png; on by default)
-           The mission pictures are the game's (our own maps get a
+           The mission pictures are the game's (the new maps get a
            shaded-terrain placeholder); the game's own import
            (the game executable's --import GAME_DIR) renders them
---ffmpeg   ffmpeg for our sounds made from the game's (default ffmpeg;
+--ffmpeg   ffmpeg for the sounds made from the game's (default ffmpeg;
            without it the built-in mixer makes them)
 compare    compares an imported directory with assets/ (docs/import.md)
 mapping    writes crates/tt-import/mapping.ron from assets/*/SOURCES.md
@@ -101,7 +101,7 @@ fn run(args: Vec<String>) -> Result<(), String> {
                 return if old == text { Ok(()) } else { Err(format!("{} is not what assets/*/SOURCES.md describe", path.display())) };
             }
             std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
-            println!("{}: {} files from the game, {} of our own", path.display(), m.files.len(), m.ours.len());
+            println!("{}: {} files from the game, {} built in", path.display(), m.files.len(), m.ours.len());
             Ok(())
         }
         _ => Err(USAGE.into()),

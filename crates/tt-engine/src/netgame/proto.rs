@@ -1,9 +1,8 @@
-//! Game messages on the reliable lane of a tt-net connection
-//! (docs/netcode.md §5.3, §5.4). One message per tt-net message: a kind
-//! byte, then varints and texts (`tt_net::msg`). The gameplay messages are
-//! typed ([`Msg::Game`] = `tt_gameplay::ServerMsg`, [`Msg::Cmd`] =
-//! `tt_gameplay::ClientCmd`, plan §2.3, protocol 3); their tagged texts go
-//! through the connection's text table ([`TextTx`] / [`TextRx`]), so a
+//! Game messages on the reliable lane of a tt-net connection. One message per
+//! tt-net message: a kind byte, then varints and texts (`tt_net::msg`). The
+//! gameplay messages are typed ([`Msg::Game`] = `tt_gameplay::ServerMsg`,
+//! [`Msg::Cmd`] = `tt_gameplay::ClientCmd`, plan §2.3, protocol 3); their tagged
+//! texts go through the connection's text table ([`TextTx`] / [`TextRx`]), so a
 //! template or a name crosses the wire once.
 
 use tt_gameplay::wire::{get_client_cmd, get_server_msg, put_client_cmd, put_server_msg};

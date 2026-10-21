@@ -1,3 +1,4 @@
+//! Geometry helpers: rotation conventions, boxes, ray and overlap tests.
 
 use glam::{Affine3A, Mat3, Quat, Vec3};
 

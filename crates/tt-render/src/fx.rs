@@ -1,3 +1,6 @@
+//! Particles and explosions, simulated on the CPU and drawn by the renderer as
+//! sprites and dynamic shapes ([`crate::Renderer::set_effects`]).
+//!
 //! - Particle init: `vel += emitterVel · inherit_velocity`, `acc = vel ·
 //!   constant_acceleration`, `lifetime = lifetime_ms ± lifetime_variance_ms`
 //!   (integer uniform), `spin = spinSpeed + rand(spin_random_min,

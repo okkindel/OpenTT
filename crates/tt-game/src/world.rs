@@ -509,14 +509,13 @@ impl World {
         self.tanks[i] = t;
     }
 
-    /// Steps **one** tank by one tick with move `mv` (client-side prediction
-    /// and reconciliation, docs/netcode.md §2.2): exactly the tank part of
-    /// [`World::tick`] — other tanks (puppets included) are obstacles,
-    /// projectiles, flags and triggers are not stepped, and `time_ms` is
-    /// not advanced (the caller owns the clock). `mv` is stored as the
-    /// tank's input, so it goes through the same quantisation as a tick.
-    /// Steps puppets too (the caller asked for this tank). Returns the
-    /// events of the step; a tank that ends up deleted is removed.
+    /// Steps **one** tank by one tick with move `mv`: exactly the tank part of
+    /// [`World::tick`] — other tanks (puppets included) are obstacles, projectiles,
+    /// flags and triggers are not stepped, and `time_ms` is not advanced (the caller
+    /// owns the clock). `mv` is stored as the tank's input, so it goes through the
+    /// same quantisation as a tick. Steps puppets too (the caller asked for this
+    /// tank). Returns the events of the step; a tank that ends up deleted is
+    /// removed.
     ///
     /// With `server = false` it draws nothing from `rng`/`math_rng`.
     pub fn step_tank(&mut self, id: TankId, mv: Move) -> Vec<Event> {

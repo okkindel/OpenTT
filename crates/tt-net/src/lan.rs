@@ -1,5 +1,5 @@
-//! LAN server discovery (docs/netcode.md §5.6): the server-info payload of
-//! `Info` replies ([`ServerInfo`]) and the querying side ([`LanBrowser`]).
+//! LAN server discovery: the server-info payload of `Info` replies ([`ServerInfo`])
+//! and the querying side ([`LanBrowser`]).
 //!
 //! A browser sends `InfoQuery` packets (padded to
 //! [`INFO_QUERY_SIZE`](crate::packet::INFO_QUERY_SIZE), so no reply is ever

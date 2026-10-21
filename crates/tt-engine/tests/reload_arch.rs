@@ -3,7 +3,7 @@
 //! (hidden again).
 //!
 //! `reload_arch_shots` saves offscreen frames of it for review:
-//! `TT_ARCH_SHOTS=out/reload-arch cargo test --release -p tt-engine --test reload_arch -- --ignored --test-threads=1`
+//! `TT_ARCH_SHOTS=DIR cargo test --release -p tt-engine --test reload_arch -- --ignored --test-threads=1`
 
 use glam::Vec3;
 use std::path::{Path, PathBuf};
@@ -30,7 +30,7 @@ fn step(e: &mut Engine, v: &mut Option<View>) {
             e.host.virtual_clock_ms = Some(t);
             let ms = tt_engine::TICK_MS as f32;
             v.fe.step(e, &v.off.device, &v.off.queue, ms);
-            v.fe.draw(e, &v.off.device, &v.off.queue, &v.off.view, v.off.size, ms);
+            v.fe.draw(e, v.off.target(), ms);
         }
         None => e.tick(),
     }

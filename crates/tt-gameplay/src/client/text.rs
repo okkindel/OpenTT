@@ -1,3 +1,5 @@
+//! The few string and number operations of the client logic, with the exact
+//! semantics the game had.
 
 pub use tt_game::fmt::{atof, atoi, format_g, stricmp};
 

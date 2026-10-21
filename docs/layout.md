@@ -9,12 +9,10 @@ What lives where, how files are named and how the game refers to them.
 |---|---|
 | `assets/` | Everything the game loads at run time, nothing else (below). `--assets DIR` / `$TT_ASSETS` point the game at another copy. |
 | `gamedata/` | The asset directory imported from a ThinkTanks install (`tt-import`, or the game's first-run screen; § Imported game data). Ignored. |
-| `crates/` | The Rust workspace (`README.md` lists the crates). Generators of asset files are examples of the crates (§ Generators). |
+| `crates/` | The Rust workspace (`README.md` lists the crates). |
 | `mods/` | The example mods that ship with the game (`docs/modding.md` § Example mods); other folders here are a developer's own mods (ignored). |
-| `docs/` | Design notes and specs; `docs/archive/` holds reports of finished stages. |
+| `docs/` | User and modder documents: import, layout, modding, server. |
 | `target/` | Build output (ignored). |
-
-The game install is not part of the repository.
 
 ## `assets/`
 
@@ -33,7 +31,7 @@ beside the `.dts`.
 | `models/items/` | 108 | Power-ups, health and reload pads (`powerup`, `health`, `recharge`), boost and jump pads, the scrum ball and goal, with their animated textures. |
 | `models/volcano/` | 10 | The volcano, its rocks and eruption sprite. |
 | `models/props/{green,blue,red}/` | 38 | Scenery of each world: rocks, trees, bones. |
-| `models/props/moon/` | 30 | Moon props (the base: lander, landing pad, domed module, radar dish, solar panel; rocks; the crash site's wreck parts) converted from third-party CC0 1.0 glTF models (KayKit, Quaternius, Kenney) by `examples/gltf_to_dts.rs`, each with its own weathered texture (`--weather`). |
+| `models/props/moon/` | 30 | Moon props (the base: lander, landing pad, domed module, radar dish, solar panel; rocks; the crash site's wreck parts) converted from third-party CC0 1.0 glTF models (KayKit, Quaternius, Kenney), each with its own weathered texture. |
 | `models/markers/` | 1 | The editor's marker shape (`octahedron.dts`, a pre-v19 DTS the game never draws; the marker defs name it). |
 | `sky/` | 18 | Sky boxes: one list per sky (`sky_day.dml`, `skyblue.dml`, `skyred.dml`, five textures each: four sides, top). |
 | `terrain/{green,blue,red}/` | 24 | Terrain textures of each world (the `.ter` files name them). |
@@ -55,32 +53,40 @@ its files (§ Provenance). Counts exclude it.
 * Directories: lowercase `snake_case`, grouped by kind, then by world
   (`green`, `blue`, `red`) where the game has one set per world.
 * File names are lowercase, all of them (`tank01.png`, `volcanoexplosion.png`,
-  `skyblue.dml`, `missions/tt1_1.ron`), whatever case the game's file has; only
-  the `SOURCES.md` tables (and a mod's `README.md`) keep capitals. The importer
-  writes the same lowercase names (its mapping maps the game's path, in the
-  game's case, to the lowercase asset path). Every lookup of an asset path
-  ignores case, so game data imported by an older build, whose files have the
-  game's mixed case (`Tank01.png`, `missions/TT1_1.ron`), and mods with
-  mixed-case names keep working. The tidy test (`file_names_are_lowercase`)
-  keeps `assets/` and the example mods lowercase. Rename a file together with
-  the data that names it.
-* Images are PNG; transparency is the image's own alpha channel (the game's
-  separate `name.alpha.jpg` masks were merged in). Normal maps of the "normal
-  maps" option are `name.normal.png` next to `name.png`.
+  `skyblue.dml`, `missions/tt1_1.ron`), whatever case the game install's
+  file has; only the `SOURCES.md` tables (and a mod's `README.md`) keep
+  capitals. The importer writes the same lowercase names (its mapping maps
+  the install's path, in its case, to the lowercase asset path). The names
+  inside the game's binary formats keep their case: DTS material names
+  (`Tank01` is the material of `tank01.png`) are looked up ignoring case.
+  Every lookup of an asset path ignores case (as the game did on
+  Windows), so game data imported by an older build, whose files have
+  the install's mixed case (`Tank01.png`, `missions/TT1_1.ron`), and mods
+  with mixed-case names keep working. The tidy test
+  (`file_names_are_lowercase`) keeps `assets/` and the example mods
+  lowercase. Rename a file together with the data that names it.
+* Images are PNG; transparency is the image's own alpha channel (the
+  game's separate `name.alpha.jpg` masks were merged in). Normal maps
+  of the "normal maps" option are `name.normal.png` next to `name.png`.
 * Sounds are Ogg Vorbis, except five very short clips kept as 16-bit PCM
   WAV (`sfx/dryfire.wav`, `ui/mousedown.wav`, `ui/mouseover.wav`,
   `ui/spcount2.wav`, `ui/ticktoc.wav`, 25–140 ms): as Vorbis they would be
   2–4x larger and decode longer (whole Vorbis blocks), which changes
   `alxGetWaveLen`.
-* Text data is RON (`.ron`).
+* Text data is RON (`.ron`); the game's binary and list formats stay
+  where the engine reads them: `.dts` shapes, `.ter` terrains, `.ifl`
+  texture animations, `.dml` sky lists.
 
 ### References
 
 Data and code name an asset by its **asset path**: the path relative to
-`assets/`, exactly as on disk, with its extension (`models/tanks/tank01.dts`,
-`sound/sfx/explode.ogg`, `missions/tt1_1.ter`, `terrain/detail/detail1.png`).
-`tt_assets::resolve` turns one into a file. Terrain files name their materials
-by asset path (`terrain/green/fterrain01.png`).
+`assets/`, exactly as on disk, with its extension
+(`models/tanks/tank01.dts`, `sound/sfx/explode.ogg`, `missions/tt1_1.ter`,
+`terrain/detail/detail1.png`). `tt_assets::resolve` turns one into a file.
+Names inside the game's binary and list formats are relative to the file
+that holds them: DTS materials (no extension, any case), IFL frames and
+sky list entries (beside the list). Terrain files name their materials by
+asset path (`terrain/green/fterrain01.png`).
 
 Missions are named by id (`tt1_1`, the file's stem, lowercase like the
 file) wherever a name is enough (the menus, the solo campaign,
@@ -90,28 +96,24 @@ what the server's session (`Session::mission_file`), the network messages
 and the mission rotation use. Network protocol 10 carries the lowercase
 names.
 
-The game's virtual paths (`game/data/shapes/...`, `game/client/ui/...`, `~/data/...`) and the
-`.mis` mission names are gone. `--mission` and `map` accept the game's mission paths too (as the
+The game's virtual paths (`game/data/shapes/...`,
+`game/client/ui/...`, `~/data/...`) and the `.mis` mission names are gone.
+`--mission` and `map` accept the game's mission paths too (as the
 new file, `tt_assets::layout::migrate_mission`). Network protocol 6 carries the new paths (older
 builds are refused with a version mismatch).
 
 The user data directory is a separate tree (§ User data). Files written
 there shadow asset files of the same path (`tt_engine::fs`).
 
-### Generators
+### Generated files
 
-Files the repository generates, and the tools that write them:
-
-| Files | Tool |
-|---|---|
-| `assets/missions/tt{1,2,3}_5.ter`, `assets/missions/tt{1,2,3}_5.ron` | `cargo run -p tt-assets --example new_maps` |
-| `assets/missions/poweruptest.ter` | `cargo run -p tt-assets --example powerup_terrain` |
-| `assets/missions/<id>.png` | `cargo run --release -p tt-engine --example mission_picture -- <id> --camera … --out assets/missions/<id>.png` (poses in `missions/SOURCES.md`) |
-| `crates/tt-engine/icon/opentt-*.png`, `opentt.ico` (the application icon, from `opentt-source.png`, supplied by the author) | `cargo run --release --manifest-path crates/tt-engine/icon/gen/Cargo.toml` (`icon/README.md`: use, desktop entry, install) |
-| `assets/models/props/moon/*` (from CC0 glTF/GLB models; sources and options in `models/SOURCES.md`) | `cargo run -p tt-assets --example gltf_to_dts -- IN.gltf OUT.dts --height M --texture NAME`; preview: `cargo run -p tt-render --example shape_preview -- OUT.png A.dts B.dts …` |
-| `assets/models/projectiles/MortarRocket*` | `cargo run -p tt-assets --example mortar_rocket -- assets/models/projectiles` |
-| `assets/models/**/*.normal.png`, `assets/terrain/**/*.normal.png` | `cargo run --release -p tt-assets --example normal_maps -- assets` (also their `SOURCES.md` rows) |
-| every file made from the game install (all but OpenTT's own) | (`docs/import.md`): rebuilds them from an install; `crates/tt-import/mapping.ron` (from the `SOURCES.md` tables: `tt-import mapping`) says how |
+OpenTT's own maps, props and textures, the menu pictures and the application
+icon (`crates/tt-engine/icon/`, `icon/README.md`) come from the project's
+generators; each file's `SOURCES.md` row says how it was made. Every file
+made from the game install (all but OpenTT's own) is rebuilt by
+`cargo run --release -p tt-import -- --game DIR --out DIR`
+(`docs/import.md`); `crates/tt-import/mapping.ron` (from the `SOURCES.md`
+tables: `tt-import mapping`) says how.
 
 The data files of `assets/data/` (`tanks.ron`, `weapons.ron`,
 `pickups.ron`, `effects.ron`, `map_objects.ron`, `ai.ron`, `sounds.ron`,
@@ -120,7 +122,7 @@ generated: they are the project's own authored data, edited by hand; the
 importer copies them (`ours`) and reads no scripts of the install.
 
 The mission files of the game's maps are what `tt-import` makes of the
-install's `.mis` files: our class and field names (`tt_import::names`),
+install's `.mis` files: the engine's class and field names (`tt_import::names`),
 asset paths for the file references; an import reproduces them exactly
 (`tt-import compare`).
 
@@ -161,19 +163,21 @@ Everything the game writes goes to the user data directory
 | Windows | `%APPDATA%\opentt` |
 | macOS | `~/Library/Application Support/opentt` |
 
-(`opentt` is `tt_assets::product::DATA_DIR`: the build's `TT_PRODUCT_DATA_DIR`.)
-The game's own import goes into `gamedata/` next to the executable only when
-that directory is writable and not inside a macOS `.app` bundle (a portable
-install); otherwise (`Program Files`, `/Applications`, a system package) into
-`<user data>/gamedata` (`tt_assets::layout::import_target`). The directory is
-flat; the file names are constants of `tt_shell::save`.
+(`opentt` is `tt_assets::product::DATA_DIR`: the build's
+`TT_PRODUCT_DATA_DIR`.) The game's own import goes into `gamedata/` next to
+the executable only when that directory is writable and not inside a
+macOS `.app` bundle (a portable install); otherwise (`Program Files`,
+`/Applications`, a system package) into `<user data>/gamedata`
+(`tt_assets::layout::import_target`). The directory is flat; the file
+names are constants of `tt_shell::save`.
 
 | Path | What | Format |
 |---|---|---|
 | `settings.ron` | Every pref (video, audio, controls, player, host and server settings, recent servers). | `tt_shell::Settings` |
 | `players.ron` | The player profiles and their stats. | `tt_shell::save::PlayersFile` |
 | `hiscores.ron` | The solo top 10. | `tt_shell::save::HiScoresFile` |
-| `progress.ron` | The level select's highest level per player . | `tt_shell::Progress` |
+| `progress.ron` | The level select's highest level per player. | `tt_shell::Progress` |
+| `binds.ron` | The player's key bindings: each map listed replaces that map of `assets/data/binds.ron`. Only written by the import of the game's key bindings. | `tt_gameplay::client::binds::Binds` (as `assets/data/binds.ron`) |
 | `banlist.ron` | The server's bans (GUID, IP, end in Unix seconds). | `tt_shell::banlist::BanList` |
 | `logs/console.log` | The console log of the last session (rewritten each start). | text |
 | `logs/crash.log` | The panics and the fatal error of the last run that had one (`tt_engine::crash`; rewritten by the next). | text |
@@ -213,13 +217,16 @@ place that knows those names. It imports the old prefs files.
 
 ### Migration from older layouts
 
-The game kept these files at its own relative paths. Its saves copied into the
-data directory at those paths are imported: at every start, before anything
-reads the directory, `tt_engine::userdata::migrate` moves them into this layout
-(logged to the console as `user data: ...`):
-
-| Old path | New path | How |
-|---|---|---|
+The game kept these files at its own relative paths. Its saves copied
+into the data directory at those paths are imported: at every start,
+before anything reads the directory, `tt_engine::userdata::migrate` moves
+them into this layout (logged to the console as `user data: ...`): the
+player profiles into `players.ron` (the obfuscated fields decoded), the
+high scores into `hiscores.ron`, the solo progress into `progress.ron`,
+the client's and the server's prefs into `settings.ron` (the server's
+values last, as executed), the key bindings into `binds.ron` (over the
+default bindings) and the two ban lists into `banlist.ron` (merged; a
+later line of the same GUID and IP wins).
 
 Rules:
 
@@ -227,8 +234,11 @@ Rules:
   the new file exist, **the new file wins**: it is not touched, and the old
   one is archived to `legacy/<old path>` (`.1`, `.2`, ... appended when that
   name is taken), never merged.
+* An old file is archived once its new file exists (made now or earlier),
+  under `legacy/` with its old path.
 * Nothing is overwritten or deleted. Files are created under free names or
-  renamed; a file that cannot be converted stays where it is, the problem is
+  renamed; a file that cannot be converted (unreadable defaults for a
+  key bindings import, a write error) stays where it is, the problem is
   logged as a warning, and the next start tries again.
 * Afterwards the old directories `game/client`, `game/server`, `game`,
   `common/server`, `common` are removed when empty. Files the game does not
@@ -237,27 +247,33 @@ Rules:
   the game writes its first file. A second run finds nothing to do.
 * Paths are matched case-insensitively, as the game's file system does.
 
-`TT_MIGRATE_DIR=<dir> cargo test -p tt-engine --test user_data` runs the
-migration on a copy of a real data directory.
+`tt_shell::save::load` still imports the game's saves at their old paths on
+its own (tools, `TT_IMPORT_DIR=<dir> cargo test -p tt-shell --test
+import_saves`); `TT_MIGRATE_DIR=<dir> cargo test -p tt-engine --test
+user_data` runs the migration on a copy of a real data directory.
 
 ## Provenance
-
-All files of `assets/` and `archive/` come from the owner's own licensed copy of
-ThinkTanks, or are OpenTT's own work made from them. The EULA forbids
-redistribution: never push this repository to a public remote.
 
 Textures marked "Real-ESRGAN" were upscaled 4x with realesrgan-ncnn-vulkan
 20220424 (Real-ESRGAN release v0.2.5.0, ubuntu zip sha256
 `e5aa6eb131234b87c0c51f82b89390f5e3e642b7b70f2b9bbe95b6a285a40c96`), model
-realesrgan-x4plus (terrain textures wrap-padded before upscaling so they tile
-seamlessly; alpha channels and `.alpha` masks upscaled separately as greyscale,
-the masks later merged into the alpha channel of their image). Images with both
-sides ≤ 16 px were copied unchanged.
+realesrgan-x4plus (terrain textures wrap-padded before upscaling so they
+tile seamlessly; alpha channels and `.alpha` masks upscaled separately as
+greyscale, the masks later merged into the alpha channel of their image).
+Images with both sides ≤ 16 px were copied unchanged. The upscaled `.png`
+files replace the game's `.jpg` of the same name.
 
-Each `SOURCES.md` table gives, per file, the game path it comes from (or OpenTT's tool that
-made it) and how. The data tables of `data/` are the project's own authored data
-(`data/SOURCES.md`). The Power-up Test dev map has its own generated grid texture and box prop
-(`terrain/dev/`, `models/props/dev/`). The Moon props (`models/props/moon/`) come from
-neither: they are third-party models released under CC0 1.0 (KayKit Space Base Bits by Kay
-Lousberg; Quaternius on poly.pizza; Kenney's Space Kit), converted and weathered by OpenTT;
-their rows in `models/SOURCES.md` give each source and author.
+Each `SOURCES.md` table gives, per file, the game path it comes from (or
+the tool that made it) and how. The data tables of `data/` are the
+project's own authored data (`data/SOURCES.md`). OpenTT's own maps (tt1_5
+"The Neverending Stream", tt2_5 "Night of the Living Brains", tt3_5 "The Dark Cortex") use the
+game's textures, skies and shapes (tt1_5 adds its stream's water material,
+`terrain/green/stream.png`, generated,
+and CC0 props: rowboats by Quaternius, fallen logs by Voxel_dev,
+in `models/props/green/`); the Power-up Test dev map has its own
+generated grid texture and box prop (`terrain/dev/`, `models/props/dev/`).
+The Moon props (`models/props/moon/`) come from neither: they are
+third-party models released under CC0 1.0 (KayKit Space Base Bits by Kay
+Lousberg; Quaternius on poly.pizza; Kenney's Space Kit), converted and
+weathered by us; their rows in
+`models/SOURCES.md` give each source and author.

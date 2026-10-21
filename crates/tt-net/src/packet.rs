@@ -1,5 +1,5 @@
 //! Wire format: packet kinds, the 13-byte connection header and the
-//! bit-packed data body (docs/netcode.md §3.2, §5.3).
+//! bit-packed data body.
 //!
 //! Handshake and LAN packets (`ConnectRequest`, `Challenge`,
 //! `ChallengeResponse`, `Accept`, `Reject`, `InfoQuery`, `Info`) are a kind

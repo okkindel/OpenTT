@@ -1,6 +1,6 @@
-//! Snapshots (docs/netcode.md §4): quantised tank and ball states, delta
-//! coded against a baseline the client acked, packed into one unreliable
-//! message that never exceeds the budget; and the input (move) codec.
+//! Snapshots: quantised tank and ball states, delta coded against a baseline the
+//! client acked, packed into one unreliable message that never exceeds the budget;
+//! and the input (move) codec.
 
 use std::collections::HashMap;
 

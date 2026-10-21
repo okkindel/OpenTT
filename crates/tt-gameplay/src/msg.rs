@@ -1,3 +1,5 @@
+//! The typed messages between the game server and its clients.
+//!
 //! 14) And the spelling of the command tag (`centerPrintAll` sends
 //!     `'centerPrint'`, `centerPrint` sends `'CenterPrint'`), because the golden
 //!     traces and the network protocol show them.

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.3.1
+
+* A default master server: the Internet list works out of the box, and
+  games hosted with "List on the master server" (on by default) now show
+  up there. Existing installs get it added once; it can be removed in
+  Join → Internet → "Master servers" and then stays removed.
+* The master server's `--stats-port N`: `GET /stats` as JSON (counters and
+  the listed games with name, map, mode, players, bots, version), open or
+  with Basic auth (`--stats-user`, password from
+  `OPENTT_MASTER_STATS_PASSWORD`). See `docs/server.md`.
+* Hosting asks the router to forward the port (UPnP / NAT-PMP) by default
+  on new installs; the checkbox stays.
+* Join: the team switch fits the buttons next to it; the server details
+  show its version number.
+* The Linux `.deb` is named like the other downloads
+  (`opentt-<version>-linux-x86_64.deb`).
+* A roadmap: `ROADMAP.md`.
+* Cleaner code base: large files split into modules, parameter structs
+  instead of long argument lists, no comments pointing at files outside
+  the repository.
+
 ## 0.3.0
 
 * A new world, the Moon: two maps, "Lunar Lobe" and "Cortex Craters", with

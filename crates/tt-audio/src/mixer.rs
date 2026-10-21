@@ -1,3 +1,5 @@
+//! The software mixer behind the audio API.
+//!
 //! The [`Mixer`] owns all sources and renders them to interleaved stereo
 //! `f32` at its output rate. It does no I/O on its own: [`Mixer::render`] is
 //! called either by the real-time output (feature `output`) or directly

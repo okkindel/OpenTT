@@ -1,6 +1,5 @@
-//! ThinkTanks gameplay simulation: a deterministic, engine-independent port of the tank,
-//! projectile, pad, power-up and volcano logic of the 2003 game, following
-//! `docs/tank-physics.md`.
+//! ThinkTanks gameplay simulation: the deterministic, engine-independent
+//! tank, projectile, pad, power-up and volcano logic of the game.
 //!
 //! The engine drives it at 32 ms ticks:
 //!

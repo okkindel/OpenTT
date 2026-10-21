@@ -39,7 +39,7 @@ pub fn compare(imported: &Path, assets: &Path, mapping: &Mapping) -> Vec<Mismatc
     let same_bytes = |a: &str| std::fs::read(imported.join(a)).ok() == std::fs::read(assets.join(a)).ok();
     for a in &mapping.ours {
         if have.contains(a) && !same_bytes(a) {
-            push("ours differs", a, "our own file was not copied as it is".into());
+            push("ours differs", a, "the built-in file was not copied as it is".into());
         }
     }
     for e in &mapping.files {
@@ -58,7 +58,7 @@ pub fn compare(imported: &Path, assets: &Path, mapping: &Mapping) -> Vec<Mismatc
                     push("texture size", a, format!("{}x{} imported, {}x{} in assets/ (x4 expected)", g.0, g.1, w.0, w.1));
                 }
                 if matches!(e.how, How::Picture { game_file: None, .. }) {
-                    push("picture placeholder", a, "our own map: a shaded-terrain placeholder (the game's import renders it)".into());
+                    push("picture placeholder", a, "a new map: a shaded-terrain placeholder (the game's import renders it)".into());
                 }
             }
             How::Image { upscaled: false, .. } => {

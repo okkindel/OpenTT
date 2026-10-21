@@ -1,9 +1,8 @@
-//! The world's game entities (docs/rust-native-plan.md §5 stage 3a): tanks,
-//! scrum balls and triggers (power-ups, boost/jump pads, volcanoes, the scrum
-//! goal) live in [`tt_game::World`]; the [`EntityTable`] gives each one its
-//! game identity — name, def, team and owning client — and the [`GameEvent`]s
-//! the server reacts to are expressed in [`EntityId`]s instead of script
-//! callbacks by name.
+//! The world's game entities: tanks, scrum balls and triggers (power-ups,
+//! boost/jump pads, volcanoes, the scrum goal) live in [`tt_game::World`]; the
+//! [`EntityTable`] gives each one its game identity — name, def, team and
+//! owning client — and the [`GameEvent`]s the server reacts to are expressed
+//! in [`EntityId`]s instead of script callbacks by name.
 //!
 //! Ids are allocated monotonically in creation order and stay unique across
 //! missions (the engine carries the counter from one world to the next), so

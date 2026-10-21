@@ -1,4 +1,4 @@
-//! Reliable lanes on top of packet acks (docs/netcode.md §3.2).
+//! Reliable lanes on top of packet acks.
 //!
 //! * **Ordered**: one stream of messages, split into chunks of at most
 //!   [`CHUNK_SIZE`] bytes, each chunk a u16 id. The receiver delivers whole

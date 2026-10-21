@@ -1,6 +1,6 @@
 //! Offscreen screenshots of the Mortar and Scatter shot power-ups on the Power-up Test map (their reticles, a scatter
 //! volley, the mortar's arc and blast, the two pick-ups' lamps) for visual review. Not a check: run on demand with
-//! `TT_PUP_SHOTS=out/powerups-new cargo test --release -p tt-engine --test powerup_shots -- --ignored --test-threads=1`
+//! `TT_PUP_SHOTS=DIR cargo test --release -p tt-engine --test powerup_shots -- --ignored --test-threads=1`
 //! (files `<name>.png` in that directory; `TT_PUP_PREFIX=v2_` prefixes every name, `TT_PUP_LAMPS=0` skips the pick-up
 //! lamp frames, `TT_PUP_ONLY=scatter` takes only the scatter shot's frames, `TT_PUP_ONLY=scatter_reticle` only its
 //! reticle (one frame), `TT_PUP_ONLY=rocket` only the mortar rocket in flight, `TT_PUP_ONLY=mortar_reticle` only the
@@ -35,7 +35,7 @@ impl View {
         e.host.virtual_clock_ms = Some(t);
         let ms = tt_engine::TICK_MS as f32;
         self.fe.step(e, &self.off.device, &self.off.queue, ms);
-        self.fe.draw(e, &self.off.device, &self.off.queue, &self.off.view, self.off.size, ms);
+        self.fe.draw(e, self.off.target(), ms);
     }
 
     fn ticks(&mut self, e: &mut Engine, ms: u32) {

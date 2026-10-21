@@ -1,3 +1,4 @@
+//! The solo top 10.
 
 use tt_game::obfuscation::{strfrap_decode, strfrip, strswiz};
 

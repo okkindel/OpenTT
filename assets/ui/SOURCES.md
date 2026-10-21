@@ -7,4 +7,4 @@ This table lists OpenTT's own files of this directory; the importer builds the r
 
 | file | source: how |
 |---|---|
-| `credits.txt` | Own text |
+| `credits.txt` | own text (our credits) |

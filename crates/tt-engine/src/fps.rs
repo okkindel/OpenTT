@@ -59,10 +59,10 @@ impl FpsCounter {
         self.last = Some(now);
     }
 
-    /// Paints the counter over `view` (`size` in pixels).
+    /// Paints the counter over `target`.
     /// `hud_scale`: the HUD size option (the counter fills the HUD's corner).
-    #[allow(clippy::too_many_arguments)]
-    pub fn draw(&mut self, gui: &mut crate::gui_gpu::GuiRenderer, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, size: (u32, u32), hud_scale: f32) {
+    pub fn draw(&mut self, gui: &mut crate::gui_gpu::GuiRenderer, target: crate::gfx::Target, hud_scale: f32) {
+        let crate::gfx::Target { device, queue, view, size } = target;
         let (fps, ms) = (self.fps, self.ms);
         let run = &mut self.run;
         run.text.clear();

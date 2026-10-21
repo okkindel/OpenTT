@@ -15,13 +15,14 @@ path = "src/main.rs"
 
 [features]
 default = ["dev"]
-# Developer tooling compiled into the game (on by default for now): the
+# Developer tooling compiled into the game (on by default for builds from the
+# source; the release packages are built without it): the
 # executable's `--headless`/`--screenshot`/`--bench`/`--keys`/`--cmd`/
 # `--frame-stats` (src/devtools.rs), frame statistics and the golden-trace
 # harness (`gameplay::golden`, needed by tests/golden.rs).
 dev = []
-# `setSimulatedNetParams` / `simLag` on real connections in release builds
-# (debug builds always have it; docs/netcode.md §5.12).
+# `setSimulatedNetParams` / `simLag` on real connections in release
+# builds.
 net-sim = []
 
 [[test]]

@@ -45,10 +45,10 @@
 //!   after N ticks (default 1) instead of opening a window (the canvas at
 //!   its resolution, or with `--mission` the 3D view);
 //! * `--bench SECONDS`: offscreen frames at 60 Hz, timing every stage;
-//! * `--play MISSION[:BOTS]`: the menu's Quick Play on MISSION (`tt3_5`) at the first tick
-//!   (`:BOTS`: a free-for-all custom game with that many bots), for benchmarks and
-//!   screenshots of a real game, e.g. `TT_GPU_TIMING=1 opentt --play tt3_5 --bench 20 --size
-//!   1920x1080`;
+//! * `--play MISSION[:BOTS]`: the menu's Quick Play on MISSION (`tt3_5`) at the
+//!   first tick (`:BOTS`: a free-for-all custom game with that many
+//!   bots), for benchmarks and screenshots of a real game, e.g.
+//!   `TT_GPU_TIMING=1 opentt --play tt3_5 --bench 20 --size 1920x1080`;
 //! * `--cmd TICK:COMMAND` (repeatable): runs a console command at that tick.
 //! * `--keys TICK:TEXT` (repeatable): types TEXT at that tick; `{name}`
 //!   sends a named key, e.g. `--keys 300:Bait{return}`, `{click:X,Y}` a left
@@ -225,7 +225,7 @@ fn run(a: Args) -> Result<(), String> {
         }
     }
     // Runs without a window cannot show the import screen: they start on
-    // what there is (our own maps; the engine needs `missions/`).
+    // what there is (OpenTT's own maps; the engine needs `missions/`).
     if !present && (a.dedicated || offline) {
         eprintln!("warning: {}", no_game_data(&a.cfg.assets));
     }

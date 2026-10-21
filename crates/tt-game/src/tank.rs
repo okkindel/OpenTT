@@ -1,3 +1,4 @@
+//! Tank state and its movement per tick.
 
 use std::f32::consts::PI;
 use std::sync::Arc;
@@ -93,7 +94,7 @@ pub struct Tank {
     pub deleted: bool,
     /// Network client: a remote tank whose state comes from snapshots
     /// (interpolated). [`crate::World::tick`] does not simulate it, but it
-    /// stays a collision obstacle (docs/netcode.md §2.4).
+    /// stays a collision obstacle.
     pub puppet: bool,
 }
 

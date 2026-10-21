@@ -50,9 +50,8 @@ fn setup(h: &mut EngineHost) -> &mut tt_gameplay::server::GameSetup {
     &mut h.srv.state_mut().setup
 }
 
-/// Starts a local game like the menu's Custom game (`docs/new-menu.md` §4):
-/// the mode, the bots (the settings' bots), the round length, then the
-/// local game.
+/// Starts a local game like the menu's Custom game: the mode, the bots (the settings'
+/// bots), the round length, then the local game.
 pub fn custom_game(mission: &str, scrum: bool, teams: bool, bots: &[(&str, &str, &str)], minutes: f32, tank: u32) -> Action {
     let bots: Vec<(String, String, String)> = bots.iter().map(|(a, b, c)| (a.to_string(), b.to_string(), c.to_string())).collect();
     let file = tt_assets::layout::mission(mission);

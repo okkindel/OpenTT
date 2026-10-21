@@ -3,6 +3,7 @@
 //! egui shows.
 
 use crate::engine::Engine;
+use crate::gfx::Target;
 use tt_render::objectview::{Background, ObjectLight, ObjectView, OrbitCamera};
 
 /// Format of the preview texture (the object view renders into it).
@@ -31,10 +32,9 @@ impl HudLayer {
         HudLayer { ctx, renderer: egui_wgpu::Renderer::new(device, format, None, 1, false), art: tt_menu::hud::HudArt::new(assets) }
     }
 
-    /// Draws `view` over `target` (`size` pixels; the target is kept) at
-    /// HUD size `scale`.
-    #[allow(clippy::too_many_arguments)]
-    pub fn draw(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, target: &wgpu::TextureView, size: (u32, u32), view: &tt_menu::hud::HudView, time: f64, scale: f32) {
+    /// Draws `view` over `target` (kept) at HUD size `scale`.
+    pub fn draw(&mut self, target: Target, view: &tt_menu::hud::HudView, time: f64, scale: f32) {
+        let size = target.size;
         let ppp = tt_menu::hud::scaled_pixels_per_point([size.0 as f32, size.1 as f32], scale);
         let mut raw = egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(size.0 as f32 / ppp, size.1 as f32 / ppp))), time: Some(time), ..Default::default() };
         raw.viewports.entry(egui::ViewportId::ROOT).or_default().native_pixels_per_point = Some(1.0);
@@ -43,13 +43,13 @@ impl HudLayer {
         }
         let art = &mut self.art;
         let out = self.ctx.run(raw, |ctx| tt_menu::hud::draw(ctx, view, art));
-        paint(&mut self.renderer, &self.ctx, device, queue, target, size, out, "hud");
+        paint(&mut self.renderer, &self.ctx, target, out, "hud");
     }
 }
 
 /// Paints egui output over `target` (kept).
-#[allow(clippy::too_many_arguments)]
-fn paint(renderer: &mut egui_wgpu::Renderer, ctx: &egui::Context, device: &wgpu::Device, queue: &wgpu::Queue, target: &wgpu::TextureView, size: (u32, u32), out: egui::FullOutput, label: &str) {
+fn paint(renderer: &mut egui_wgpu::Renderer, ctx: &egui::Context, target: Target, out: egui::FullOutput, label: &str) {
+    let Target { device, queue, view: target, size } = target;
     for (id, delta) in &out.textures_delta.set {
         renderer.update_texture(device, queue, *id, delta);
     }
@@ -99,9 +99,9 @@ impl MenuLayer {
         crate::menu::run_frame(engine, &self.ctx, raw)
     }
 
-    /// Paints `out` over `target` (`size` pixels; the target is kept).
-    pub fn paint(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, target: &wgpu::TextureView, size: (u32, u32), out: egui::FullOutput) {
-        paint(&mut self.renderer, &self.ctx, device, queue, target, size, out, "menu");
+    /// Paints `out` over `target` (kept).
+    pub fn paint(&mut self, target: Target, out: egui::FullOutput) {
+        paint(&mut self.renderer, &self.ctx, target, out, "menu");
     }
 
     /// Renders the tank preview the garage asked for in the last frame and
@@ -142,7 +142,7 @@ impl MenuLayer {
         let inst = ObjectView::tank_preview(&req.shape, &req.brain);
         let center = tt_render::objectview::shape_center(&req.shape).unwrap_or_default();
         let cam = p.camera.camera(center);
-        p.view.render(device, queue, &p.texture_view, size[0], size[1], None, &inst, &cam, &ObjectLight::default());
+        p.view.render(Target { device, queue, view: &p.texture_view, size: (size[0], size[1]) }, None, &inst, &cam, &ObjectLight::default());
         menu.data.preview_texture = Some((req.index, p.id));
     }
 }

@@ -1,8 +1,7 @@
-//! Simulation time and the timed events of the game (what `schedule()` and
-//! the engine's event queue were): every timer of the server and the
-//! client, in one queue ordered by (due time, id) with ids from one counter,
-//! so events due at the same time fire in the order they were set — the
-//! order the game's behaviour depends on (docs/rust-native-plan.md risk R3).
+//! Simulation time and the timed events of the game (what `schedule` and the engine's
+//! event queue were): every timer of the server and the client, in one queue ordered
+//! by (due time, id) with ids from one counter, so events due at the same time fire
+//! in the order they were set — the order the game's behaviour depends on.
 
 use std::collections::{BTreeMap, HashMap};
 

@@ -1,13 +1,12 @@
-//! The in-game HUD in the new style (docs/new-menu.md §2 and §10): native,
-//! resolution-independent text and panels over the 3D view, with only the
-//! game's real art kept (radar base and dots, team dots, lives, brain and lag
-//! icons).
+//! The in-game HUD in the new style: native, resolution-independent text and panels
+//! over the 3D view, with only the game's real art kept (radar base and dots, team
+//! dots, lives, brain and lag icons).
 //!
 //! The engine fills a [`HudView`] each frame from the state the ported client
-//! scripts keep in their GUI objects (`PlayGui`, `messagesHud`,
-//! `PlayerListGui`, `MessageHud`, ...; `crates/tt-engine/src/hud.rs`), so
-//! what is shown and when (line wrapping, fades, timeouts, toggles) stays the
-//! game's; [`draw`] only decides the look.
+//! scripts keep in their GUI objects (`PlayGui`, `messagesHud`, `PlayerListGui`,
+//! `MessageHud`, ...; `crates/tt-engine/src/hud.rs`), so what is shown and when
+//! (line wrapping, fades, timeouts, toggles) stays the game's; [`draw`] only decides
+//! the look.
 //!
 //! Layout (points of a 720-point-high screen, [`pixels_per_point`]):
 //! top left the player list or the solo score and lives; top centre the

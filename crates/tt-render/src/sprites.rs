@@ -1,3 +1,5 @@
+//! Camera-facing textured quads: particles, sprite explosions and `.png`
+//! projectiles.
 
 use glam::Vec3;
 use std::collections::HashMap;

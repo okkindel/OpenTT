@@ -1,4 +1,4 @@
-//! The menu logo ("OpenTT" in riveted camouflage-metal letters): our own
+//! The menu logo ("OpenTT" in riveted camouflage-metal letters): OpenTT's own
 //! artwork, compiled in (`art/logo.png`, made from `art/logo-source.png`,
 //! see `art/README.md`), so it shows before any game data is imported.
 

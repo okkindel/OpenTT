@@ -1,4 +1,4 @@
-//! Bit-packed writer/reader (docs/netcode.md §3.2).
+//! Bit-packed writer/reader.
 //!
 //! Bits are packed LSB-first into little-endian bytes through a u64
 //! accumulator. Every read is bounds-checked and returns

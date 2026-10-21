@@ -1,3 +1,5 @@
+//! Player profiles and their stats.
+//!
 //! The best solo score (`hiscore<i>`) is a plain number.
 
 use tt_game::obfuscation::{strfrap_decode, strfrip, strswiz};

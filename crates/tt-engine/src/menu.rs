@@ -376,7 +376,6 @@ fn join(host: &mut EngineHost, address: &str, password: &str, team: Team) {
     host.shell.loading = shell::LoadingInfo { map: format!("Joining {name}"), phase: format!("Connecting to {shown}"), progress: 0.0 };
 }
 
-/// The local-only custom game of `docs/new-menu.md` §4.
 fn start_custom(host: &mut EngineHost, g: &CustomGame) {
     custom_prefs(host, g);
     shell::launch_local(host, &g.mission);
@@ -1112,8 +1111,8 @@ impl MenuBackend for Backend<'_> {
         self.d.credits.get_or_init(|| self.read_text(CREDITS).unwrap_or_default()).clone()
     }
 
-    /// The product and this build's version (`OpenTT 0.1.0`), not
-    /// the version string the game scripts report.
+    /// The product and this build's version (`OpenTT 0.1.0`), not the
+    /// version string the game scripts report.
     fn version(&self) -> String {
         format!("{} {}", tt_assets::product::NAME, env!("CARGO_PKG_VERSION"))
     }

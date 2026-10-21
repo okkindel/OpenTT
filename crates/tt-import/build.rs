@@ -1,7 +1,7 @@
 //! * `cfg(tt_original)` when `TT_ORIGINAL_DIR` is set at build time: the
 //!   import verification test (tests/import.rs) then runs by default instead
 //!   of being ignored.
-//! * `$OUT_DIR/ours.rs`: our own asset files (the `ours` list of
+//! * `$OUT_DIR/ours.rs`: OpenTT's own asset files (the `ours` list of
 //!   `mapping.ron`) built into the importer from the repository's
 //!   `assets/`, so the game can import without a copy of that directory
 //!   (`tt_import::OURS`; a file missing at build time is `None`).

@@ -1,5 +1,5 @@
 //! Mission files in RON (`assets/missions/<id>.ron`; the importer
-//! converts the maps of the game install, our own maps are written as RON).
+//! converts the maps of the game install, OpenTT's own maps are written as RON).
 //!
 //! A mission is a tree of objects: the `MissionGroup` [`Group`] with the
 //! mission's objects nested in groups (object order is kept: the spawn

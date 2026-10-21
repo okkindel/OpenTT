@@ -106,6 +106,14 @@ pub struct ViewParams {
     pub vols: [[f32; 4]; 3],
 }
 
+/// Where [`Post::run`] composites the scene: `target`'s viewport `[x, y,
+/// w, h]`, over what is there (premultiplied) when `blend`.
+pub(crate) struct Output<'a> {
+    pub target: &'a wgpu::TextureView,
+    pub viewport: [u32; 4],
+    pub blend: bool,
+}
+
 struct Pass {
     group: wgpu::BindGroup,
     uniform: wgpu::Buffer,
@@ -266,7 +274,6 @@ impl Post {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn group(&self, device: &wgpu::Device, uniform: &wgpu::Buffer, src: &wgpu::TextureView, depth: &wgpu::TextureView, ao: &wgpu::TextureView, bloom: &wgpu::TextureView) -> wgpu::BindGroup {
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("post"),
@@ -417,11 +424,10 @@ impl Post {
         }
     }
 
-    /// SSAO, bloom and the composite of the HDR scene into `target`'s
-    /// viewport `[x, y, w, h]` (`blend`: over what is there, premultiplied).
+    /// SSAO, bloom and the composite of the HDR scene into `out`.
     /// `mark`: GPU timer marks between the stages.
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn run(&self, queue: &wgpu::Queue, enc: &mut wgpu::CommandEncoder, target: &wgpu::TextureView, viewport: [u32; 4], blend: bool, v: ViewParams, mark: &dyn Fn(&mut wgpu::CommandEncoder, &'static str)) {
+    pub(crate) fn run(&self, queue: &wgpu::Queue, enc: &mut wgpu::CommandEncoder, out: Output, v: ViewParams, mark: &dyn Fn(&mut wgpu::CommandEncoder, &'static str)) {
+        let Output { target, viewport, blend } = out;
         let Some(t) = &self.targets else { return };
         let e = self.extras;
         let (samples, strength, radius) = match e.ssao {

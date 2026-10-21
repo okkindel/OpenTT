@@ -1,5 +1,5 @@
-//! Input redundancy (docs/netcode.md §3.3): every client packet repeats the
-//! newest 4 moves, or all unacked moves up to 8.
+//! Input redundancy: every client packet repeats the newest 4 moves, or all unacked
+//! moves up to 8.
 //!
 //! ```text
 //! u16 first_seq; u3 count-1        moves first_seq-count+1 ..= first_seq, oldest first

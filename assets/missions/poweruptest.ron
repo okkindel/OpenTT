@@ -1,4 +1,4 @@
-// Mission PowerupTest.mis, converted by `tt-convert missions`; values are the .mis text.
+// Mission PowerupTest.mis, converted by `tt-import`; values are the .mis text.
 // See tt_assets::data::mission.
 // Not converted (the game implements them natively): the onEnter handlers of PowerupTestCartridge, PowerupTestRandom and PowerupTestHeal.
 #![enable(implicit_some)]

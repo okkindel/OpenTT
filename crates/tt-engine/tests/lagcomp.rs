@@ -1,4 +1,4 @@
-//! Lag compensation: is it needed? (docs/netcode.md §2.6 "Optional v2", §9).
+//! Lag compensation: is it needed?
 //!
 //! A dedicated server with 6 bots and 2 remote clients over `MemNet` per link
 //! profile. Measured:

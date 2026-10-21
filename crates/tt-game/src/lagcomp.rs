@@ -1,10 +1,9 @@
-//! Server-side lag compensation for network shots (docs/netcode.md §2.6,
-//! §5.13). A remote player aims at tanks drawn `V` in the past (V ≈ RTT +
-//! server move queue + interpolation delay: ~300 ms on DSL, measured in
-//! `tests/lagcomp.rs`). For a direct-fire shot of such a player the server
-//! tests the projectile against the target tanks *rewound* by V while the
-//! projectile is younger than V, then by a rewind decaying linearly to zero
-//! over the next V; splash weapons are not compensated (their splash covers
+//! Server-side lag compensation for network shots. A remote player aims at tanks
+//! drawn `V` in the past (V ≈ RTT + server move queue + interpolation delay: ~300
+//! ms on DSL, measured in `tests/lagcomp.rs`). For a direct-fire shot of such a
+//! player the server tests the projectile against the target tanks *rewound* by V
+//! while the projectile is younger than V, then by a rewind decaying linearly to
+//! zero over the next V; splash weapons are not compensated (their splash covers
 //! the error). Damage still goes to the tank as it is now.
 //!
 //! Only the network server fills [`LagComp::view_delay`].

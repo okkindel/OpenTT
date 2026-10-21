@@ -1,6 +1,6 @@
 [package]
 name = "tt-gameplay"
-description = "ThinkTanks game logic without the engine: the server rules, the game data, typed server/client messages and the client state (docs/rust-native-plan.md §2)"
+description = "ThinkTanks game logic without the engine: the server rules, the game data, typed server/client messages and the client state"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

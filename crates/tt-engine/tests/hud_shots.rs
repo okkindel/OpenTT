@@ -1,7 +1,7 @@
 //! Offscreen in-game HUD screenshots (solo, team, scrum, a network
 //! client, the chat input, crowded name tags) for visual review. Not a
 //! check: run on demand with
-//! `TT_HUD_SHOTS=out/hud-native/after cargo test --release -p tt-engine --test hud_shots -- --ignored --test-threads=1`
+//! `TT_HUD_SHOTS=DIR cargo test --release -p tt-engine --test hud_shots -- --ignored --test-threads=1`
 //! (files `<scenario>_<W>x<H>.png` in that directory).
 
 use std::path::PathBuf;
@@ -53,7 +53,7 @@ fn shot(e: &mut Engine, name: &str, sizes: &[(u32, u32)]) {
         fe.step(e, &off.device, &off.queue, 0.0);
         // A few frames: menu/HUD layers settle (fonts, textures).
         for _ in 0..3 {
-            fe.draw(e, &off.device, &off.queue, &off.view, off.size, 16.0);
+            fe.draw(e, off.target(), 16.0);
         }
         let path = dir.join(format!("{name}_{}x{}.png", size.0, size.1));
         off.save(&path).unwrap();

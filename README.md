@@ -25,7 +25,7 @@ OpenTT and point it at your *ThinkTanks* folder (see "Import the game
 data" below).
 
 * **Linux**
-  * Debian, Ubuntu and derivatives: `sudo apt install ./opentt_<version>-1_amd64.deb`;
+  * Debian, Ubuntu and derivatives: `sudo apt install ./opentt-<version>-linux-x86_64.deb`;
     OpenTT appears in the application menu, `opentt` on the command line.
   * Any distribution: the `.AppImage`: `chmod +x opentt-<version>-linux-x86_64.AppImage`
     and run it.
@@ -146,9 +146,15 @@ Each release also has the master server alone (`opentt-master-server-*`
 archives for Linux and Windows: one small binary, `README.txt` with its
 options). It prints the time when a game server joins or leaves the list.
 
-Players enter its address in Play → On-line → Join → Internet → "Master
-server"; hosts tick "List on the master server" (or start a dedicated
-server with `--master-server HOST`). Games on the LAN are found without it.
+The game comes with a default master server, so the Internet list works
+out of the box; more can be added (or the default removed) in Play →
+On-line → Join → Internet → "Master servers". Hosts tick "List on the
+master server" (or start a dedicated server with `--master-server HOST`).
+Games on the LAN are found without it.
+
+`--stats-port N` adds an HTTP endpoint, `GET /stats`, with the master's
+counters and the listed games (players, bots, map); optionally behind
+Basic auth. Details: [docs/server.md](docs/server.md).
 
 ## Where your files live
 
@@ -227,3 +233,5 @@ OpenTT is a fan project. It is not affiliated with, endorsed by or
 connected to the authors or publishers of *ThinkTanks*. *ThinkTanks* and
 all related names and trademarks belong to their respective owners. The
 game's content is not part of this repository and must not be added to it.
+
+Plans: [ROADMAP.md](ROADMAP.md).

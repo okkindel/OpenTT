@@ -1,6 +1,6 @@
 [package]
 name = "tt-master"
-description = "Master (lobby) server: game servers register by heartbeat, browsers fetch the list, NAT introductions for UDP hole punching (docs/netcode.md §5.11)"
+description = "Master (lobby) server: game servers register by heartbeat, browsers fetch the list, NAT introductions for UDP hole punching"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

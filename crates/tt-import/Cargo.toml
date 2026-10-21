@@ -1,6 +1,6 @@
 [package]
 name = "tt-import"
-description = "Builds the game's asset directory from a ThinkTanks install plus our own files"
+description = "Builds the game's asset directory from a ThinkTanks install plus the built-in files"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

@@ -239,6 +239,16 @@ fn lists_are_paged_and_limits_hold() {
         m.update(t);
     }
     assert_eq!(m.servers().len(), 150, "the third server on one IP is refused");
+    assert_eq!(m.stats.info_queries, 0, "query_info is off");
+    // Info queries to a long list are spread out: a burst of 20, then 200/s.
+    m.query_info = true;
+    for _ in 0..2 {
+        t += Duration::from_millis(100);
+        net.set_now(t);
+        m.update(t);
+    }
+    assert_eq!(m.stats.info_queries, 40);
+    m.query_info = false;
     let mut b = LanBrowser::new(net.endpoint(a("192.0.2.9:5000")), 1);
     b.query_master(&[a(MASTER)], t);
     for _ in 0..10 {
@@ -269,6 +279,13 @@ fn args() {
     assert!(tt_master::parse_args(&["--bogus".into()]).is_err());
     assert_eq!(tt_master::parse_args(&["--local-address".into(), "203.0.113.5".into()]).unwrap().local_address, Some("203.0.113.5".parse().unwrap()));
     assert!(tt_master::parse_args(&["--local-address".into(), "nope".into()]).is_err());
+    let args = |s: &str| tt_master::parse_args(&s.split(' ').map(String::from).collect::<Vec<_>>());
+    let o = args("--stats-port 8080 --stats-user admin").unwrap();
+    assert_eq!((o.stats_port, o.stats_user.as_deref()), (Some(8080), Some("admin")));
+    assert_eq!(tt_master::parse_args(&[]).unwrap().stats_port, None);
+    assert!(args("--stats-user admin").is_err(), "needs --stats-port");
+    assert!(args("--stats-port 80 --stats-user a:b").is_err());
+    assert!(args("--stats-port x").is_err());
 }
 
 /// `--local-address`: a server on the master's host (Docker bridge,
@@ -323,4 +340,59 @@ fn local_address_lists_same_host_servers_under_the_public_ip() {
         step(&mut m, &mut s, &mut t);
     }
     assert_eq!(m.drain_log(), ["dropped 203.0.113.5:28000 (id 0000000000000009): server closed"]);
+}
+
+/// One HTTP/1.1 request to `addr`; what came back before the server closed.
+fn http(addr: SocketAddr, req: &str) -> String {
+    use std::io::{Read, Write};
+    let mut s = std::net::TcpStream::connect(addr).unwrap();
+    s.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
+    let _ = s.write_all(req.as_bytes());
+    let mut out = Vec::new();
+    let _ = s.read_to_end(&mut out);
+    String::from_utf8(out).unwrap()
+}
+
+/// With `query_info` the master asks the listed server for its info (the
+/// reply is not counted as malformed) and `/stats` lists it; the endpoint
+/// is open or behind Basic auth, GET /stats only.
+#[test]
+fn stats_list_the_servers_info_over_http() {
+    let mut w = World::new();
+    w.master.query_info = true;
+    let info = ServerInfo { server_id: 77, build: BUILD_ID, name: "Stats \"test\"".into(), game_type: "OpenTT".into(), mission_type: "Battlemode".into(), info: "Linux\t1\tGreen Hills\t0".into(), player_count: 3, bot_count: 2, max_players: 8, version: "9.9.9".into(), ..Default::default() };
+    w.server.set_info(Some(info.encode()));
+    w.server.set_master(&[a(MASTER)], 77, w.t);
+    w.run(2000, &mut accept_all);
+    assert_eq!((w.master.stats.info_queries, w.master.stats.info_replies, w.master.stats.malformed), (1, 1, 0), "{:?}", w.master.stats);
+    let json = w.master.stats_json(w.t);
+    assert!(json.starts_with("{\"master\":{\"product\":"), "{json}");
+    assert!(json.contains(&format!("\"version\":\"{}\",\"uptime\":{}}}", env!("CARGO_PKG_VERSION"), w.t.as_secs())), "{json}");
+    assert!(json.contains("\"stats\":{\"servers\":1,\"heartbeats\":"), "{json}");
+    assert!(json.contains(&format!("\"servers\":[{{\"address\":\"{SERVER}\",\"last_seen\":")), "{json}");
+    assert!(json.contains("\"info\":{\"name\":\"Stats \\\"test\\\"\",\"game_type\":\"OpenTT\",\"mission_type\":\"Battlemode\",\"mission\":\"Green Hills\",\"players\":3,\"bots\":2,\"humans\":1,\"max_players\":8,\"password\":false,\"dedicated\":false,\"version\":\"9.9.9\",\"build\":"), "{json}");
+    assert!(json.ends_with("}}]}"), "{json}");
+    // Asked again after the interval.
+    w.run(tt_master::INFO_INTERVAL.as_millis() as u64, &mut accept_all);
+    assert_eq!(w.master.stats.info_replies, 2);
+
+    let page = std::sync::Arc::new(std::sync::Mutex::new(json.clone()));
+    let open = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let open_addr = open.local_addr().unwrap();
+    tt_master::spawn_stats(open, None, page.clone());
+    let r = http(open_addr, "GET /stats HTTP/1.1\r\nHost: x\r\n\r\n");
+    assert!(r.starts_with("HTTP/1.1 200 OK\r\n") && r.contains("Content-Type: application/json\r\n") && r.ends_with(&format!("\r\n\r\n{json}")), "{r}");
+    assert!(http(open_addr, "GET / HTTP/1.1\r\n\r\n").starts_with("HTTP/1.1 404 "));
+    assert!(http(open_addr, "POST /stats HTTP/1.1\r\nContent-Length: 0\r\n\r\n").starts_with("HTTP/1.1 405 "));
+    assert_eq!(http(open_addr, &format!("GET /stats HTTP/1.1\r\nX: {}\r\n\r\n", "a".repeat(20_000))), "", "an oversized request is closed");
+
+    let locked = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let locked_addr = locked.local_addr().unwrap();
+    tt_master::spawn_stats(locked, Some(("admin".into(), "s3cret".into())), page);
+    let r = http(locked_addr, "GET /stats HTTP/1.1\r\n\r\n");
+    assert!(r.starts_with("HTTP/1.1 401 ") && r.contains("WWW-Authenticate: Basic realm=\""), "{r}");
+    // "admin:wrong", then "admin:s3cret".
+    assert!(http(locked_addr, "GET /stats HTTP/1.1\r\nAuthorization: Basic YWRtaW46d3Jvbmc=\r\n\r\n").starts_with("HTTP/1.1 401 "));
+    let r = http(locked_addr, "GET /stats HTTP/1.1\r\nauthorization: basic YWRtaW46czNjcmV0\r\n\r\n");
+    assert!(r.starts_with("HTTP/1.1 200 OK\r\n") && r.ends_with(&json), "{r}");
 }

@@ -1,4 +1,4 @@
-//! The game's rules and the client, native (`docs/rust-native-plan.md`):
+//! The game's rules and the client, native:
 //!
 //! * the game server is `tt_gameplay::server`: [`server_host`] is its engine
 //!   side; [`health_packs`] and [`scoreboard`] OpenTT's additions on the

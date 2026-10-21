@@ -1,3 +1,5 @@
+//! Tank tread and wheel animation (client-only cosmetics).
+//!
 //! * Only for living tanks.
 //! * The node animation turns that travel `s` into
 //!   - (right side for RF/RR, left for LR/LF).

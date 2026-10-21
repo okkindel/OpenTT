@@ -132,8 +132,8 @@ fn max_filter(img: &image::GrayImage, r: i64) -> image::GrayImage {
 }
 
 /// A placeholder menu picture of a mission without one: its terrain
-/// (OpenTT's own heightfield) shaded from the north-west, tinted by
-/// `tint`, `w` x `h` from the middle of the map.
+/// (OpenTT's own heightfield) shaded from the north-west, tinted
+/// by `tint`, `w` x `h` from the middle of the map.
 pub fn terrain_picture(ter: &tt_assets::terrain::Terrain, tint: [f32; 3], w: u32, h: u32) -> DynamicImage {
     let n = ter.size() as f32;
     let scale = n / w as f32;

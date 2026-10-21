@@ -1,3 +1,6 @@
+//! The prefs of the client and the server, with typed accessors for what the
+//! menu edits.
+//!
 //! Setters store strings, as the engine's menu backend does today.
 
 use crate::settings::Settings;
@@ -49,6 +52,8 @@ pub const PORT_DEFAULTS: &[(&str, &str)] = &[
     ("video.disable_vertical_sync", "0"),
     ("video.detail_level", "2"),
     ("video.max_fps", "0"),
+    // Hosting asks the router to forward the port (UPnP / NAT-PMP).
+    ("net.port_mapping", "1"),
 ];
 
 pub fn migrate_mouse_sensitivity(old: f64) -> f64 {

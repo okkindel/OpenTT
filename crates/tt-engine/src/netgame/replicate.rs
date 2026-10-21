@@ -1,5 +1,4 @@
-//! Replication (docs/netcode.md stages 3–4): moves up, snapshots and
-//! events down, puppets on the client.
+//! Replication: moves up, snapshots and events down, puppets on the client.
 //!
 //! **Server**, per remote client in the game (`ReplicasDone` received):
 //! * moves arrive with redundancy ([`tt_net::input`]); one per tick is
@@ -1005,7 +1004,7 @@ fn apply(h: &mut EngineHost, m: Rep) {
         }
         Rep::Fired { tank, def } => {
             if rep.pred.predicting(tank) {
-                return; // our own shots are shown when predicted
+                return; // OpenTT's own shots are shown when predicted
             }
             let def = if def.is_empty() { def } else { db_name(rep, &defs, &def) };
             if let Some(&(_, t)) = rep.tanks.get(&tank) {

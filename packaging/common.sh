@@ -32,7 +32,7 @@ die() {
 # keeps them with the repository templates, from there.
 legal_file() {
     local f
-    for f in "$ROOT/$1" "$ROOT/tools/export-opentt/templates/$1"; do
+    for f in "$ROOT/$1"; do
         if [ -f "${f}" ]; then
             echo "${f}"
             return
@@ -88,7 +88,8 @@ zip_dist() {
     echo "wrote $DIST/$1.zip"
 }
 
-# The cargo build of the game (release, the lock file as it is).
+# The cargo build of the game (release, the lock file as it is, without the
+# developer tooling of the `dev` feature).
 build_game() {
-    (cd "$ROOT" && cargo build --release --locked -p tt-engine --bin "$BIN" "$@")
+    (cd "$ROOT" && cargo build --release --locked -p tt-engine --no-default-features --bin "$BIN" "$@")
 }

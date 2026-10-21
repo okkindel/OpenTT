@@ -1,8 +1,8 @@
-//! On real connections (docs/netcode.md §5.12): the server and client sockets
-//! sit behind a [`tt_net::SimLink`], a pass-through until conditions are set.
-//! The game's `simLag(loss, lag)` sets half the lag on both ends. A developer
-//! feature: compiled into debug builds and with the `net-sim` cargo feature;
-//! elsewhere the call only logs.
+//! On real connections: the server and client sockets sit behind a
+//! [`tt_net::SimLink`], a pass-through until conditions are set. The game's
+//! `simLag(loss, lag)` sets half the lag on both ends. A developer feature:
+//! compiled into debug builds and with the `net-sim` cargo feature; elsewhere the
+//! call only logs.
 
 use std::time::Duration;
 

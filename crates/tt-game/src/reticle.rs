@@ -175,8 +175,9 @@ impl World {
         let p0 = Vec3::from(m.translation) - t.pos;
         let ringed = !data.ring_image.is_empty() && p.blast_radius > 0.0;
         let mut centre = None;
+        let frame = ArcFrame { tank: t, projectile: p, data, elapsed, shown };
         for (arc, dir) in dirs.iter().enumerate().take(MAX_PELLETS) {
-            let (s, r) = self.reticle_arc(t, p, data, &mut state.points[arc], &mut state.dirs[arc], *dir, elapsed, shown);
+            let (s, r) = self.reticle_arc(&frame, &mut state.points[arc], &mut state.dirs[arc], *dir);
             if carpet {
                 spots.extend(s.map(|s| ReticleSprite { size: CARPET_MARK * s.size, ..s }));
                 if arc == 0 {
@@ -208,8 +209,8 @@ impl World {
     /// `points` / `dirs` towards this frame's targets and returns the spot
     /// where it first meets something within the first `shown` dots, with
     /// (hit point, surface normal).
-    #[allow(clippy::too_many_arguments)]
-    fn reticle_arc(&self, t: &Tank, p: &ProjectileParams, data: &ReticleParams, points: &mut [Vec3; MAX_TICKS], dirs: &mut [Vec3; MAX_TICKS], dir: Vec3, elapsed: i64, shown: usize) -> (Option<ReticleSprite>, Option<(Vec3, Vec3)>) {
+    fn reticle_arc(&self, frame: &ArcFrame, points: &mut [Vec3; MAX_TICKS], dirs: &mut [Vec3; MAX_TICKS], dir: Vec3) -> (Option<ReticleSprite>, Option<(Vec3, Vec3)>) {
+        let &ArcFrame { tank: t, projectile: p, data, elapsed, shown } = frame;
         let tank = t.id;
         let m = t.muzzle();
         let origin = t.pos;
@@ -263,6 +264,16 @@ impl World {
         }
         (None, None)
     }
+}
+
+/// What every arc of a frame's reticle shares: the tank, its cartridge,
+/// the reticle def, the ms since the last frame and the dots shown.
+struct ArcFrame<'a> {
+    tank: &'a Tank,
+    projectile: &'a ProjectileParams,
+    data: &'a ReticleParams,
+    elapsed: i64,
+    shown: usize,
 }
 
 /// How far from the middle shell's landing point (horizontally) a

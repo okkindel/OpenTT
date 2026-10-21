@@ -154,11 +154,13 @@ impl Pictures {
         let mut dl = crate::dynlights::DynLights::default();
         dl.set_scene(&self.scene, &self.root);
         if self.lights_dynamic {
-            let lights = dl.update(0.0, &[], Some(&self.scene.fx), &self.dynamic, &self.anims, &[], camera.pos, 1.0).to_vec();
+            let sources = crate::dynlights::Sources { fx: Some(&self.scene.fx), glows: &self.dynamic, anims: &self.anims, ..Default::default() };
+            let lights = dl.update(0.0, sources, camera.pos, 1.0).to_vec();
             self.renderer.set_point_lights(&lights);
         }
         let gv = GameView { camera, hfov, dynamic: Vec::new(), ifl: Vec::new(), triggers: self.dynamic.clone(), trigger_anim: self.anims.clone(), sprites: dl.wisp_sprites(), smoke: Vec::new() };
-        crate::gfx::render_game_view(&mut self.renderer, &self.scene, &self.device, &self.queue, &target.view, big, &gv, None, self.time);
+        let t = crate::gfx::Target { device: &self.device, queue: &self.queue, view: &target.view, size: big };
+        crate::gfx::render_game_view(&mut self.renderer, &self.scene, t, &gv, None, self.time);
         let px = crate::gfx::read_rgba(&self.device, &self.queue, &target.texture, big, FORMAT);
         let img = image::RgbaImage::from_raw(big.0, big.1, px).ok_or("bad frame")?;
         let img = if self.ssaa > 1 { downscale(&img, self.ssaa) } else { img };

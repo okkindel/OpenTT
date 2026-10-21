@@ -6,7 +6,7 @@
 use crate::decl::{ScriptField, ScriptValue};
 use tt_assets::data::Field;
 
-/// (the install's class, our class). Classes not listed keep their name.
+/// (the install's class, the engine's class). Classes not listed keep their name.
 pub const CLASSES: &[(&str, &str)] = &[
     ("AudioDescription", "SoundDescDef"),
     ("AudioProfile", "SoundDef"),
@@ -42,7 +42,7 @@ pub const CLASSES: &[(&str, &str)] = &[
     ("Flag", "Flag"),
 ];
 
-/// (our class, the install's field, our field). Fields not listed get the
+/// (the engine's class, the install's field, the engine's field). Fields not listed get the
 /// snake_case form of their name ([`snake_case`]).
 pub const FIELDS: &[(&str, &str, &str)] = &[
     ("SoundDescDef", "type", "channel"),
@@ -491,7 +491,7 @@ pub fn class(name: &str) -> String {
     CLASSES.iter().find(|(o, _)| o.eq_ignore_ascii_case(name)).map_or_else(|| name.to_string(), |(_, n)| n.to_string())
 }
 
-/// Our name of the install's field `name` of our class `class`.
+/// The engine's name of the install's field `name` of the engine's class `class`.
 pub fn field(class: &str, name: &str) -> String {
     FIELDS.iter().find(|(c, o, _)| c.eq_ignore_ascii_case(class) && o.eq_ignore_ascii_case(name)).map_or_else(|| snake_case(name), |(_, _, n)| n.to_string())
 }
@@ -509,7 +509,7 @@ pub fn channel(variable: &str) -> Option<&'static str> {
     })
 }
 
-/// A declaration's class and fields (the install's names) in our names. A field set
+/// A declaration's class and fields (the install's names) in the engine's names. A field set
 /// to a variable must be a sound channel.
 pub fn translate(install_class: &str, fields: &[ScriptField]) -> Result<(String, Vec<Field>), String> {
     let class = class(install_class);

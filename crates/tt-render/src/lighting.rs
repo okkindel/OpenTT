@@ -1,9 +1,12 @@
-//! Terrain: the lightmap is walked in the direction the light travels, every
-//! texel is super-sampled 2×2, and a running "shadow height" carried along the
-//! ray gives the terrain self-shadowing. Direct light is `max(N·L, 0) ·
-//! colour`. Shadows of static shapes then scale the direct light by the
-//! unshadowed fraction of each texel. The finish adds ambient, clamps, applies
-//! a 2×2 box blur and quantises every channel to 5 bits.
+//! Mission lighting at load time: a CPU-baked terrain lightmap and one diffuse
+//! factor per static shape.
+//!
+//! Terrain: the lightmap is walked in the direction the light travels, every texel is
+//! super-sampled 2×2, and a running "shadow height" carried along the ray gives the
+//! terrain self-shadowing. Direct light is `max(N·L, 0) · colour`. Shadows of static
+//! shapes then scale the direct light by the unshadowed fraction of each texel. The
+//! finish adds ambient, clamps, applies a 2×2 box blur and quantises every channel to
+//! 5 bits.
 //!
 //! The terrain shader multiplies the texture by the lightmap.
 

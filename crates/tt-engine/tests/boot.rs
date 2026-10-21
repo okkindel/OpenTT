@@ -235,9 +235,9 @@ fn turret_aim_is_symmetric() {
     });
 }
 
-/// In camera aim the mouse turns a free camera at once and without limits;
-/// the turret is steered to where it looks, and the hull turns when the view
-/// is beyond the turret's range.
+/// In camera aim the mouse turns a free camera at once and without limits; the turret
+/// is steered to where it looks, and the hull turns when the view is beyond the
+/// turret's range.
 #[test]
 fn camera_aim_free_camera_steers_the_turret() {
     tt_assets::require_game_data!();

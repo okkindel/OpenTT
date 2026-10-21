@@ -65,14 +65,14 @@ fn stale_in(assets: &Path, imported: &[PathBuf]) -> bool {
     }
 }
 
-/// Brings our own files in a [`stale`] asset directory to this version
+/// Brings OpenTT's own files in a [`stale`] asset directory to this version
 /// ([`tt_import::refresh_ours`]; the game's files are not needed): the
 /// fallback until it is imported again.
 pub fn refresh_ours(assets: &Path) {
     match tt_import::refresh_ours(assets) {
-        Ok(true) => eprintln!("game data: our own files in {} updated to {}", assets.display(), env!("CARGO_PKG_VERSION")),
+        Ok(true) => eprintln!("game data: the built-in files in {} updated to {}", assets.display(), env!("CARGO_PKG_VERSION")),
         Ok(false) => {}
-        Err(e) => eprintln!("game data: our own files in {} not updated: {e}", assets.display()),
+        Err(e) => eprintln!("game data: the built-in files in {} not updated: {e}", assets.display()),
     }
 }
 
@@ -82,7 +82,7 @@ pub const IMPORTED_KEY: &str = "game_data.imported";
 
 /// Whether the asset directory `assets` holds the game data (the marker
 /// files of [`tt_assets::testdata::MARKERS`]: a mission, the tank
-/// defs, a tank shape; our own files alone are not enough).
+/// defs, a tank shape; OpenTT's own files alone are not enough).
 pub fn present(assets: &Path) -> bool {
     tt_assets::testdata::present_in(assets)
 }

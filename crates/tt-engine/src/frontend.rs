@@ -5,7 +5,7 @@
 //! stage is timed in [`Perf`].
 
 use crate::engine::{Engine, TICK_MS};
-use crate::gfx;
+use crate::gfx::{self, Target};
 use glam::Vec3;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -316,9 +316,8 @@ impl Frontend {
         self.time_override.unwrap_or_else(|| self.start.elapsed().as_secs_f32())
     }
 
-    /// Draws one frame into `view` (`size` pixels). `dt_ms` advances effects.
-    #[allow(clippy::too_many_arguments)]
-    pub fn draw(&mut self, engine: &mut Engine, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, size: (u32, u32), dt_ms: f32) {
+    /// Draws one frame into `target`. `dt_ms` advances effects.
+    pub fn draw(&mut self, engine: &mut Engine, target: Target, dt_ms: f32) {
         self.fps.frame();
         if self.fps_pref_in == 0 {
             self.fps_pref_in = FPS_PREF_FRAMES;
@@ -331,18 +330,18 @@ impl Frontend {
             self.dynamic_lights = if v.is_empty() { tt_shell::prefs::GRAPHICS_DEFAULTS.dynamic_lights } else { v.trim().eq_ignore_ascii_case("true") || tt_game::fmt::atof(&v) != 0.0 };
         }
         self.fps_pref_in -= 1;
-        self.draw_view(engine, device, queue, view, size, dt_ms);
+        self.draw_view(engine, target, dt_ms);
         if self.show_fps && !self.free_fly {
-            self.fps.draw(&mut self.gui, device, queue, view, size, self.hud_scale);
+            self.fps.draw(&mut self.gui, target, self.hud_scale);
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn draw_view(&mut self, engine: &mut Engine, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, size: (u32, u32), dt_ms: f32) {
+    fn draw_view(&mut self, engine: &mut Engine, target: Target, dt_ms: f32) {
+        let Target { device, queue, view, size } = target;
         let t = self.time();
         if self.free_fly {
             match &mut self.renderer {
-                Some(r) => r.render(device, queue, view, size.0, size.1, &self.camera, t),
+                Some(r) => r.render(target, &self.camera, t),
                 None => gfx::clear(device, queue, view),
             }
             return;
@@ -351,7 +350,7 @@ impl Frontend {
         if engine.menu.as_ref().is_some_and(|m| m.covers()) {
             // Shell: the menu is the whole picture.
             gfx::clear(device, queue, view);
-            self.draw_menu(engine, device, queue, view, size);
+            self.draw_menu(engine, target);
             return;
         }
         let tv = Instant::now();
@@ -386,7 +385,8 @@ impl Frontend {
             if self.dynamic_lights {
                 let projectiles = engine.light_projectiles();
                 let lib = self.fx.as_ref().map(|f| f.effects.library());
-                r.set_point_lights(self.dynlights.update(self.sim_dt_ms.min(dt_ms) / 1000.0, &explosions, lib, &gv.triggers, &gv.trigger_anim, &projectiles, gv.camera.pos, self.dynamic_light_strength));
+                let sources = crate::dynlights::Sources { explosions: &explosions, fx: lib, glows: &gv.triggers, anims: &gv.trigger_anim, projectiles: &projectiles };
+                r.set_point_lights(self.dynlights.update(self.sim_dt_ms.min(dt_ms) / 1000.0, sources, gv.camera.pos, self.dynamic_light_strength));
             } else {
                 r.set_point_lights(&[]);
             }
@@ -405,8 +405,8 @@ impl Frontend {
         // Camera aim's mark at the centre of the view.
         let gui = (aim_mark && !self.hide_hud && game_view.is_some()).then(|| crate::gui_gpu::GuiFrame { texts: &[], size, pixel_fills: aim_mark_fills([0, 0, size.0, size.1], size) });
         let tr = Instant::now();
-        let renderer = self.renderer.as_mut().zip(self.scene.as_ref());
-        gfx::draw_game_frame(device, queue, view, size, renderer, game_view.as_mut(), self.fx.as_ref(), gui, &mut self.gui, t, &mut self.perf);
+        let game = self.renderer.as_mut().zip(self.scene.as_ref()).zip(game_view.as_mut()).map(|((r, s), gv)| (r, s, gv));
+        gfx::draw_game_frame(target, game, self.fx.as_ref(), gui, &mut self.gui, t, &mut self.perf);
         self.perf.add("draw (cpu)", tr.elapsed().as_secs_f64() * 1000.0);
         if let Some(v) = hud.as_ref().filter(|_| !self.hide_hud) {
             let th = Instant::now();
@@ -414,7 +414,7 @@ impl Frontend {
             let root = &self.root;
             let wall = self.wall();
             let layer = self.hud.get_or_insert_with(|| crate::menu_gpu::HudLayer::new(device, format, root));
-            layer.draw(device, queue, view, size, v, wall, self.hud_scale);
+            layer.draw(target, v, wall, self.hud_scale);
             self.perf.add("hud draw", th.elapsed().as_secs_f64() * 1000.0);
         }
         if self.first_frame && game_view.is_some() {
@@ -422,12 +422,13 @@ impl Frontend {
             tt_render::loadstats::milestone("first game frame drawn", true);
         }
         if menu_visible {
-            self.draw_menu(engine, device, queue, view, size);
+            self.draw_menu(engine, target);
         }
     }
 
-    /// Runs a menu frame and paints it over `view`.
-    fn draw_menu(&mut self, engine: &mut Engine, device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureView, size: (u32, u32)) {
+    /// Runs a menu frame and paints it over `target`.
+    fn draw_menu(&mut self, engine: &mut Engine, target: Target) {
+        let Target { device, queue, size, .. } = target;
         let t = Instant::now();
         let format = self.format;
         let wall = self.wall();
@@ -437,7 +438,7 @@ impl Frontend {
         raw.time = Some(wall);
         let mut out = layer.run(engine, raw);
         self.menu_output = Some(std::mem::take(&mut out.platform_output));
-        layer.paint(device, queue, view, size, out);
+        layer.paint(target, out);
         let time = wall as f32;
         layer.render_preview(device, queue, engine, time);
         self.perf.add("menu", t.elapsed().as_secs_f64() * 1000.0);

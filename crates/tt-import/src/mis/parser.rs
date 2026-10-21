@@ -1,3 +1,4 @@
+//! Mission file parser producing the statement tree of [`super::ast`].
 
 use crate::mis::ast::*;
 use crate::mis::lexer::{tokenize, Tok, Token};

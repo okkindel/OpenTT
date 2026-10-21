@@ -134,7 +134,7 @@ fn manifest_matches() {
 #[ignore]
 fn write_manifest() {
     let commit = std::process::Command::new("git").args(["rev-parse", "HEAD"]).current_dir(env!("CARGO_MANIFEST_DIR")).output().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
-    let mut s = String::from("# Golden behaviour traces (docs/rust-native-plan.md §4; tests/golden.rs).\n");
+    let mut s = String::from("# Golden behaviour traces (tests/golden.rs).\n");
     s += &format!("# Recorded from build {commit} (tag vm-final-reference: this commit plus the fixtures).\n");
     s += "# scenario seed lines bytes fnv1a64\n";
     for e in scenarios::all() {

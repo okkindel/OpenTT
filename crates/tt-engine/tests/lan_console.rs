@@ -219,9 +219,8 @@ fn console_commands_on_dedicated_server() {
     });
 }
 
-/// `opentt --dedicated` on a free port with its data in `data`, its
-/// stdin piped and its stdout lines on a channel; returns once it
-/// listens.
+/// `opentt --dedicated` on a free port with its data in `data`, its stdin
+/// piped and its stdout lines on a channel; returns once it listens.
 struct Dedicated {
     child: std::process::Child,
     stdin: std::process::ChildStdin,

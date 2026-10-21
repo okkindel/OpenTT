@@ -1,6 +1,6 @@
 # Provenance: Desert Camo (example)
 
-Every file of this mod is our own work, made for this project.
+Every file of this mod is OpenTT's own work, made for this project.
 
 | File | Source |
 |---|---|
@@ -10,10 +10,10 @@ Every file of this mod is our own work, made for this project.
 | `models/tanks/tank02.png` | generated from scratch for this project, as above (`tank02.dts`); uses the tank model's UV layout and geometry, no pixel of the game's textures |
 | `models/tanks/tank03.png` | generated from scratch for this project, as above (`tank03.dts`); uses the tank model's UV layout and geometry, no pixel of the game's textures |
 | `models/tanks/tank04.png` | generated from scratch for this project, as above (`tank04.dts`); uses the tank model's UV layout and geometry, no pixel of the game's textures |
-| `models/tanks/tank01.normal.png` | generated from scratch for this project: the relief of our `tank01.png` paint (panel seams, rivets, chips, scratches) run through the game engine's normal-map generator; no pixel of the game's textures |
-| `models/tanks/tank02.normal.png` | generated from scratch for this project, as above, for our `tank02.png` |
-| `models/tanks/tank03.normal.png` | generated from scratch for this project, as above, for our `tank03.png` |
-| `models/tanks/tank04.normal.png` | generated from scratch for this project, as above, for our `tank04.png` |
+| `models/tanks/tank01.normal.png` | generated from scratch for this project: the relief of the mod's `tank01.png` paint (panel seams, rivets, chips, scratches) run through the game engine's normal-map generator; no pixel of the game's textures |
+| `models/tanks/tank02.normal.png` | generated from scratch for this project, as above, for the mod's `tank02.png` |
+| `models/tanks/tank03.normal.png` | generated from scratch for this project, as above, for the mod's `tank03.png` |
+| `models/tanks/tank04.normal.png` | generated from scratch for this project, as above, for the mod's `tank04.png` |
 
 From the game data, only the file names (they say which textures the mod
 replaces) and the tank models' geometry and UV layout (where each texel

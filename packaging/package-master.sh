@@ -37,10 +37,21 @@ OpenTT master server $VERSION: lists the internet games and introduces
 players to hosts behind NAT. One UDP socket, nothing on disk, no window.
 
     $NAME-master [--port N] [--status SECONDS] [--local-address IP]
+                 [--stats-port N [--stats-user NAME]]
 
     --port N            UDP port (default 28100; open it in the firewall)
     --status SECONDS    print the counters this often (default 60, 0 = never)
     --local-address IP  list game servers on this host (Docker etc.) under IP
+    --stats-port N      serve GET /stats on TCP port N: JSON with the version,
+                        uptime, counters and the listed servers (name, mission,
+                        players, bots, version; asked every 30 s)
+    --stats-user NAME   require HTTP Basic auth as NAME for /stats, with the
+                        password in the environment variable
+                        OPENTT_MASTER_STATS_PASSWORD (required with this option)
+
+Basic auth sends the password readably: to reach /stats over the internet,
+put it behind a TLS reverse proxy (nginx, Caddy) and keep the stats port
+closed in the firewall.
 
 It prints a line (UTC time) when a game server is added to the list or
 dropped from it. Players enter this machine's HOST[:PORT] as the master

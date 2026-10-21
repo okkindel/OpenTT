@@ -1,3 +1,5 @@
+//! Defs used by the simulation, parsed from their field maps.
+//!
 //! Absent fields take the values the engine's def constructors set.
 
 use std::sync::Arc;

@@ -545,7 +545,7 @@ mod tests {
             // After creating a player.
             b.tutorial_prompt = true;
             let mut s = MenuState::at(Screen::PlayerSelect);
-            assert!(crate::screens::finish_player(&mut s, &mut b).is_none());
+            assert!(crate::screens::players::finish_player(&mut s, &mut b).is_none());
             assert_eq!(s.screen(), if available { Screen::TutorialPrompt } else { Screen::MainMenu });
             // The slides themselves.
             let mut s = MenuState::at(Screen::MainMenu);
@@ -687,7 +687,7 @@ mod tests {
         assert!(s.show_players);
         click(&mut s, &mut b, &ctx, egui::pos2(1032.0, 200.0));
         assert!(!s.show_players);
-        click(&mut s, &mut b, &ctx, egui::pos2(725.0, 671.0));
+        click(&mut s, &mut b, &ctx, egui::pos2(655.0, 671.0));
         assert_eq!(s.join_team, Team::Blue);
         assert_eq!(click(&mut s, &mut b, &ctx, join), None, "password prompt");
         assert_eq!(type_text(&ctx, &mut s, &mut b, "pw", true), Some(MenuAction::Join { address: "IP:192.168.1.31:28000".into(), password: "pw".into(), team: Team::Blue }));
@@ -734,7 +734,7 @@ mod tests {
         click(&mut s, &mut b, &ctx, egui::pos2(290.0, 671.0));
         click(&mut s, &mut b, &ctx, egui::pos2(650.0, 671.0));
         match click(&mut s, &mut b, &ctx, join) {
-            Some(MenuAction::Host(h)) => assert_eq!((h.port_mapping, h.public), (true, false)),
+            Some(MenuAction::Host(h)) => assert_eq!((h.port_mapping, h.public), (false, false)),
             other => panic!("{other:?}"),
         }
     }

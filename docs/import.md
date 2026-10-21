@@ -1,8 +1,9 @@
 # The asset importer (`tt-import`)
 
-The game's asset directory (`assets/`, `docs/layout.md`) is mostly the game's
-data in OpenTT's layout and formats. A public copy of OpenTT may hold only
-OpenTT's own files; a player builds the rest from their own ThinkTanks install:
+The game's asset directory (`assets/`, `docs/layout.md`) is mostly the
+game's data in the engine's layout and formats. A public copy of the project may
+hold only OpenTT's own files; a player builds the rest from their own
+ThinkTanks install:
 
 ```sh
 cargo run --release -p tt-engine                 # no game data: the first-run screen imports it
@@ -14,9 +15,17 @@ cargo run --release -p tt-engine                 # finds ./gamedata (or --assets
 The game imports by itself (§ The game's import); `tt-import` is the
 same import as a command, for developers.
 
-It reads no scripts of the install: the game's data tables (`data/`: the defs,
-the solo campaign, the power-ups, the client sounds, the music, the key
-bindings) are the project's own authored files, copied like the other own files.
+`--game` is the installed copy of any edition (on Linux or macOS
+installed with Wine; an already unpacked copy works too), not the
+installer: the install directory (the one holding `game/` and `common/`).
+The importer reads the game's formats directly — `.dts`, `.ter`, `.mis`,
+`.dml`, `.ifl`, `.jpg`/`.png` with their `.alpha` masks, `.wav`/`.ogg` —
+and writes the asset directory the game reads, then adds OpenTT's own files
+(`--ours`, by default the repository's `assets/`).
+It reads no scripts of the install: the game's data tables (`data/`: the
+defs, the solo campaign, the power-ups, the client sounds, the music,
+the key bindings) are the project's own authored files, copied like the
+other own files.
 
 Crate: `crates/tt-import` (library + binary). Data: `mapping.ron` in the
 crate, built into the binary.
@@ -27,9 +36,9 @@ crate, built into the binary.
 |---|---|
 | `--game DIR` | the game install (required) |
 | `--out DIR` | the asset directory to write (required; created, files overwritten) |
-| `--ours DIR` | where our own files are (default: the copies built into the program from the repository's `assets/`, `tt_import::OURS`) |
+| `--ours DIR` | where OpenTT's own files are (default: the copies built into the program from the repository's `assets/`, `tt_import::OURS`) |
 | `--normal-maps` / `--no-normal-maps` | make the `*.normal.png` of the "normal maps" option (default on) |
-| `--ffmpeg PATH` | ffmpeg for OpenTT's sounds made from the game's (default `ffmpeg` on `PATH`; `""`: not used). Without it the built-in mixer makes them (below) |
+| `--ffmpeg PATH` | ffmpeg for the sounds made from the game's (default `ffmpeg` on `PATH`; `""`: not used). Without it the built-in mixer makes them (below) |
 | `-v` | list every file written |
 
 Developer commands:
@@ -41,29 +50,32 @@ Developer commands:
 
 ## OpenTT's own files and the derived ones
 
-`mapping.ron` lists every file of `assets/` (the `SOURCES.md` tables excepted)
-exactly once, either as made from the game install or as OpenTT's own (`ours`).
-A test (`tests/import.rs`) checks both: the mapping is what the `SOURCES.md`
-tables say, and it covers the tree.
+`mapping.ron` lists every file of `assets/` (the `SOURCES.md` tables
+excepted) exactly once, either as made from the game install (`files`:
+asset path, how, from which files of the install) or as OpenTT's own (`ours`). A test (`tests/import.rs`) checks both: the mapping is what the
+`SOURCES.md` tables say, and it covers the tree.
 
 OpenTT's own files (`ours`, 52; copied as they are):
 
 | Files | What |
 |---|---|
 | `data/*.ron` | the game's data tables in the engine's RON schema (`tt_assets::data::defs`, `tt_gameplay::client::binds`): tanks, projectiles, power-ups, explosions, bot drivers, cameras, sound descriptions, the solo campaign, the power-up table, the client sounds, the music, the default key bindings; authored and maintained in this repository |
-| `missions/tt1_5.{ron,ter}`, `tt2_5`, `tt3_5`, `tt4_1`, `tt4_2` | OpenTT's maps (`new_maps` example; `tt4_*` the Moon's) |
+| `missions/tt1_5.{ron,ter}`, `tt2_5`, `tt3_5`, `tt4_1`, `tt4_2` | our maps (`tt4_*` the Moon's), generated |
 | `missions/poweruptest.{ron,ter}` | the Power-up Test arena |
 | `missions/catalog.ron` | the menus' map list (order, worlds, hidden mission files; `docs/modding.md`) |
-| `models/projectiles/mortarrocket.dts`, `mortarrocket.png`, `mortarrockethot.png` | the Mortar's rocket (`mortar_rocket` example) |
+| `models/projectiles/mortarrocket.dts`, `mortarrocket.png`, `mortarrockethot.png` | the Mortar's rocket, generated |
 | `models/projectiles/scatterprojectile.png` | the Scatter shot's pellet (drawn from scratch) |
 | `models/reticles/scatterreticle.png` | the Scatter shot's cone brackets (drawn from scratch) |
 | `sound/voice/voc{Area,Bounce,Health,Mortar,Reload,Scatter,Speedy}.ogg` | the Piper announcer lines |
 | `sound/music/spacefighter.ogg` | the Moon maps' music ("Space Fighter Loop", Kevin MacLeod, CC BY 4.0) |
-| `terrain/moon/*`, `terrain/detail/moon_detail.png`, `sky/moon*` | the Moon's terrain textures and sky (their normal maps are made at import, as every terrain texture's) (`tools/moon-assets/moon_gen.py`) |
+| `terrain/moon/*`, `terrain/detail/moon_detail.png`, `sky/moon*` | the Moon's terrain textures and sky, generated (their normal maps are made at import, as every terrain texture's) |
 | `ui/credits.txt` | the credits |
 
 Also OpenTT's own, outside `assets/`: the fonts (`crates/tt-gui/assets/fonts`, OFL),
 the code, `mapping.ron`, the `SOURCES.md` tables.
+
+`replaced` lists the files of the install we replaced by OpenTT's own (the
+announcer lines): references to them in the game's data name the new file.
 
 Everything else (416 files) is made from the game install.
 
@@ -76,37 +88,48 @@ Everything else (416 files) is made from the game install.
 | `Ifl` | 10 | texture animations: each frame name → the frame's asset file name (`.jpg` → `.png`); everything else kept |
 | `Dml` | 3 | sky lists: the five box textures by their asset names, the two never drawn cloud layers dropped |
 | `Terrain` | 12 | `.ter`: the material names → asset paths (`terrain/green/fterrain01.png`); the heightfield, blend maps and editor scripts kept |
-| `Mission` | 16 | `.mis` → `missions/<id>.ron` |
-| `Recolour` | 3 | OpenTT's Mortar / Scatter shot textures from imported ones (HSV hue set, saturation raised, value scaled; the Mortar reticle's ring thickened by a max filter run at the 128 px reference width, so it keeps its share of the image at any resolution, and made one colour) |
-| `Sound` | 4 | OpenTT's Mortar / Scatter shot sounds from imported ones, with ffmpeg (the filter graphs of `sound/SOURCES.md`; a first pass measures the loudness or peak, the second sets it). Without ffmpeg the built-in mixer (`tt_import::sound`) runs the same graphs: Vorbis decoded with lewton, linear resampling, RBJ biquads for `bass`/`highpass`/`lowpass`, the level by BS.1770 loudness (libebur128's K-weighting) or sample peak; it writes 16-bit mono WAV into the `.ogg` file (the game reads a sound by its content). Same length and level (within about 0.5 dB), not ffmpeg's bytes |
+| `Mission` | 16 | `.mis` → `missions/<id>.ron` (parsed by `tt_import::mis`, converted by `tt_import::convert`, with the engine's class and field names (`tt_import::names`): defs, the object tree, the conditional `Group.add(...)` blocks) |
+| `Recolour` | 3 | the Mortar / Scatter shot textures from imported ones (HSV hue set, saturation raised, value scaled; the Mortar reticle's ring thickened by a max filter run at the 128 px reference width, so it keeps its share of the image at any resolution, and made one colour) |
+| `Sound` | 4 | the Mortar / Scatter shot sounds from imported ones, with ffmpeg (the filter graphs of `sound/SOURCES.md`; a first pass measures the loudness or peak, the second sets it). Without ffmpeg the built-in mixer (`tt_import::sound`) runs the same graphs: Vorbis decoded with lewton, linear resampling, RBJ biquads for `bass`/`highpass`/`lowpass`, the level by BS.1770 loudness (libebur128's K-weighting) or sample peak; it writes 16-bit mono WAV into the `.ogg` file (the game reads a sound by its content). Same length and level (within about 0.5 dB), not ffmpeg's bytes |
 | `NormalMap` | 113 | `tt_assets::normal_map` of the imported texture (512 px; skipped with `--no-normal-maps`) |
+| `Picture` | 21 | the menu pictures: in the game's import, rendered by `tt_engine::mission_picture` from the camera of `missions/SOURCES.md` (1528x528, as the repository's; `Options::pictures`); with `tt-import`, or when rendering fails, the install's picture (`game/client/ui/Missions/<id>.jpg`, 382x132) or, for OpenTT's own maps, a placeholder (the map's terrain, shaded, tinted by its world) |
 
 References inside converted files (`~/data/shapes/tanks/tank01.dts`,
-`./TT1_1.ter`, `game/data/terrains/FTerrain/FTerrain01`, a texture without its
-extension, a sound named `.wav` that is an `.ogg`) become asset paths through
-the mapping (`Importer::reference`). Every file the importer writes has a
-lowercase name (`docs/layout.md` § Naming) whatever the game's case
-(`mapping.ron` maps `game/data/shapes/tanks/Tank01.png` to
-`models/tanks/tank01.png`; `tt-import mapping` refuses a `SOURCES.md` row that
-is not lowercase). Game data imported by an older build has the game's
-mixed-case names; the game still reads it (lookups ignore case), and importing
-again replaces it with the lowercase names.
+`./TT1_1.ter`, `game/data/terrains/FTerrain/FTerrain01`, a texture without
+its extension, a sound named `.wav` that is an `.ogg`) become asset paths
+through the mapping (`Importer::reference`); case is ignored, as the
+game did. Every file the importer writes has a lowercase name
+(`docs/layout.md` § Naming) whatever the case in the install (`mapping.ron`
+maps `game/data/shapes/tanks/Tank01.png` to `models/tanks/tank01.png`;
+`tt-import mapping` refuses a `SOURCES.md` row that is not lowercase).
+Game data imported by an older build has the install's mixed-case names;
+the game still reads it (lookups ignore case), and importing again
+replaces it with the lowercase names.
 
 An import writes only the asset directory: the mods (`mods/` of the user
 data directory, `docs/modding.md`) are never touched.
 
-Order: OpenTT's own files (the data tables among them); the recoloured textures and the sounds;
-the normal maps; the pictures.
+Order: OpenTT's own files (the data tables among them); every file read from the install; the
+recoloured textures and the sounds; the normal maps; the pictures.
 
 ## Upscaling
 
-The repository's textures are 4x Real-ESRGAN upscales (`docs/layout.md` §
-Provenance); they cannot be redistributed or reproduced bit for bit. The game
-draws either resolution (the renderer resamples its texture layers).
+The repository's textures are 4x Real-ESRGAN upscales (`docs/layout.md`
+§ Provenance); they cannot be redistributed or reproduced bit for bit. The
+importer writes the game's resolution (the 145 textures marked
+`upscaled`, and the mission pictures). The game draws either resolution
+(the renderer resamples its texture layers).
 
 ## Verification
 
-It is ignored unless `TT_ORIGINAL_DIR` is set when the tests are built:
+`tests/import.rs::import_reproduces_the_assets` imports a game install into a
+temporary directory and compares it with `assets/` (`tt_import::verify`;
+also `tt-import compare`). It is ignored unless `TT_ORIGINAL_DIR` is set
+when the tests are built:
+
+```sh
+TT_ORIGINAL_DIR=/path/to/ThinkTanks cargo test -p tt-import -- --test-threads=2
+```
 
 Result: no unexpected differences.
 
@@ -115,14 +138,16 @@ Result: no unexpected differences.
 | byte-identical | 129 + 32 | the 32 own files (the 12 data tables among them: copied, so identical by construction), and every converted mission (all 16), `.ter`, `.dts`, `.ifl`, `.dml`, every copied sound |
 | pixel-identical | 3 | the team dots (not upscaled: `.jpg` + mask merged) |
 | ¼ of the repository's size | 145 + 3 | the upscaled textures (and the recoloured ones made from them) |
-| same set, same size | 113 | the normal maps |
+| same set, same size | 113 | the normal maps (made from the textures at the game's resolution, so not the same pixels) |
 | `picture placeholder` (expected) | 6 | OpenTT's own maps' pictures (the game's import renders them) |
+| the install's picture instead of the render | 15 | the game's maps' pictures (`tt-import` does not render): the install's 382x132 picture (¼ of the render's size) |
 | `sound regenerated` (expected) | 4 | the ffmpeg sounds: same length to the sample, loudness within 0.6 dB, not byte-identical (Vorbis encoder) |
 
 The game runs from an imported directory unchanged: `opentt --assets DIR
---headless --play tt1_1 --no-sound --ticks 600` gives the same summary as with
-`assets/`, and the golden traces pass (`TT_ASSETS=DIR cargo test --release -p
-tt-engine --test golden`): the data are identical.
+--headless --play tt1_1 --no-sound --ticks 600` gives the same summary as
+with `assets/`, and the golden traces pass
+(`TT_ASSETS=DIR cargo test --release -p tt-engine --test golden`): the data
+are identical.
 
 ## The game's import
 
@@ -154,7 +179,7 @@ that the files are converted on this computer and stay there.
   cannot use the game: the game uses tt-import.)
 * Without ffmpeg the four sounds come from the built-in mixer (§ How each
   file is made), so the import never needs anything but the install.
-* Our own files are built into the program (`tt_import::OURS`, from the
+* OpenTT's own files are built into the program (`tt_import::OURS`, from the
   repository's `assets/` at build time), the data tables (`data/`) among
   them, so the imported directory is complete.
 * After the import (or a failed one) the screen shows its report: the
@@ -172,21 +197,27 @@ that the files are converted on this computer and stay there.
 * After an update (the imported data's `.ours-version`, written only by
   an import, is another version's: `tt_engine::gamedata::stale`) the game
   opens on that screen and imports again from `game_data.source` (or asks
-  for the folder); until then our own files are refreshed at start
+  for the folder); until then OpenTT's own files are refreshed at start
   (`tt_import::refresh_ours`), and runs without a window say to run `--import DIR`.
 
-`opentt --import DIR [--assets OUT]` runs the same import without a window
-(progress on stderr) and exits.
+`opentt --import DIR [--assets OUT]` runs the same import without a
+window (progress on stderr) and exits.
 
 ## Optional files and other editions
 
-The editions of ThinkTanks differ, so the import is tolerant:
+The editions of ThinkTanks differ (Windows, Shockwave.com, Mac),
+so the import is tolerant:
 
-* **Required** are the files the game cannot run without: models, textures,
-  terrains, skies, missions, sound effects. A missing optional file is skipped
-  and listed in the report (`Report::skipped`, `Report::missing`), as are files
-  made from a skipped one. An image's `.alpha` mask is never required: without
-  it the image is imported opaque, or with the alpha it has itself.
+* **Required** are the files the game cannot run without: models,
+  textures, terrains, skies, missions, sound effects. **Optional**
+  (`tt_import::mapping::OPTIONAL_DIRS`, `Entry::optional`) are the menu and
+  HUD art (`ui/`, among it the tutorial slides `Marquee*`, which the
+  Shockwave.com edition lacks), the music, the menu sounds, the voice line
+  and the install's mission pictures (rendered or replaced by a placeholder
+  when missing). A missing optional file is skipped and listed in the
+  report (`Report::skipped`, `Report::missing`), as are files made from a
+  skipped one. An image's `.alpha` mask is never required: without it the
+  image is imported opaque, or with the alpha it has itself.
 * **Other forms**: a file is found ignoring case, and an image under
   another image extension (`Marquee1.png` with its alpha inside, the Mac
   edition's, for `Marquee1.jpg` + `Marquee1.alpha.jpg`), a sound as
@@ -196,11 +227,13 @@ The editions of ThinkTanks differ, so the import is tolerant:
   no Tutorial button, a new player gets no tutorial prompt and the report
   says "optional, not found: tutorial disabled".
 * **Mission files** are read as the game read them
-  (`tt_import::convert::mission_text`): UTF-16 (LE/BE, with a byte order mark or
-  recognised by its NUL bytes) is decoded, NUL padding removed, and text after
-  the editor's `//--- OBJECT WRITE END ---` line ignored when the whole does not
-  parse. A mission that still cannot be read is left out (the menus list the
-  missions there are) and the import goes on.
+  (`tt_import::convert::mission_text`): UTF-16 (LE/BE, with a byte order
+  mark or recognised by its NUL bytes) is decoded, NUL padding removed,
+  and text after the editor's `//--- OBJECT WRITE END ---` line ignored
+  when the whole does not parse. A mission that still cannot be read is
+  left out (the menus list the missions there are) and the import goes
+  on; the report names a compiled mission file next to it (the import
+  does not read compiled files).
 
 ## Open questions
 

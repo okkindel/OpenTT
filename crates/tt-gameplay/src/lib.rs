@@ -1,11 +1,10 @@
-//! `tt-gameplay`: the ThinkTanks game logic without engine or I/O
-//! (docs/rust-native-plan.md §2): the game server's rules ([`server`],
-//! behind the [`server::host::ServerHost`] the engine implements), the
-//! game data they use ([`data`]), the typed messages between the server
-//! and its clients ([`msg`]) and their wire codec ([`wire`]), the world's
-//! game entities and events ([`entity`]), and the client's state
-//! ([`client`]: the HUD model, the player list, the chat input, key
-//! bindings and the player's move).
+//! `tt-gameplay`: the ThinkTanks game logic without engine or I/O: the game
+//! server's rules ([`server`], behind the [`server::host::ServerHost`] the
+//! engine implements), the game data they use ([`data`]), the typed messages
+//! between the server and its clients ([`msg`]) and their wire codec ([`wire`]),
+//! the world's game entities and events ([`entity`]), and the client's state
+//! ([`client`]: the HUD model, the player list, the chat input, key bindings and
+//! the player's move).
 
 pub mod client;
 pub mod data;

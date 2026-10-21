@@ -574,11 +574,10 @@ impl MoveState {
         self.pitch = SVal::Str("0".into());
     }
 
-    /// The player's move for a tick (TT `getNextMove`): the values read as
-    /// the engine read the variables (their text), yaw/pitch/roll reset.
-    /// `reverse_steering` (, docs/tank-physics.md §3.3): the turn is
-    /// negated while backing up. `trigger[0]` fires on an odd count or a
-    /// change since `last_trigger_count`.
+    /// The player's move for a tick (TT `getNextMove`): the values read as the
+    /// engine read the variables (their text), yaw/pitch/roll reset.
+    /// `reverse_steering`: the turn is negated while backing up. `trigger[0]` fires
+    /// on an odd count or a change since `last_trigger_count`.
     pub fn take_move(&mut self, reverse_steering: bool, last_trigger_count: &mut i32) -> tt_game::Move {
         let g = |v: &SVal| atof(&v.string()) as f32;
         let mut x = g(&self.right) - g(&self.left);

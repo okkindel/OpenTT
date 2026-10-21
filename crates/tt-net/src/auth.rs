@@ -1,4 +1,4 @@
-//! Join passwords in the handshake (docs/netcode.md §6).
+//! Join passwords in the handshake.
 //!
 //! The password never travels, and neither does anything that could be
 //! replayed: the client sends `proof = SipHash(secret, cookie ‖ nonce)` in

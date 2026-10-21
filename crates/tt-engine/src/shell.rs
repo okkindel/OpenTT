@@ -1,3 +1,6 @@
+//! The native shell of the menus: crate `tt-shell` (players, high scores,
+//! settings, the solo campaign, the map catalog).
+//!
 //! * **Saves** are RON files in the data directory (plan D3,
 //!   [`tt_shell::save`]): `players.ron`, `hiscores.ron`, `progress.ron`,
 //!   `settings.ron` (the key bindings, `binds.ron`, are
@@ -473,8 +476,8 @@ pub fn quick_play(h: &mut EngineHost, mission: &str) {
     launch_local(h, mission);
 }
 
-/// A local game on `mission` (`docs/new-menu.md` §4): a single-player
-/// server and the local connection with the player's name, team and tank.
+/// A local game on `mission`: a single-player server and the local connection
+/// with the player's name, team and tank.
 pub fn launch_local(h: &mut EngineHost, mission: &str) {
     let s = setup(h);
     s.target_range = Some(false);

@@ -175,7 +175,7 @@ pub fn convert_mission_text(text: &str, dir: &str, paths: Paths) -> Result<(Miss
 }
 
 fn mission_header(file: &str, functions: &[String]) -> String {
-    let mut h = format!("Mission {file}, converted by `tt-convert missions`; values are the .mis text.\nSee tt_assets::data::mission.");
+    let mut h = format!("Mission {file}, converted by `tt-import`; values are the .mis text.\nSee tt_assets::data::mission.");
     if !functions.is_empty() {
         h.push_str(&format!("\nNot converted (the game implements them natively): {}.", functions.join(", ")));
     }

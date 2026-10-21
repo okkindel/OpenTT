@@ -1,6 +1,6 @@
 # Provenance: Carpet Bombing (example)
 
-Every file of this mod is our own work, made for this project.
+Every file of this mod is OpenTT's own work, made for this project.
 
 | File | Source |
 |---|---|

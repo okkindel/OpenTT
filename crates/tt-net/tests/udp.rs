@@ -112,8 +112,7 @@ fn child_echo_server() {
     }
 }
 
-/// docs/netcode.md stage 1 acceptance: two processes exchange reliable
-/// messages over loopback UDP.
+/// Two processes exchange reliable messages over loopback UDP.
 #[test]
 fn loopback_two_processes() {
     let bin = std::env::current_exe().unwrap();

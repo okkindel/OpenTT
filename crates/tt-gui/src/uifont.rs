@@ -12,11 +12,11 @@ use image::{Rgba, RgbaImage};
 
 use crate::geom::{Color, Rect};
 
-/// Chakra Petch (SIL OFL 1.1, `assets/fonts/chakra-petch/OFL.txt`).
+/// Chakra Petch (SIL OFL 1.1, `crates/tt-gui/assets/fonts/chakra-petch/OFL.txt`).
 pub const REGULAR_TTF: &[u8] = include_bytes!("../assets/fonts/chakra-petch/ChakraPetch-Medium.ttf");
 pub const BOLD_TTF: &[u8] = include_bytes!("../assets/fonts/chakra-petch/ChakraPetch-Bold.ttf");
-/// Russo One (SIL OFL 1.1, `assets/fonts/russo-one/OFL.txt`): the display
-/// face of the menus (headings, tab and button labels).
+/// Russo One (SIL OFL 1.1, `crates/tt-gui/assets/fonts/russo-one/OFL.txt`):
+/// the display face of the menus (headings, tab and button labels).
 pub const HEADING_TTF: &[u8] = include_bytes!("../assets/fonts/russo-one/RussoOne-Regular.ttf");
 
 /// One weight of the UI font.

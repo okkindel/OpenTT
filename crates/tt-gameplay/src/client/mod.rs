@@ -1,5 +1,5 @@
-//! The engine feeds it the server's messages and the player's input and
-//! reads it to draw the HUD.
+//! The engine feeds it the server's messages and the player's input and reads it to
+//! draw the HUD.
 //!
 //! Times are the simulation clock in ms (`now`), as the scripts' `schedule`
 //! used it; [`ClientState::advance`] runs the timers due by then (in due

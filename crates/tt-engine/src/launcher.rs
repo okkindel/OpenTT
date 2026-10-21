@@ -202,7 +202,7 @@ impl Launcher {
                     });
                 }
                 g.queue.submit([enc.finish()]);
-                g.layer.paint(&g.device, &g.queue, &view, size, out);
+                g.layer.paint(crate::gfx::Target { device: &g.device, queue: &g.queue, view: &view, size }, out);
                 frame.present();
             }
             Err(_) => g.surface.configure(&g.device, &g.config),

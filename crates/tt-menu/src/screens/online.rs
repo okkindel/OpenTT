@@ -3,7 +3,9 @@
 
 use egui::{Align2, Color32, Key, Pos2, Rect, Stroke, StrokeKind, Vec2};
 
-use super::{bot_table, edit_text, frame, pal, pressed, Gfx, Typed};
+use super::selectors::{bot_table, health_packs_selector, map_table, team_selector, BotPool};
+use super::steel::Button;
+use super::{edit_text, frame, pal, pressed, Gfx, Typed};
 use crate::backend::*;
 use crate::{Field, MastersEdit, MenuAction, MenuState, OnlineTab};
 
@@ -104,7 +106,7 @@ fn default_host(b: &dyn MenuBackend) -> HostGame {
         max_players: 16,
         password: String::new(),
         port: 28000,
-        port_mapping: false,
+        port_mapping: true,
         public: true,
     }
 }
@@ -467,10 +469,10 @@ fn join(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, inner: Rect) -
     let find_r = Rect::from_min_size(Pos2::new(fr.right() + 10.0, ay + 1.0), Vec2::new(96.0, addr_h - 2.0));
     let go_r = Rect::from_min_size(Pos2::new(find_r.right() + 8.0, ay + 1.0), Vec2::new(96.0, addr_h - 2.0));
     let has_addr = !st.address.trim().is_empty();
-    if g.plate_button("find", find_r, "Find", false, false, has_addr, 20.0).clicked() && has_addr {
+    if g.plate_button("find", find_r, "Find", Button::enabled(has_addr), 20.0).clicked() && has_addr {
         b.query_address(st.address.trim());
     }
-    let go = g.plate_button("join-addr", go_r, "Join", false, false, has_addr, 20.0).clicked() || (typed_enter && focused);
+    let go = g.plate_button("join-addr", go_r, "Join", Button::enabled(has_addr), 20.0).clicked() || (typed_enter && focused);
     if go && has_addr {
         st.field = None;
         out = Some(MenuAction::Join { address: st.address.trim().to_string(), password: String::new(), team: st.join_team });
@@ -537,9 +539,13 @@ fn join(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, inner: Rect) -
     ctx.data_mut(|d| d.insert_temp(key, used));
     // Team choice for a team game (sent in the connect args).
     if selected.as_ref().is_some_and(|s| s.team_game()) {
-        let r = g.action(460.0, 330.0);
+        // The Internet/LAN switch's size; with its label centred between Back and Refresh.
+        let (back, refresh) = (g.action_left(0.0, 200.0), g.action(240.0, 200.0));
+        let (w, label_w) = (300.0, g.text_width("Team", 22.0) + 12.0);
+        let left = (back.right() + refresh.left() - label_w - w) / 2.0 + label_w;
+        let r = Rect::from_min_size(Pos2::new(left, back.center().y - TOP_ROW / 2.0), Vec2::new(w, TOP_ROW));
         g.text(Pos2::new(r.left() - 12.0, r.center().y), "Team", 22.0, pal::SAND_MUTED, Align2::RIGHT_CENTER);
-        super::team_selector(g, "jteam", r, &mut st.join_team);
+        team_selector(g, "jteam", r, &mut st.join_team);
     }
     // Actions.
     let back = g.button("back", g.action_left(0.0, 200.0), "Back", false, false, true).clicked();
@@ -586,7 +592,8 @@ fn server_info(g: &mut Gfx, s: &ServerEntry, area: Rect) -> f32 {
     line(g, "Host", if s.dedicated { "Dedicated server" } else { "Hosted by a player" }, pal::SAND);
     line(g, "Password", if s.password { "Needed" } else { "None" }, if s.password { pal::RUST } else { pal::SAND });
     let (v, c) = match (s.compatible, s.version.as_str()) {
-        (true, _) => ("Same as yours".to_string(), pal::SAND),
+        (true, "") => ("Same as yours".to_string(), pal::SAND),
+        (true, v) => (v.to_string(), pal::SAND),
         (false, "") => ("Other game version: cannot join".to_string(), pal::RED),
         (false, v) => (format!("{v}: cannot join"), pal::RED),
     };
@@ -622,7 +629,7 @@ fn host(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, inner: Rect) -
     let note_h = 64.0;
     // Maps.
     g.caption(Pos2::new(inner.left(), cap_y), "Map");
-    if let Some(i) = super::map_table(g, "hmaps", Rect::from_min_max(Pos2::new(inner.left(), top), Pos2::new(inner.left() + map_w, bottom - note_h - 8.0)), &missions, &hg.game.mission) {
+    if let Some(i) = map_table(g, "hmaps", Rect::from_min_max(Pos2::new(inner.left(), top), Pos2::new(inner.left() + map_w, bottom - note_h - 8.0)), &missions, &hg.game.mission) {
         hg.game.mission = missions[i].file.clone();
     }
     // Server options (rows on the panel's steel).
@@ -677,17 +684,17 @@ fn host(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, inner: Rect) -
         hg.game.player_tank = i as usize;
     }
     label(g, 7, "Health");
-    super::health_packs_selector(g, b, "hhealth", row(7));
+    health_packs_selector(g, b, "hhealth", row(7));
     if teams {
         label(g, 8, "Team");
-        super::team_selector(g, "hteam", row(8), &mut hg.game.player_team);
+        team_selector(g, "hteam", row(8), &mut hg.game.player_team);
     }
     if st.field.is_some() && ctx.input(|i| i.pointer.any_click()) && !ctx.pointer_interact_pos().is_some_and(|p| name_r.contains(p) || pw_r.contains(p)) {
         st.field = None;
     }
     // Bots.
     let bots = Rect::from_min_max(Pos2::new(inner.right() - bots_w, top), Pos2::new(inner.right(), bottom));
-    bot_table(g, &mut hg.game, teams, &bot_tanks, &names, max_bots, true, bots);
+    bot_table(g, &mut hg.game, BotPool { tanks: &bot_tanks, names: &names, max: max_bots }, teams, true, bots);
     g.paragraph(Rect::from_min_max(Pos2::new(inner.left(), bottom - note_h), Pos2::new(inner.left() + map_w, bottom)), "Friends join with your address and this port; over the internet, forward the UDP port to this computer (or let the router do it).", 18.0, pal::SAND_MUTED);
     // Internet options: the router port mapping and the master server listing.
     // (In the action row, between Back and Host.)

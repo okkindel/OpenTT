@@ -1,12 +1,11 @@
 //! OpenTT's new maps (tt1_5 "The Neverending Stream", tt2_5 "Night of the Living Brains",
-//! tt3_5 "The Dark Cortex", the Moon's tt4_1 "Lunar Lobe" and tt4_2 "Cortex Craters";
-//! crates/tt-assets/examples/new_maps/): each loads through the menu's custom game path in all
-//! four modes with the player spawned on the plateau and every power-up and pad present;
-//! scripted drives check the landmarks (the stream's fords and its leaps, the jump pads up
-//! onto the island, the witch's gully and the stone circle, the island fords and the ramp
-//! jumps over the lava gorge), that every pad kicks and that a tank drives straight through
-//! every reload arch, which stands on a level lane. `NEW_MAPS_SHOTS=DIR` saves in-game
-//! screenshots of the landmarks there.
+//! tt3_5 "The Dark Cortex", the Moon's tt4_1 "Lunar Lobe" and tt4_2 "Cortex Craters"): each loads through the menu's custom game path in all four modes
+//! with the player spawned on the plateau and every power-up and pad present; scripted drives
+//! check the landmarks (the stream's fords and its leaps, the jump pads up onto the island,
+//! the witch's gully and the stone circle, the island fords and the ramp jumps over the lava
+//! gorge), that every pad kicks and that a tank drives straight through every reload arch,
+//! which stands on a level lane. `NEW_MAPS_SHOTS=DIR` saves in-game screenshots of the
+//! landmarks there.
 
 use glam::Vec3;
 use std::path::Path;
@@ -287,7 +286,7 @@ fn dump(path: &[Vec3]) {
     }
 }
 
-/// The stream's line of tt1_5 (crates/tt-assets/examples/new_maps/river.rs `line_y`).
+/// The stream's line of tt1_5.
 fn stream_y(x: f32) -> f32 {
     24.0 * (x / 36.0).sin() + 8.0 * (x / 15.0).sin()
 }
@@ -372,7 +371,7 @@ fn neverending_stream_leaps_every_tank() {
     });
 }
 
-/// The witch's gullies' centre radius on tt2_5 (crates/tt-assets/examples/new_maps/halloween.rs `GULLY_R`; east and west of the hill).
+/// The witch's gullies' centre radius on tt2_5.
 const GULLY_R: f32 = 98.0;
 
 #[test]
@@ -422,7 +421,7 @@ fn night_of_the_living_brains_jumps_every_tank() {
     });
 }
 
-/// The gorge of tt3_5's south arm (crates/tt-assets/examples/new_maps/dark_cortex.rs `GORGE`) and its jump lanes (x from it).
+/// The gorge of tt3_5's south arm and its jump lanes (x from it).
 const R_GORGE: (f32, f32) = (-48.0, -96.0);
 const R_JUMPS: [f32; 2] = [-10.0, 10.0];
 

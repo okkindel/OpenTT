@@ -16,7 +16,7 @@ pub mod sky;
 pub mod sprites;
 pub mod textures;
 
-pub use render::{vertical_fov, Camera, DynamicInstance, InstanceOptions, PointLight, RenderSettings, Renderer, View, MAX_POINT_LIGHTS};
+pub use render::{vertical_fov, Camera, DynamicInstance, InstanceOptions, PointLight, RenderSettings, Renderer, Target, View, MAX_POINT_LIGHTS};
 pub use post::Extras;
 pub use sprites::{Sprite, SpriteBlend, SpriteOrient};
 pub use scene::Scene;

@@ -1,5 +1,4 @@
-//! Server endpoint: stateless cookie handshake, connection table, LAN info
-//! replies (docs/netcode.md §5.3, §5.6, §6).
+//! Server endpoint: stateless cookie handshake, connection table, LAN info replies.
 //!
 //! ```text
 //! C→S ConnectRequest{magic, protocol, build, nonce}        padded to 256 B
@@ -562,7 +561,7 @@ impl<T: Datagram> Server<T> {
                 self.send_raw(&Packet::Challenge { nonce, cookie }, from);
             }
             Packet::ChallengeResponse { protocol, build, nonce, cookie, proof, payload } => {
-                self.on_challenge_response(protocol, build, nonce, cookie, proof, payload, from, now)
+                self.on_challenge_response(protocol, build, crate::auth::Handshake { cookie, nonce, proof }, payload, from, now)
             }
             Packet::Data { header, body } => {
                 let Some(id) = self.conn_for(from, header.session) else { return };
@@ -632,18 +631,8 @@ impl<T: Datagram> Server<T> {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn on_challenge_response(
-        &mut self,
-        protocol: u16,
-        build: u64,
-        nonce: u64,
-        cookie: u64,
-        proof: u64,
-        payload: Vec<u8>,
-        from: SocketAddr,
-        now: Duration,
-    ) {
+    fn on_challenge_response(&mut self, protocol: u16, build: u64, handshake: crate::auth::Handshake, payload: Vec<u8>, from: SocketAddr, now: Duration) {
+        let crate::auth::Handshake { nonce, cookie, .. } = handshake;
         if !self.cookie_valid(from, nonce, cookie, now) {
             self.stats.bad_cookie += 1;
             return;
@@ -682,7 +671,6 @@ impl<T: Datagram> Server<T> {
         self.next_pending += 1;
         self.pending.insert(id, Pending { addr: from, nonce, cookie, created: now });
         self.used_cookies.insert(cookie, (now + COOKIE_BUCKET * 3, CookieUse::Pending));
-        let handshake = crate::auth::Handshake { cookie, nonce, proof };
         self.events.push_back(ServerEvent::ConnectRequest { pending: PendingId(id), addr: from, payload, handshake });
     }
 }

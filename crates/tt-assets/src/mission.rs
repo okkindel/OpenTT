@@ -33,7 +33,7 @@ impl SceneObject {
     }
 }
 
-/// Merges the fields of `block`'s parent def (`def X(B: P)`), looked up
+/// Merges the fields of `block`'s parent def (`def X(B : P)`), looked up
 /// by name in `known`, under its own.
 pub fn inherit(block: &mut SceneObject, known: &[SceneObject]) {
     let Some(p) = block.parent.clone() else { return };

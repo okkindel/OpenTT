@@ -299,7 +299,7 @@ impl App {
                     let keyboard = st.take_egui_input(&g.window);
                     g.fe.menu_input = Some(crate::menu::window_raw_input(Some(keyboard), &mut g.pointer, size, 0.0));
                 }
-                g.fe.draw(&mut self.engine, &g.device, &g.queue, &view, size, dt_ms);
+                g.fe.draw(&mut self.engine, crate::gfx::Target { device: &g.device, queue: &g.queue, view: &view, size }, dt_ms);
                 if self.engine.host.screenshot_request.is_some() {
                     capture_frame(&mut self.engine, g, &frame.texture, size);
                 }
@@ -616,7 +616,7 @@ fn capture_frame(engine: &mut Engine, g: &mut Gfx, frame: &wgpu::Texture, size: 
     } else {
         let texture = crate::gfx::render_target(&g.device, "screenshot", size, g.config.format);
         let view = texture.create_view(&Default::default());
-        g.fe.draw(engine, &g.device, &g.queue, &view, size, 0.0);
+        g.fe.draw(engine, crate::gfx::Target { device: &g.device, queue: &g.queue, view: &view, size }, 0.0);
         crate::gfx::read_rgba(&g.device, &g.queue, &texture, size, g.config.format)
     };
     engine.save_screenshot(&pixels, size);

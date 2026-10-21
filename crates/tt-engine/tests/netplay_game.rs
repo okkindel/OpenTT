@@ -1,8 +1,8 @@
-//! Network play, stages 3–4 (docs/netcode.md): a dedicated server with two
-//! remote clients over `MemNet` (LAN and DSL profiles). Each client sees the
-//! other tank move and shoot; tank poses, corpses, power-ups and the scrum
-//! ball agree with the server's history at the client's render time; scores
-//! agree; bandwidth per client is measured with 2 and 8 tanks.
+//! Network play, stages 3–4: a dedicated server with two remote clients over `MemNet`
+//! (LAN and DSL profiles). Each client sees the other tank move and shoot; tank
+//! poses, corpses, power-ups and the scrum ball agree with the server's history at
+//! the client's render time; scores agree; bandwidth per client is measured with 2
+//! and 8 tanks.
 
 use std::collections::HashMap;
 use std::path::Path;

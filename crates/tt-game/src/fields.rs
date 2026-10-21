@@ -1,3 +1,5 @@
+//! Field string conversions and the def registry.
+//!
 //! The engine converts them with the C runtime (`atof`, `atoi`, `dAtob`);
 //! the helpers here reproduce those conversions, including the leniency
 //! (leading numeric prefix, 0 for garbage).

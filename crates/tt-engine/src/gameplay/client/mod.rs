@@ -1,3 +1,5 @@
+//! The client of the game, native.
+//!
 //! Its state is [`tt_gameplay::ClientState`] (`EngineHost::client`: the HUD
 //! model, the player list, the chat input, the player's move) and
 //! [`ClientGlue`] (`EngineHost::cl`: the connection flow and the client's

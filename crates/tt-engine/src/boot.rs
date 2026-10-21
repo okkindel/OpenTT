@@ -1,3 +1,5 @@
+//! The boot sequence: the start-up of the game, the client and the server.
+//!
 //! 1. The command line.
 //! 2. The defaults, then the saved settings and the command-line overrides.
 //! 3. `initCommon` (the RNG seed), `initServer`, then `initDedicated` or
@@ -171,6 +173,11 @@ pub fn run(h: &mut EngineHost, args: &[String]) -> bool {
         crate::shell::set_pref_val(&mut h.shell.prefs, name, crate::shell::literal(v));
     }
     crate::shell::load_settings(h);
+    // The default master servers (once each; see tt_shell's add_default_masters);
+    // not on an in-memory network (tests), which has no internet.
+    if h.netgame.factory.is_none() {
+        h.shell.prefs.add_default_masters();
+    }
     let res = h.shell.prefs.get("video.shell_resolution");
     crate::shell::set_pref_val(&mut h.shell.prefs, "video.resolution", Val::s(res));
     // parseArgs.

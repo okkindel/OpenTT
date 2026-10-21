@@ -1,10 +1,11 @@
 //! The import: the asset directory built from a game install
-//! ([`Options::game`]), the mapping ([`crate::mapping`]) and OpenTT's own
-//! files ([`Options::ours`], among them the game's data tables `data/`).
+//! ([`Options::game`]), the mapping ([`crate::mapping`]) and OpenTT's
+//! own files ([`Options::ours`], among them the game's data tables
+//! `data/`).
 //!
-//! Order: OpenTT's own files are copied; then the files made from imported
-//! ones (OpenTT's recoloured textures, its sounds, the normal maps) and the
-//! mission pictures.
+//! Order: OpenTT's own files are copied; then the files made from
+//! imported ones (OpenTT's recoloured textures, its sounds, the normal
+//! maps) and the mission pictures.
 
 use crate::convert;
 use crate::images;
@@ -101,7 +102,7 @@ pub const CANCELLED: &str = "import cancelled";
 /// program whose own files it has ([`refresh_ours`]).
 pub const OURS_VERSION: &str = ".ours-version";
 
-/// Rewrites our own built-in files ([`crate::OURS`]) in the imported asset
+/// Rewrites OpenTT's own built-in files ([`crate::OURS`]) in the imported asset
 /// directory `out` when they are another version's (the game was updated
 /// since the import); returns whether it did.
 pub fn refresh_ours(out: &Path) -> Result<bool, String> {
@@ -132,15 +133,15 @@ pub struct Options {
     pub game: PathBuf,
     /// The asset directory to write (created; files there are overwritten).
     pub out: PathBuf,
-    /// The directory holding our own files (the repository's `assets/`);
+    /// The directory holding OpenTT's own files (the repository's `assets/`);
     /// `None`: the copies built into this program ([`crate::OURS`]).
     pub ours: Option<PathBuf>,
     /// Generate the normal maps (`*.normal.png`).
     pub normal_maps: bool,
     /// Renders the mission pictures; `None`: the pictures of the install
-    /// are converted and our own maps get a placeholder.
+    /// are converted and OpenTT's own maps get a placeholder.
     pub pictures: Option<PictureFn>,
-    /// ffmpeg for our sounds made from the game's (`ffmpeg`; empty: do not
+    /// ffmpeg for the sounds made from the game's (`ffmpeg`; empty: do not
     /// run it). Without it the built-in mixer makes them ([`crate::sound`]).
     pub ffmpeg: String,
     /// Print each file written.
@@ -438,7 +439,7 @@ impl<'a> Importer<'a> {
     }
 
     fn picture(&mut self, asset: &str, mission: &str, game_file: Option<&str>) -> Result<(), String> {
-        // The install's picture, when it has it; else as for our own maps.
+        // The install's picture, when it has it; else as for OpenTT's own maps.
         let found = game_file.and_then(|o| {
             let p = crate::locate::game_file(&self.opts.game, o);
             if p.is_none() {
@@ -535,18 +536,18 @@ impl<'a> Importer<'a> {
         }
     }
 
-    /// Copies our own files.
+    /// Copies OpenTT's own files.
     fn ours(&mut self) -> Result<(), String> {
         for asset in &self.mapping.ours {
             self.step(Phase::Bundled, asset)?;
             let b = match &self.opts.ours {
                 Some(dir) => {
                     let src = dir.join(asset);
-                    std::fs::read(&src).map_err(|e| format!("{} (our own file): {e}", src.display()))?
+                    std::fs::read(&src).map_err(|e| format!("{} (built-in file): {e}", src.display()))?
                 }
                 None => match crate::OURS.iter().find(|(a, _)| a == asset) {
                     Some((_, Some(b))) => b.to_vec(),
-                    _ => return Err(format!("{asset} (our own file) is not built into this program; pass the directory that has it (--ours)")),
+                    _ => return Err(format!("{asset} (built-in file) is not built into this program; pass the directory that has it (--ours)")),
                 },
             };
             self.write(asset, &b)?;

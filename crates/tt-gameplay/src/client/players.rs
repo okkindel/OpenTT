@@ -1,6 +1,6 @@
 //! The player list: the players' and teams' rows as the lists held them,
-//! plus OpenTT's K/D/A and ping columns, and the copy the end-of-round
-//! screen shows.
+//! plus OpenTT's K/D/A and ping columns, and the copy the
+//! end-of-round screen shows.
 //!
 //! A row keeps the list control's tab-separated fields (icon path, name,
 //! score[, K, D, A][, ping], cumScore) so updates, padding and sorting

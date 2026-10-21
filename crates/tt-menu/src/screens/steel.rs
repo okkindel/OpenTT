@@ -165,6 +165,27 @@ pub(crate) enum Plate {
     Brass,
 }
 
+/// How a plate button shows: `primary` is the brass one; `focused` (the
+/// keyboard focus) lights it like the pointer and edges it in brass.
+#[derive(Clone, Copy)]
+pub(crate) struct Button {
+    pub(crate) primary: bool,
+    pub(crate) focused: bool,
+    pub(crate) enabled: bool,
+}
+
+impl Button {
+    /// An enabled steel button.
+    pub(crate) const PLAIN: Button = Button { primary: false, focused: false, enabled: true };
+    /// The enabled brass button.
+    pub(crate) const PRIMARY: Button = Button { primary: true, ..Button::PLAIN };
+
+    /// [`Button::PLAIN`], enabled only when `enabled`.
+    pub(crate) fn enabled(enabled: bool) -> Button {
+        Button { enabled, ..Button::PLAIN }
+    }
+}
+
 impl Plate {
     fn metal(self, hot: bool) -> Metal {
         let lift = if hot { 0.07 } else { 0.0 };
@@ -483,11 +504,10 @@ impl Gfx<'_> {
         self.painter.layout_no_wrap(text.into(), crate::theme::display_font(size), Color32::WHITE).size().x
     }
 
-    /// A plate button (`primary`: the brass one) with a display-face
-    /// label; rivets when it is big enough to carry them. `focused` (the
-    /// keyboard focus) lights it like the pointer and edges it in brass.
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn plate_button(&mut self, id: impl std::hash::Hash, rect: Rect, label: &str, primary: bool, focused: bool, enabled: bool, size: f32) -> egui::Response {
+    /// A plate button ([`Button`]) with a display-face label `size` high;
+    /// rivets when it is big enough to carry them.
+    pub(crate) fn plate_button(&mut self, id: impl std::hash::Hash, rect: Rect, label: &str, state: Button, size: f32) -> egui::Response {
+        let Button { primary, focused, enabled } = state;
         let resp = self.interact_button(rect, id, enabled);
         let hot = enabled && (resp.hovered() || focused);
         let down = enabled && resp.is_pointer_button_down_on();

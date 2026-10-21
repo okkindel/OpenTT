@@ -83,7 +83,7 @@ pub struct LodGroup {
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct InstanceData {
     pub model: [[f32; 4]; 4],
-    /// x: diffuse scale `k` of the sun (engine-notes §1.4); yzw unused.
+    /// x: diffuse scale `k` of the sun; yzw unused.
     pub light: [f32; 4],
     /// x: first per-object pose matrix of this instance in the pose buffer,
     /// [`NO_POSE`] for the default pose; yzw unused.

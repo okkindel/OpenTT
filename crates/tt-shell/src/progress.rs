@@ -1,3 +1,4 @@
+//! Solo campaign progress for the level select.
 
 use crate::hiscores::HiScore;
 use crate::vars::{VarFile, VarValue};

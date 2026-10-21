@@ -1,3 +1,4 @@
+//! Typed accessors for the network prefs the Online menu edits.
 
 use crate::prefs::Prefs;
 use crate::vars::atof;
@@ -32,7 +33,7 @@ impl Prefs {
         self.set("server.port", &v.to_string());
     }
 
-    /// OpenTT's default is 16, netcode §1.
+    /// The most players a hosted server takes (OpenTT's default is 16).
     pub fn server_max_players(&self) -> u32 {
         self.num_pref("server.max_players", 16.0).clamp(1.0, 64.0) as u32
     }
@@ -94,10 +95,45 @@ impl Prefs {
         self.set("net.master_server", v.trim());
     }
 
+    /// Adds each of [`tt_net::master::DEFAULT_MASTER_SERVERS`] not offered
+    /// before to the master list (run after the settings are loaded): a new
+    /// install gets them all, an existing one the defaults added since; a
+    /// default the user removed stays removed.
+    pub fn add_default_masters(&mut self) {
+        self.offer_masters(tt_net::master::DEFAULT_MASTER_SERVERS);
+    }
+
+    /// [`Self::add_default_masters`] of `defaults`; `net.default_masters_added`
+    /// lists those offered already. Entries compare case-insensitively, the
+    /// default port implied.
+    fn offer_masters(&mut self, defaults: &[&str]) {
+        let key = |s: &str| {
+            let s = s.trim().to_ascii_lowercase();
+            let s = s.strip_prefix("ip:").unwrap_or(&s);
+            s.strip_suffix(&format!(":{}", tt_net::master::DEFAULT_MASTER_PORT)).unwrap_or(s).to_string()
+        };
+        let mut offered = self.get("net.default_masters_added");
+        let mut list = self.master_server();
+        let before = offered.clone();
+        for d in defaults {
+            if offered.split(',').any(|o| key(o) == key(d)) {
+                continue;
+            }
+            if !list.split(',').any(|e| key(e) == key(d)) {
+                list = if list.is_empty() { d.to_string() } else { format!("{list}, {d}") };
+            }
+            offered = if offered.is_empty() { d.to_string() } else { format!("{offered}, {d}") };
+        }
+        if offered != before {
+            self.set_master_server(&list);
+            self.set("net.default_masters_added", &offered);
+        }
+    }
+
     /// Ask the router to forward the server port (UPnP / NAT-PMP) while
     /// hosting. Default off.
     pub fn port_mapping(&self) -> bool {
-        self.num_pref("net.port_mapping", 0.0) != 0.0
+        self.num_pref("net.port_mapping", 1.0) != 0.0
     }
 
     pub fn set_port_mapping(&mut self, on: bool) {
@@ -161,6 +197,48 @@ mod tests {
         assert_eq!(r.len(), RECENT_SERVERS);
         assert_eq!(r[0], "10.0.0.5");
         assert_eq!(r[1], "10.0.0.9");
+    }
+
+    /// Each default master is offered once per install: added to the list
+    /// (new, empty or custom), never twice, not again after a removal; a
+    /// later default reaches existing installs alone.
+    #[test]
+    fn default_masters_are_offered_once() {
+        let saved = |p: &Prefs| Prefs::with_settings(&crate::Settings::from_ron(&p.settings().to_ron()).unwrap());
+        let mut p = Prefs::defaults();
+        p.add_default_masters();
+        assert_eq!(p.master_server(), tt_net::master::DEFAULT_MASTER_SERVERS.join(", "), "a new install");
+        assert_eq!(p.get("net.default_masters_added"), p.master_server());
+
+        let mut p = Prefs::defaults();
+        p.set_master_server("");
+        p.offer_masters(&["a"]);
+        assert_eq!(p.master_server(), "a", "an empty list");
+
+        let mut p = Prefs::defaults();
+        p.set_master_server("my.master:9");
+        p.offer_masters(&["a"]);
+        assert_eq!(p.master_server(), "my.master:9, a", "a custom list");
+        // Removed after the migration: stays removed, also across a save.
+        p.set_master_server("my.master:9");
+        let mut q = saved(&p);
+        q.offer_masters(&["a"]);
+        assert_eq!(q.master_server(), "my.master:9");
+        assert_eq!(q.get("net.default_masters_added"), "a");
+
+        let mut p = Prefs::defaults();
+        p.set_master_server("IP:A:28100, b");
+        p.offer_masters(&["a"]);
+        assert_eq!(p.master_server(), "IP:A:28100, b", "already listed");
+
+        // Migrated with ["a"], "a" removed, a later version adds "b": only "b".
+        let mut p = Prefs::defaults();
+        p.offer_masters(&["a"]);
+        p.set_master_server("");
+        let mut q = saved(&p);
+        q.offer_masters(&["a", "b"]);
+        assert_eq!(q.master_server(), "b");
+        assert_eq!(q.get("net.default_masters_added"), "a, b");
     }
 
     #[test]

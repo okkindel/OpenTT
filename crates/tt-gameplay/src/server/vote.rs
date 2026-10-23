@@ -230,6 +230,12 @@ impl Server {
         h.set_setting(Setting::MapRotation, &ids.join("\t"));
         self.setup.rotation = files;
     }
+
+    /// The rotation's order: random or in turn, kept in the settings.
+    pub fn set_rotation_random(&mut self, h: &mut dyn ServerHost, on: bool) {
+        h.set_setting(Setting::MapRotationRandom, if on { "1" } else { "0" });
+        self.setup.rotation_random = on;
+    }
 }
 
 #[cfg(test)]

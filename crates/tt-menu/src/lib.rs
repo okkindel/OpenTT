@@ -185,6 +185,8 @@ pub struct MenuState {
     pub masters: Option<MastersEdit>,
     /// The server details show the player list instead of the info.
     pub show_players: bool,
+    /// The Host screen shows the bots instead of the map rotation.
+    pub host_bots: bool,
     /// Escape was used by the screen (leaving a text field).
     pub(crate) esc_eaten: bool,
 }
@@ -608,7 +610,7 @@ mod tests {
         frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
         frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
         assert_eq!(s.screen(), Screen::Online);
-        let row = |k: usize| egui::pos2(150.0, 22.0 + 146.0 + 16.0 + 32.0 + 2.0 + 40.0 + k as f32 * 35.0 + 17.0);
+        let row = |k: usize| egui::pos2(700.0, 22.0 + 146.0 + 16.0 + 44.0 + 2.0 + 40.0 + k as f32 * 35.0 + 17.0);
         // A click a second after the last (two quick ones are a double click).
         let mut t = 1.0;
         let mut click = |s: &mut MenuState, b: &mut MockBackend, _: &egui::Context, pos: egui::Pos2| {
@@ -632,12 +634,27 @@ mod tests {
         click(&mut s, &mut b, &ctx, row(2));
         click(&mut s, &mut b, &ctx, row(1));
         assert_eq!(rotation(&s), vec![file(1)], "the last one stays");
+        // "Random order" below the list: off at first, it needs two maps.
+        let random = |s: &MenuState| s.host.as_ref().unwrap().rotation_random;
+        let random_box = egui::pos2(1080.0, 201.0);
+        assert!(!random(&s));
+        click(&mut s, &mut b, &ctx, random_box);
+        assert!(!random(&s), "one map: no order to choose");
         click(&mut s, &mut b, &ctx, row(3));
+        click(&mut s, &mut b, &ctx, random_box);
+        assert!(random(&s));
+        // Down to one map: the order goes off with it.
+        click(&mut s, &mut b, &ctx, row(3));
+        assert!(!random(&s), "one map: no random order left on");
+        click(&mut s, &mut b, &ctx, row(3));
+        click(&mut s, &mut b, &ctx, random_box);
+        assert!(random(&s));
         let a = click(&mut s, &mut b, &ctx, egui::pos2(1130.0, 671.0));
         match a {
             Some(MenuAction::Host(g)) => {
                 assert_eq!(g.rotation, vec![file(1), file(3)]);
                 assert_eq!(g.game.mission, file(1));
+                assert!(g.rotation_random, "the random order goes with the game");
             }
             other => panic!("expected Host, got {other:?}"),
         }
@@ -739,7 +756,7 @@ mod tests {
         // Host: the sub-tab, a password, then Host.
         click(&mut s, &mut b, &ctx, egui::pos2(190.0, 152.0));
         assert_eq!(s.online_tab, OnlineTab::Host);
-        click(&mut s, &mut b, &ctx, egui::pos2(700.0, 216.0 + 4.5 * 394.0 / 9.0));
+        click(&mut s, &mut b, &ctx, egui::pos2(165.0, 322.0));
         assert_eq!(s.field, Some(Field::ServerPassword));
         type_text(&ctx, &mut s, &mut b, "pw", false);
         match click(&mut s, &mut b, &ctx, egui::pos2(1130.0, 671.0)) {
@@ -815,11 +832,12 @@ mod tests {
         // Back to LAN.
         click(&mut s, &mut b, &ctx, egui::pos2(236.0, 200.0));
         assert_eq!(b.source, ServerSource::Lan);
-        // Host: the router port mapping and the master listing.
+        // Host: the router port mapping and the master listing, at the
+        // bottom of the server plate.
         click(&mut s, &mut b, &ctx, egui::pos2(190.0, 152.0));
         assert_eq!(s.online_tab, OnlineTab::Host);
-        click(&mut s, &mut b, &ctx, egui::pos2(290.0, 671.0));
-        click(&mut s, &mut b, &ctx, egui::pos2(650.0, 671.0));
+        click(&mut s, &mut b, &ctx, egui::pos2(95.0, 544.0));
+        click(&mut s, &mut b, &ctx, egui::pos2(95.0, 576.0));
         match click(&mut s, &mut b, &ctx, join) {
             Some(MenuAction::Host(h)) => assert_eq!((h.port_mapping, h.public), (false, false)),
             other => panic!("{other:?}"),
@@ -837,13 +855,15 @@ mod tests {
         let before = s.custom.as_ref().unwrap().replace_bots;
         click(&mut s, &mut b, &ctx, egui::pos2(1200.0, 22.0 + 115.0));
         assert_eq!(s.custom.as_ref().unwrap().replace_bots, before);
-        // Hosting: the toggle above the bot table.
+        // Hosting: the tick box by the Bots tab.
         let mut s = MenuState::at(Screen::Online);
         s.online_tab = OnlineTab::Host;
         frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
         frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
         let before = s.host.as_ref().unwrap().game.replace_bots;
-        click(&mut s, &mut b, &ctx, egui::pos2(1200.0, 22.0 + 165.0));
+        click(&mut s, &mut b, &ctx, egui::pos2(700.0, 200.0));
+        assert!(s.host_bots, "the Bots tab");
+        click(&mut s, &mut b, &ctx, egui::pos2(960.0, 201.0));
         assert_eq!(s.host.as_ref().unwrap().game.replace_bots, !before);
     }
 

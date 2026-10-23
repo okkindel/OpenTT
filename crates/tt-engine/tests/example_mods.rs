@@ -240,3 +240,39 @@ fn readable_pads_draw_overlays_over_the_pads() {
         }
     });
 }
+
+/// Options → Mods → Restart now: the restarted game (a new engine on the
+/// same directories, as the window's restart boots it) uses exactly the
+/// mods enabled before it, also when they were only disabled, and what an
+/// earlier game of the process loaded follows: Readable Pads' overlay
+/// shape is found once the mod is on and gone once it is off.
+#[test]
+fn restart_applies_the_new_mod_set() {
+    tt_assets::require_game_data!();
+    big_stack(|| {
+        let mut e = engine_with("restart", Some(&["readable-pads"]), &[]);
+        assert!(e.boot());
+        let cfg = Config { assets: e.host.fs.root().to_path_buf(), data: e.host.fs.data_dir().to_path_buf(), args: Vec::new(), audio_output: false, echo_log: false, windowed: true };
+        let pad = cfg.assets.join("models/items/boostpad.dts");
+        let tank = cfg.assets.join("models/tanks/tank01.png");
+        let camo = std::fs::read(repo_mods().join("desert-camo/models/tanks/tank01.png")).unwrap();
+        let running = |e: &Engine| e.host.fs.mods().iter().map(|m| m.id.clone()).collect::<Vec<_>>();
+        assert_eq!(running(&e), ["readable-pads"]);
+        assert!(tt_engine::engine::overlay_path(&pad).is_some(), "the overlay with the mod on");
+        let sets: [&[&str]; 4] = [&[], &["readable-pads"], &["desert-camo"], &[]];
+        for set in sets {
+            let enabled: Vec<String> = set.iter().map(|s| s.to_string()).collect();
+            backend_do(&mut e, |b| b.set_mods(&enabled));
+            apply(&mut e, MenuAction::Restart);
+            assert!(e.host.restart_requested);
+            e.shutdown();
+            drop(e);
+            e = Engine::new(&cfg).unwrap();
+            e.host.virtual_clock_ms = Some(0.0);
+            assert!(e.boot());
+            assert_eq!(running(&e), enabled, "the running mods");
+            assert_eq!(tt_engine::engine::overlay_path(&pad).is_some(), set.contains(&"readable-pads"), "the pad's overlay with {set:?}");
+            assert_eq!(std::fs::read(tt_assets::find_ci(&tank).unwrap()).unwrap() == camo, set.contains(&"desert-camo"), "the tank skin with {set:?}");
+        }
+    });
+}

@@ -18,7 +18,7 @@
 
 use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
 use serde::Deserialize;
@@ -177,7 +177,7 @@ pub fn enabled<'a>(installed: &'a [ModInfo], enabled: &[String]) -> (Vec<&'a Mod
 }
 
 /// The files the enabled mods put over an asset directory.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Overlay {
     root: PathBuf,
     /// The mods' folders, in load order.
@@ -247,16 +247,31 @@ fn rel_under(path: &Path, dir: &Path) -> Option<String> {
 
 static ACTIVE: AtomicBool = AtomicBool::new(false);
 static REGISTRY: RwLock<Vec<Arc<Overlay>>> = RwLock::new(Vec::new());
+static GENERATION: AtomicU64 = AtomicU64::new(0);
 
 /// Makes `overlay` the one of its asset directory for every loader of this
-/// process (an empty overlay removes the directory's).
+/// process (an empty overlay removes the directory's); a change moves
+/// [`generation`] on.
 pub fn install(overlay: Overlay) {
     let mut r = REGISTRY.write().unwrap_or_else(|e| e.into_inner());
+    let before = r.iter().find(|o| o.root == overlay.root).map(|o| (**o).clone()).unwrap_or_else(|| Overlay { root: overlay.root.clone(), ..Default::default() });
+    if before == overlay {
+        return;
+    }
     r.retain(|o| o.root != overlay.root);
     if !overlay.is_empty() {
         r.push(Arc::new(overlay));
     }
     ACTIVE.store(!r.is_empty(), Ordering::Release);
+    GENERATION.fetch_add(1, Ordering::AcqRel);
+}
+
+/// Changes whenever [`install`] changes what a path means: a process-wide
+/// cache of files by path (the parsed shapes) drops what it holds when
+/// this differs from its value at the last lookup (a game restarted with
+/// other mods, in the same process).
+pub fn generation() -> u64 {
+    GENERATION.load(Ordering::Acquire)
 }
 
 /// The overlay installed for the asset directory `root`, if any.

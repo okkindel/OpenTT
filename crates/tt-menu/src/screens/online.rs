@@ -3,7 +3,7 @@
 
 use egui::{Align2, Color32, Key, Pos2, Rect, Stroke, StrokeKind, Vec2};
 
-use super::selectors::{bot_table, health_packs_selector, rotation_table, team_selector, BotPool};
+use super::selectors::team_selector;
 use super::steel::Button;
 use super::{edit_text, frame, pal, pressed, Gfx, Typed};
 use crate::backend::*;
@@ -22,7 +22,7 @@ const MAX_NAME: usize = 24;
 const MAX_PASSWORD: usize = 16;
 
 /// A padlock, `h` high.
-fn lock_icon(g: &Gfx, center: Pos2, h: f32, color: Color32) {
+pub(super) fn lock_icon(g: &Gfx, center: Pos2, h: f32, color: Color32) {
     let body = Rect::from_center_size(center + Vec2::new(0.0, h * 0.18), Vec2::new(h * 0.62, h * 0.46));
     let shackle = Rect::from_center_size(center + Vec2::new(0.0, -h * 0.16), Vec2::new(h * 0.42, h * 0.5));
     g.painter.rect_stroke(shackle, h * 0.2, Stroke::new(h * 0.1, color), StrokeKind::Inside);
@@ -30,7 +30,7 @@ fn lock_icon(g: &Gfx, center: Pos2, h: f32, color: Color32) {
 }
 
 /// A text field; focused: accent outline and caret. `mask` shows `*`s.
-fn field(g: &mut Gfx, id: &str, rect: Rect, text: &str, placeholder: &str, focused: bool, mask: bool) -> bool {
+pub(super) fn field(g: &mut Gfx, id: &str, rect: Rect, text: &str, placeholder: &str, focused: bool, mask: bool) -> bool {
     let resp = g.interact_button(rect, ("field", id), true);
     let edge = if focused || resp.hovered() { pal::BRASS } else { super::steel::shade(pal::LINE, 0.1) };
     g.inset(rect, super::steel::shade(pal::WELL, -0.25), pal::WELL, edge, 4.0);
@@ -68,7 +68,7 @@ fn field(g: &mut Gfx, id: &str, rect: Rect, text: &str, placeholder: &str, focus
 }
 
 /// Typing into the focused field. Returns true on Enter.
-fn type_into(ctx: &egui::Context, st: &mut MenuState, host: Option<&mut HostGame>) -> bool {
+pub(super) fn type_into(ctx: &egui::Context, st: &mut MenuState, host: Option<&mut HostGame>) -> bool {
     let Some(f) = st.field else { return false };
     let (text, max) = match (f, host) {
         (Field::Address, _) => (&mut st.address, MAX_ADDRESS),
@@ -85,7 +85,7 @@ fn type_into(ctx: &egui::Context, st: &mut MenuState, host: Option<&mut HostGame
     k.enter
 }
 
-fn default_host(b: &dyn MenuBackend) -> HostGame {
+pub(super) fn default_host(b: &dyn MenuBackend) -> HostGame {
     let missions = b.missions();
     let names = b.bot_names();
     let tanks = b.tanks().len().clamp(1, 3);
@@ -110,11 +110,12 @@ fn default_host(b: &dyn MenuBackend) -> HostGame {
         port: 28000,
         port_mapping: true,
         public: true,
+        rotation_random: false,
     }
 }
 
 /// A check box with a label after it; returns true when toggled.
-fn tick_box(g: &mut Gfx, id: &str, rect: Rect, label: &str, value: &mut bool, enabled: bool) -> bool {
+pub(super) fn tick_box(g: &mut Gfx, id: &str, rect: Rect, label: &str, value: &mut bool, enabled: bool) -> bool {
     let resp = g.interact_button(rect, ("tick", id), enabled);
     let b = Rect::from_min_size(Pos2::new(rect.left(), rect.center().y - 12.0), Vec2::splat(24.0));
     g.check_box(b, *value && enabled, resp.hovered() && enabled);
@@ -250,7 +251,7 @@ pub(super) fn online(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend) -
     }
     match st.online_tab {
         OnlineTab::Join => join(g, st, b, inner),
-        OnlineTab::Host => host(g, st, b, inner),
+        OnlineTab::Host => super::host::host(g, st, b, inner),
     }
 }
 
@@ -611,116 +612,6 @@ fn server_info(g: &mut Gfx, s: &ServerEntry, area: Rect) -> f32 {
         line(g, "Mods", "None", pal::SAND);
     }
     y - area.top()
-}
-
-fn host(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, inner: Rect) -> Option<MenuAction> {
-    let ctx = g.ctx();
-    let missions = b.missions();
-    let modes = b.game_modes();
-    let tanks = b.tanks();
-    let bot_tanks: Vec<TankInfo> = tanks.iter().take(3).cloned().collect();
-    let names = b.bot_names();
-    let max_bots = b.max_bots();
-    let mut hg = st.host.take().unwrap_or_else(|| b.host_settings().unwrap_or_else(|| default_host(b)));
-    if !g.blocked {
-        type_into(&ctx, st, Some(&mut hg));
-    }
-    // Three columns: maps, server options, bots; captions above them, a
-    // note at the bottom.
-    let (map_w, bots_w, gap) = (380.0, 380.0, 16.0);
-    let cap_y = inner.top();
-    let top = inner.top() + 32.0;
-    let bottom = inner.bottom();
-    // The map list leaves room below it for a note on how friends join.
-    let note_h = 64.0;
-    // Maps: the rotation, the first one starts.
-    if hg.rotation.is_empty() {
-        hg.rotation.push(hg.game.mission.clone());
-    }
-    let n = hg.rotation.len();
-    g.caption(Pos2::new(inner.left(), cap_y), if n == 1 { "Map" } else { "Maps" });
-    let hint = if n == 1 { "click more for a rotation".to_string() } else { format!("{n} in rotation, double-click: one") };
-    g.text(Pos2::new(inner.left() + map_w, cap_y + 12.0), &hint, 18.0, pal::SAND_MUTED, Align2::RIGHT_CENTER);
-    rotation_table(g, "hmaps", Rect::from_min_max(Pos2::new(inner.left(), top), Pos2::new(inner.left() + map_w, bottom - note_h - 8.0)), &missions, &mut hg.rotation);
-    hg.game.mission = hg.rotation[0].clone();
-    // Server options (rows on the panel's steel).
-    let opts = Rect::from_min_max(Pos2::new(inner.left() + map_w + gap, top), Pos2::new(inner.right() - bots_w - gap, bottom));
-    g.caption(Pos2::new(opts.left(), cap_y), "Server");
-    let rowh = opts.height() / 9.0;
-    let ctl_h = 38.0;
-    let mid = |i: usize| opts.top() + i as f32 * rowh + rowh / 2.0;
-    let row = |i: usize| Rect::from_min_size(Pos2::new(opts.left() + 100.0, mid(i) - ctl_h / 2.0), Vec2::new(opts.width() - 100.0, ctl_h));
-    let label = |g: &Gfx, i: usize, t: &str| {
-        g.text(Pos2::new(opts.left(), mid(i)), t, 24.0, pal::SAND_MUTED, Align2::LEFT_CENTER);
-    };
-    label(g, 0, "Name");
-    let name = hg.name.clone();
-    let name_r = row(0);
-    if field(g, "sname", name_r, &name, "server name", st.field == Some(Field::ServerName), false) {
-        st.field = Some(Field::ServerName);
-    }
-    let mode_i = modes.iter().position(|m| m.index == hg.game.mode).unwrap_or(0);
-    let teams = modes.get(mode_i).is_some_and(|m| m.teams);
-    label(g, 1, "Mode");
-    let d = g.selector("hmode", row(1), modes.get(mode_i).map(|m| m.label.as_str()).unwrap_or("-"), false);
-    if d != 0 && !modes.is_empty() {
-        hg.game.mode = modes[(mode_i as i32 + d).rem_euclid(modes.len() as i32) as usize].index;
-    }
-    label(g, 2, "Round");
-    let d = g.selector("hminutes", row(2), &format!("{} min", hg.game.minutes), false);
-    hg.game.minutes = (hg.game.minutes as i32 + d * if hg.game.minutes >= 10 { 5 } else { 1 }).clamp(1, 60) as u32;
-    label(g, 3, "Players");
-    let d = g.selector("hmax", row(3), &format!("{} max", hg.max_players), false);
-    hg.max_players = (hg.max_players as i32 + d).clamp(2, 64) as u32;
-    label(g, 4, "Password");
-    let pw = hg.password.clone();
-    let pw_r = row(4);
-    if field(g, "spw", pw_r, &pw, "none", st.field == Some(Field::ServerPassword), false) {
-        st.field = Some(Field::ServerPassword);
-    }
-    label(g, 5, "Port");
-    let d = g.selector("hport", row(5), &format!("{}", hg.port), false);
-    hg.port = (hg.port as i32 + d).clamp(1024, 65535) as u16;
-    label(g, 6, "Tank");
-    let tank_name = tanks.get(hg.game.player_tank).map(|t| t.name.clone()).unwrap_or_default();
-    let d = g.selector("htank", row(6), &tank_name, false);
-    if d != 0 && !tanks.is_empty() {
-        let mut i = hg.game.player_tank as i32;
-        for _ in 0..tanks.len() {
-            i = (i + d).rem_euclid(tanks.len() as i32);
-            if !tanks[i as usize].locked {
-                break;
-            }
-        }
-        hg.game.player_tank = i as usize;
-    }
-    label(g, 7, "Health");
-    health_packs_selector(g, b, "hhealth", row(7));
-    if teams {
-        label(g, 8, "Team");
-        team_selector(g, "hteam", row(8), &mut hg.game.player_team);
-    }
-    if st.field.is_some() && ctx.input(|i| i.pointer.any_click()) && !ctx.pointer_interact_pos().is_some_and(|p| name_r.contains(p) || pw_r.contains(p)) {
-        st.field = None;
-    }
-    // Bots.
-    let bots = Rect::from_min_max(Pos2::new(inner.right() - bots_w, top), Pos2::new(inner.right(), bottom));
-    bot_table(g, &mut hg.game, BotPool { tanks: &bot_tanks, names: &names, max: max_bots }, teams, true, bots);
-    g.paragraph(Rect::from_min_max(Pos2::new(inner.left(), bottom - note_h), Pos2::new(inner.left() + map_w, bottom)), "Friends join with your address and this port; over the internet, forward the UDP port to this computer (or let the router do it).", 18.0, pal::SAND_MUTED);
-    // Internet options: the router port mapping and the master server listing.
-    // (In the action row, between Back and Host.)
-    tick_box(g, "portmap", g.action_left(230.0, 340.0), "Forward the port on the router", &mut hg.port_mapping, true);
-    let has_master = !b.master_server().trim().is_empty();
-    let label = if has_master { "List on the master server" } else { "List online (set a master on Join)" };
-    tick_box(g, "public", g.action_left(590.0, 340.0), label, &mut hg.public, has_master);
-    let back = g.button("back", g.action_left(0.0, 200.0), "Back", false, false, true).clicked();
-    let start = g.button("host", g.action(0.0, 220.0), "Host", true, false, !hg.name.trim().is_empty()).clicked() && !hg.name.trim().is_empty();
-    let out = (start && !g.blocked).then(|| MenuAction::Host(hg.clone()));
-    st.host = Some(hg);
-    if back {
-        st.back();
-    }
-    out
 }
 
 /// The password prompt (`joinPasswordDlg`).

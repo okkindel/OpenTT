@@ -32,13 +32,16 @@ pub(crate) fn map_table(g: &mut Gfx, id: &str, rect: Rect, missions: &[MissionIn
 
 /// The Host screen's map list as the rotation: a click adds a map at the
 /// end or takes it out (never the last one), a double click makes it the
-/// only one; the # column is the order, the first map (highlighted) starts
-/// the game.
+/// only one; the # column is the order (as wide as two digits), the first
+/// map (highlighted) starts the game.
 pub(crate) fn rotation_table(g: &mut Gfx, id: &str, rect: Rect, missions: &[MissionInfo], rotation: &mut Vec<String>) {
     let well = g.well(rect);
     let order = |f: &str| rotation.iter().position(|r| r == f);
     let nums: Vec<String> = missions.iter().map(|m| order(&m.file).map(|i| (i + 1).to_string()).unwrap_or_default()).collect();
-    let xs = g.columns(well.width(), 16.0, 1, &[("#", vec!["99".into()]), ("Name", missions.iter().map(|m| m.name.clone()).collect()), ("World", missions.iter().map(|m| m.world.clone()).collect())], CELL);
+    let lead = 16.0;
+    let num_w = g.label_width("#", 20.0).max(g.text_width("99", CELL)) + 12.0;
+    let mut xs = vec![lead];
+    xs.extend(g.columns(well.width(), lead + num_w, 0, &[("Name", missions.iter().map(|m| m.name.clone()).collect()), ("World", missions.iter().map(|m| m.world.clone()).collect())], CELL));
     let body = g.header(well, &[(xs[0], "#"), (xs[1], "Name"), (xs[2], "World")]);
     let rows: Vec<Vec<(f32, String, Color32)>> = missions
         .iter()
@@ -90,28 +93,12 @@ pub(crate) struct BotPool<'a> {
 }
 
 /// The bot table of the Custom Game and Host screens (name, skill, tank,
-/// team; click a cell to cycle; add / remove) with Replace bots, in the
-/// well `well` (its caption above it).
-pub(crate) fn bot_table(g: &mut Gfx, cg: &mut CustomGame, pool: BotPool, teams: bool, hosted: bool, well: Rect) {
+/// team; click a cell to cycle; add / remove) in the well `well` (its
+/// caption above it).
+pub(crate) fn bot_table(g: &mut Gfx, cg: &mut CustomGame, pool: BotPool, teams: bool, well: Rect) {
     g.caption(well.min - Vec2::new(0.0, 30.0), &format!("Bots  {}/{}", cg.bots.len(), pool.max));
-    if hosted {
-        replace_bots_toggle(g, cg, well);
-    }
     let bw = g.well(well);
     bot_rows(g, cg, pool, teams, bw)
-}
-
-/// "Replace bots" (hosted games only; a custom game is local): humans who
-/// join take a bot's place, and the bot comes back when they leave.
-fn replace_bots_toggle(g: &mut Gfx, cg: &mut CustomGame, well: Rect) {
-    let rb = Rect::from_min_size(Pos2::new(well.right() - 200.0, well.top() - 34.0), Vec2::new(200.0, 30.0));
-    let resp = g.interact_button(rb, "replace-bots", true);
-    if resp.clicked() {
-        cg.replace_bots = !cg.replace_bots;
-    }
-    let bx = Rect::from_min_size(Pos2::new(rb.right() - 24.0, rb.center().y - 12.0), Vec2::splat(24.0));
-    g.check_box(bx, cg.replace_bots, resp.hovered());
-    g.text(Pos2::new(bx.left() - 10.0, bx.center().y), "Replace bots", 22.0, if resp.hovered() { pal::SAND } else { pal::SAND_MUTED }, Align2::RIGHT_CENTER);
 }
 
 /// The rows of [`bot_table`] in its well `bw`.
@@ -141,52 +128,58 @@ fn bot_rows(g: &mut Gfx, cg: &mut CustomGame, pool: BotPool, teams: bool, bw: Re
         x += w;
     }
     let body = g.header(bw, &cols);
-    // Rows 44 high, lower when the most bots and the add button would not fit.
-    let rh = (body.height() / (max_bots as f32 + 1.0)).min(44.0);
-    let mut remove = None;
-    for (i, bot) in cg.bots.iter_mut().enumerate() {
-        let r = Rect::from_min_size(Pos2::new(body.left(), body.top() + i as f32 * rh), Vec2::new(body.width(), rh));
-        g.row_fill(r, false, false, i % 2 == 1);
-        g.text_fit(Pos2::new(r.left() + LEAD, r.center().y), bot_label(&bot.name), 22.0, pal::SAND, name_w - 8.0);
-        let mut cells = vec![bot.skill.label().to_string(), bot_tanks.get(bot.tank).map(|t| t.name.clone()).unwrap_or_default()];
-        if teams {
-            cells.push(bot.team.label().to_string());
-        }
-        for (k, (t, (x, w))) in cells.into_iter().zip(cell_x.iter().copied()).enumerate() {
-            let cr = Rect::from_min_size(Pos2::new(r.left() + x - 4.0, r.top() + 6.0), Vec2::new(w, r.height() - 12.0));
-            let resp = g.interact_button(cr, ("bot", i, k), true);
-            if resp.hovered() {
-                g.painter.rect_stroke(cr, 2.0, Stroke::new(1.0_f32, pal::BRASS), StrokeKind::Inside);
+    // Rows 44 high, lower when the most bots and the add button would not
+    // fit, down to 30; below that the rows scroll.
+    let rh = (body.height() / (max_bots as f32 + 1.0)).clamp(30.0, 44.0);
+    let add = cg.bots.len() < max_bots;
+    let off = g.scroll_offset("bot-rows", body, cg.bots.len() as f32 * rh + if add { 6.0 + 34.0 } else { 0.0 });
+    let top = body.top() - off;
+    g.clipped(body, |g| {
+        let mut remove = None;
+        for (i, bot) in cg.bots.iter_mut().enumerate() {
+            let r = Rect::from_min_size(Pos2::new(body.left(), top + i as f32 * rh), Vec2::new(body.width(), rh));
+            g.row_fill(r, false, false, i % 2 == 1);
+            g.text_fit(Pos2::new(r.left() + LEAD, r.center().y), bot_label(&bot.name), 22.0, pal::SAND, name_w - 8.0);
+            let mut cells = vec![bot.skill.label().to_string(), bot_tanks.get(bot.tank).map(|t| t.name.clone()).unwrap_or_default()];
+            if teams {
+                cells.push(bot.team.label().to_string());
             }
-            g.text(Pos2::new(cr.left() + 4.0, cr.center().y), &t, 22.0, if resp.hovered() { pal::SAND_HI } else { pal::BRASS }, Align2::LEFT_CENTER);
-            if resp.clicked() {
-                match k {
-                    0 => bot.skill = BotSkill::ALL[(BotSkill::ALL.iter().position(|s| *s == bot.skill).unwrap_or(0) + 1) % 3],
-                    1 => bot.tank = (bot.tank + 1) % bot_tanks.len().max(1),
-                    _ => bot.team = Team::ALL[(Team::ALL.iter().position(|t| *t == bot.team).unwrap_or(0) + 1) % 3],
+            for (k, (t, (x, w))) in cells.into_iter().zip(cell_x.iter().copied()).enumerate() {
+                let cr = Rect::from_min_size(Pos2::new(r.left() + x - 4.0, r.top() + 6.0), Vec2::new(w, r.height() - 12.0));
+                let resp = g.interact_button(cr, ("bot", i, k), true);
+                if resp.hovered() {
+                    g.painter.rect_stroke(cr, 2.0, Stroke::new(1.0_f32, pal::BRASS), StrokeKind::Inside);
+                }
+                g.text(Pos2::new(cr.left() + 4.0, cr.center().y), &t, 22.0, if resp.hovered() { pal::SAND_HI } else { pal::BRASS }, Align2::LEFT_CENTER);
+                if resp.clicked() {
+                    match k {
+                        0 => bot.skill = BotSkill::ALL[(BotSkill::ALL.iter().position(|s| *s == bot.skill).unwrap_or(0) + 1) % 3],
+                        1 => bot.tank = (bot.tank + 1) % bot_tanks.len().max(1),
+                        _ => bot.team = Team::ALL[(Team::ALL.iter().position(|t| *t == bot.team).unwrap_or(0) + 1) % 3],
+                    }
                 }
             }
+            // Remove: a small steel plate centred in the last column, the
+            // whole cell (row high) its hit area.
+            let cell = Rect::from_min_max(Pos2::new(r.right() - X_COL, r.top()), r.right_bottom());
+            let resp = g.interact_button(cell, ("botx", i), true);
+            g.remove_button(Rect::from_center_size(cell.center(), Vec2::splat(26.0)), resp.hovered(), resp.is_pointer_button_down_on());
+            if resp.clicked() {
+                remove = Some(i);
+            }
         }
-        // Remove: a small steel plate centred in the last column, the
-        // whole cell (row high) its hit area.
-        let cell = Rect::from_min_max(Pos2::new(r.right() - X_COL, r.top()), r.right_bottom());
-        let resp = g.interact_button(cell, ("botx", i), true);
-        g.remove_button(Rect::from_center_size(cell.center(), Vec2::splat(26.0)), resp.hovered(), resp.is_pointer_button_down_on());
-        if resp.clicked() {
-            remove = Some(i);
+        if let Some(i) = remove {
+            cg.bots.remove(i);
         }
-    }
-    if let Some(i) = remove {
-        cg.bots.remove(i);
-    }
-    if cg.bots.len() < max_bots {
-        let r = Rect::from_min_size(Pos2::new(body.left() + 10.0, body.top() + cg.bots.len() as f32 * rh + 8.0), Vec2::new(150.0, 34.0));
-        if g.button("botadd", r, "+ Add bot", false, false, true).clicked() {
-            let used: Vec<String> = cg.bots.iter().map(|b| b.name.clone()).collect();
-            let name = names.iter().find(|n| !used.contains(n)).cloned().unwrap_or_else(|| format!("Bot {}", cg.bots.len() + 1));
-            cg.bots.push(BotSetup { name, skill: BotSkill::Bronze, tank: 0, team: Team::Auto });
+        if add {
+            let r = Rect::from_min_size(Pos2::new(body.left() + 10.0, top + cg.bots.len() as f32 * rh + 6.0), Vec2::new(150.0, 34.0));
+            if g.button("botadd", r, "+ Add bot", false, false, true).clicked() {
+                let used: Vec<String> = cg.bots.iter().map(|b| b.name.clone()).collect();
+                let name = names.iter().find(|n| !used.contains(n)).cloned().unwrap_or_else(|| format!("Bot {}", cg.bots.len() + 1));
+                cg.bots.push(BotSetup { name, skill: BotSkill::Bronze, tank: 0, team: Team::Auto });
+            }
         }
-    }
+    });
 }
 
 /// A bot's name in the bot table: every row is a bot, so without "[Bot]".

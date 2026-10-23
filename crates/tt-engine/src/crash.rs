@@ -3,7 +3,8 @@
 //! is written to `<data dir>/logs/crash.log` ([`install`]), the error that
 //! ends the game is added to it and shown in a message box ([`fatal`]),
 //! and a run started from a console writes its output there
-//! ([`attach_console`]).
+//! ([`attach_console`]). A fault after the settings were saved on the way
+//! out ends the game quietly ([`exit_started`]).
 
 use std::fmt::Write as _;
 use std::io::Write as _;
@@ -120,6 +121,48 @@ pub fn fatal(msg: &str, dialog: bool) {
     rfd::MessageDialog::new().set_level(rfd::MessageLevel::Error).set_title(tt_assets::product::NAME).set_description(text).set_buttons(rfd::MessageButtons::Ok).show();
 }
 
+/// The note a fault after [`exit_started`] leaves on stderr.
+pub const EXIT_FAULT_NOTE: &str = "note: a fault while the game was closing (the settings were saved); exiting\n";
+
+/// Marks the exit as started (the settings are saved, the logs written):
+/// from now on a crash signal (SIGSEGV, SIGBUS, SIGABRT) in what is left of
+/// the exit, a driver or system library releasing its state, leaves
+/// [`EXIT_FAULT_NOTE`] on stderr and ends the process with status 0
+/// instead of a crash the desktop reports. Linux only (graphics drivers
+/// there may fault while the window system's connection goes); elsewhere
+/// nothing changes.
+#[cfg(target_os = "linux")]
+pub fn exit_started() {
+    extern "C" fn quiet(_: libc::c_int) {
+        // SAFETY: async-signal-safe calls only (write, _exit).
+        unsafe {
+            libc::write(2, EXIT_FAULT_NOTE.as_ptr().cast(), EXIT_FAULT_NOTE.len());
+            libc::_exit(0);
+        }
+    }
+    // An alternate stack for this (the main) thread, so a fault from an
+    // overflowed stack still reaches the handler.
+    let stack: &'static mut [u8] = Box::leak(vec![0u8; 64 * 1024].into_boxed_slice());
+    // SAFETY: the stack lives for the rest of the process; the handler only
+    // calls async-signal-safe functions; sigaction (not signal) is defined
+    // for a process with threads.
+    unsafe {
+        let ss = libc::stack_t { ss_sp: stack.as_mut_ptr().cast(), ss_flags: 0, ss_size: stack.len() };
+        libc::sigaltstack(&ss, std::ptr::null_mut());
+        let mut sa: libc::sigaction = std::mem::zeroed();
+        sa.sa_sigaction = quiet as extern "C" fn(libc::c_int) as libc::sighandler_t;
+        sa.sa_flags = libc::SA_ONSTACK;
+        libc::sigemptyset(&mut sa.sa_mask);
+        for sig in [libc::SIGSEGV, libc::SIGBUS, libc::SIGABRT] {
+            libc::sigaction(sig, &sa, std::ptr::null_mut());
+        }
+    }
+}
+
+/// See the Linux version.
+#[cfg(not(target_os = "linux"))]
+pub fn exit_started() {}
+
 /// Gives the output a console (Windows): a release build is a GUI program
 /// without a console window of its own (main.rs), so it attaches to the
 /// console of the program that started it (cmd, PowerShell) and its output
@@ -144,4 +187,29 @@ pub fn attach_console(alloc: bool) -> bool {
 #[cfg(not(windows))]
 pub fn attach_console(_alloc: bool) -> bool {
     true
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    /// Set in the child run of [`fault_after_exit_started_is_quiet`].
+    const CHILD: &str = "TT_TEST_EXIT_FAULT";
+
+    /// A segfault after [`super::exit_started`] ends the process with
+    /// status 0 and the note (in a child process: the test faults).
+    #[test]
+    fn fault_after_exit_started_is_quiet() {
+        if std::env::var_os(CHILD).is_some() {
+            super::exit_started();
+            // SAFETY: the fault this test is about.
+            unsafe { libc::raise(libc::SIGSEGV) };
+            unreachable!("the handler exits");
+        }
+        let out = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "crash::tests::fault_after_exit_started_is_quiet", "--nocapture", "--test-threads=1"])
+            .env(CHILD, "1")
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{:?}", out.status);
+        assert!(String::from_utf8_lossy(&out.stderr).contains(super::EXIT_FAULT_NOTE.trim_end()));
+    }
 }

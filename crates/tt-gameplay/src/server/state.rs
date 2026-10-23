@@ -128,6 +128,9 @@ pub struct GameSetup {
     /// The mission files a multiplayer server plays in turn after a round
     /// (wrapping); empty: it plays its mission again.
     pub rotation: Vec<String>,
+    /// The next map is a random other one of the rotation, not the one
+    /// after the current one.
+    pub rotation_random: bool,
     /// How long a player waits after joining, and between two map votes
     /// he calls (ms).
     pub vote_wait_ms: u32,
@@ -157,6 +160,7 @@ impl Default for GameSetup {
             demo_tank: "GoldMediumTank".into(),
             ai_control: false,
             rotation: Vec::new(),
+            rotation_random: false,
             vote_wait_ms: 180_000,
             dedicated: false,
             dedicated_mode: DedicatedMode::Battle,

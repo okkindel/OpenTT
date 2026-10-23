@@ -701,6 +701,15 @@ pub fn predict(rep: &mut ClientRep, g: &mut GameSim) {
     let own = rep.tanks.get(&rep.control_net).map(|(_, t)| (rep.control_net, *t));
     let ClientRep { pred, triggers, flags, db_names, .. } = rep;
     pred.tick(g, own, |n| triggers.get(&n).copied(), |n| flags.get(&n).map(|f| f.1), db_names);
+    // The own corpse is no longer predicted, and the owner state does not
+    // carry its death animation: it shakes, ejects the brain jar and flips
+    // over at the render time like every other tank, in step with the
+    // ejected jar's spawn.
+    let Some((net, tid)) = own else { return };
+    let Some((q, ..)) = rep.tanks_buf.get(&net).and_then(|b| sample(b, rep.render_tick)) else { return };
+    if let Some(t) = g.world.tank_mut(tid).filter(|t| t.is_corpse) {
+        q.apply_death(t);
+    }
 }
 
 fn client_hit(rep: &ClientRep, g: &GameSim, h: NetHit) -> HitObject {

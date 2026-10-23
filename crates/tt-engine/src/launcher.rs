@@ -27,6 +27,7 @@ pub type AppFactory = Box<dyn FnMut(&Path) -> Result<App, String>>;
 /// The import screen's window state.
 struct SetupGfx {
     window: Arc<Window>,
+    instance: wgpu::Instance,
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -50,7 +51,14 @@ impl SetupGfx {
         layer.set_size((config.width, config.height));
         let egui = egui_winit::State::new(layer.ctx.clone(), egui::ViewportId::ROOT, &window, Some(window.scale_factor() as f32), None, Some(device.limits().max_texture_dimension_2d as usize));
         window.request_redraw();
-        Ok(SetupGfx { window, surface, device, queue, config, layer, egui, pointer: PointerInput::default() })
+        Ok(SetupGfx { window, instance, surface, device, queue, config, layer, egui, pointer: PointerInput::default() })
+    }
+
+    /// Releases the GPU state ([`crate::gfx::release_gpu`]) and returns the window.
+    fn release(self) -> Arc<Window> {
+        let SetupGfx { window, instance, surface, device, queue, layer, egui, .. } = self;
+        crate::gfx::release_gpu(surface, (layer, egui), device, queue, instance);
+        window
     }
 }
 
@@ -210,7 +218,11 @@ impl Launcher {
         g.egui.handle_platform_output(&g.window, platform);
         g.window.request_redraw();
         let Some(outcome) = flow.outcome.take() else { return };
-        let window = self.setup_gfx.take().map(|g| g.window);
+        if matches!(outcome, Outcome::Quit) {
+            // The import screen has nothing left to save.
+            crate::crash::exit_started();
+        }
+        let window = self.setup_gfx.take().map(SetupGfx::release);
         self.phase = Phase::None;
         let Some(window) = window else { return };
         match outcome {
@@ -242,6 +254,7 @@ impl Launcher {
                     // Stops a running import (its partial output is removed).
                     flow.handle(tt_menu::SetupAction::Quit);
                 }
+                crate::crash::exit_started();
                 el.exit();
             }
             WindowEvent::Resized(s) => {
@@ -294,6 +307,17 @@ impl ApplicationHandler for Launcher {
             }
             Phase::Setup(_) => self.setup_event(el, event),
             Phase::None => {}
+        }
+    }
+
+    /// The GPU state goes before the event loop's window system connection
+    /// ([`App::exiting`]).
+    fn exiting(&mut self, el: &ActiveEventLoop) {
+        if let Some(g) = self.setup_gfx.take() {
+            drop(g.release());
+        }
+        if let Phase::Game(app) = &mut self.phase {
+            app.exiting(el);
         }
     }
 

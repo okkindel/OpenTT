@@ -196,6 +196,12 @@ impl QTank {
         t.is_corpse = self.bits & B_CORPSE != 0;
         t.any_contact = self.bits & B_ANY != 0;
         t.all_contact = self.bits & B_ALL != 0;
+        self.apply_death(t);
+    }
+
+    /// Writes this state's death animation (corpse timer, brain jar out,
+    /// death sequence) into a tank.
+    pub fn apply_death(&self, t: &mut Tank) {
         t.brain_ejected = self.bits & B_BRAIN != 0;
         t.corpse_timer = self.corpse_t as f32 / CORPSE_SCALE;
         t.death_sequence = if self.bits & B_SEQ != 0 {

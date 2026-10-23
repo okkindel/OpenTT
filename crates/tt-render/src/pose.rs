@@ -25,10 +25,19 @@ fn local(q: [f32; 4], t: [f32; 3]) -> Mat4 {
     m
 }
 
-/// Parsed shape by path (case-insensitive lookup), cached for the process.
+/// Parsed shape by path (case-insensitive lookup, the enabled mods
+/// applied), cached for the process while the mods stay the same
+/// ([`tt_assets::mods::generation`]).
 pub fn shape(path: &Path) -> Option<Arc<Shape>> {
-    static CACHE: OnceLock<Mutex<HashMap<PathBuf, Option<Arc<Shape>>>>> = OnceLock::new();
-    let mut cache = CACHE.get_or_init(Default::default).lock().ok()?;
+    type Cache = (u64, HashMap<PathBuf, Option<Arc<Shape>>>);
+    static CACHE: OnceLock<Mutex<Cache>> = OnceLock::new();
+    let mut guard = CACHE.get_or_init(Default::default).lock().ok()?;
+    let (generation, cache) = &mut *guard;
+    let now = tt_assets::mods::generation();
+    if *generation != now {
+        cache.clear();
+        *generation = now;
+    }
     // Looked up every frame per drawn shape: no key copy on a hit.
     if let Some(s) = cache.get(path) {
         return s.clone();

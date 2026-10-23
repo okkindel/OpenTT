@@ -50,18 +50,28 @@ fn rotation_and_vote_over_the_network() {
         server.host.srv.state_mut().setup.vote_wait_ms = 2_000;
         // The console: the rotation is the mission alone, then three maps.
         let out = execute(&mut server, "rotation");
-        assert_eq!(out[0], "rotation (1 map):");
+        assert_eq!(out[0], "rotation (1 map, in turn):");
         assert!(out[1].contains("tt1_1") && out[1].ends_with("<- now"), "{out:?}");
         execute(&mut server, "rotation set tt1_1 tt1_3");
         execute(&mut server, "rotation add tt1_2");
         let out = execute(&mut server, "rotation add tt1_4");
-        assert_eq!(out[0], "rotation (4 maps):");
+        assert_eq!(out[0], "rotation (4 maps, in turn):");
         let out = execute(&mut server, "rotation remove tt1_4");
         assert_eq!(out.len(), 4, "{out:?}");
         assert_eq!(execute(&mut server, "rotation add tt9_9"), vec!["no mission \"tt9_9\"".to_string()]);
         assert_eq!(execute(&mut server, "rotation remove tt1_1 tt1_3 tt1_2"), vec!["the rotation needs a map".to_string()]);
         assert_eq!(server.server().setup.rotation, ["tt1_1", "tt1_3", "tt1_2"].map(tt_assets::layout::mission).to_vec());
         assert_eq!(server.var("server.map_rotation"), "tt1_1\ttt1_3\ttt1_2");
+        // A random order, on and off again (kept in the settings).
+        let out = execute(&mut server, "rotation random on");
+        assert_eq!(out[0], "rotation (3 maps, random order):");
+        assert!(server.server().setup.rotation_random);
+        assert_eq!(server.var("server.map_rotation_random"), "1");
+        assert_eq!(execute(&mut server, "rotation random sometimes"), vec!["usage: rotation random on|off".to_string()]);
+        assert_eq!(execute(&mut server, "rotation random off")[0], "rotation (3 maps, in turn):");
+        assert!(!server.server().setup.rotation_random);
+        assert_eq!(server.var("server.map_rotation_random"), "0");
+        assert!(execute(&mut server, "help").iter().any(|l| l.contains("rotation random on|off")));
         let mut clients: Vec<Engine> = (0..2)
             .map(|i| {
                 let mut c = client_engine(&root, &format!("vote-client{i}"));

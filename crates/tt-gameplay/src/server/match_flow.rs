@@ -361,16 +361,32 @@ impl Server {
         self.load_mission(h, &file, false);
     }
 
-    /// The next round's mission: the one a map vote chose, else the one
-    /// after the current one in the rotation (the first after the last, or
-    /// when the current one is not in it), else the current one again.
+    /// The next round's mission: the one a map vote chose, else (a random
+    /// order) a random other map of the rotation, or the one after the
+    /// current one in it (the first after the last, or when the current
+    /// one is not in it), else the current one again.
     pub fn next_in_rotation(&mut self) -> String {
+        if self.session.voted_mission.is_none() && self.setup.rotation_random {
+            return self.random_other_map();
+        }
         let m = self.next_mission();
         self.session.voted_mission = None;
         m
     }
 
-    /// The mission [`Server::next_in_rotation`] gives (the vote's stays).
+    /// A random map of the rotation other than the current one (one draw of
+    /// the server's RNG; the current one again when it is the only map).
+    fn random_other_map(&mut self) -> String {
+        let cur = self.session.mission_file.clone();
+        let others: Vec<String> = self.setup.rotation.iter().filter(|f| !f.eq_ignore_ascii_case(&cur)).cloned().collect();
+        if others.is_empty() {
+            return self.setup.rotation.first().cloned().unwrap_or(cur);
+        }
+        self.random_mission(&others)
+    }
+
+    /// The mission [`Server::next_in_rotation`] gives in turn (the vote's
+    /// stays; a random order picks only when the round ends).
     pub fn next_mission(&self) -> String {
         if let Some(m) = &self.session.voted_mission {
             return m.clone();

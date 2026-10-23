@@ -26,6 +26,8 @@ struct Host {
     replace_bots: bool,
     /// `server.map_rotation`.
     rotation: String,
+    /// `server.map_rotation_random`.
+    rotation_random: String,
 }
 
 impl Host {
@@ -62,12 +64,15 @@ impl ServerHost for Host {
             Setting::MaxPlayers => self.max_players.clone(),
             Setting::ReplaceBots => (self.replace_bots as u8).to_string(),
             Setting::MapRotation => self.rotation.clone(),
+            Setting::MapRotationRandom => self.rotation_random.clone(),
             _ => String::new(),
         }
     }
     fn set_setting(&mut self, s: Setting, v: &str) {
-        if s == Setting::MapRotation {
-            self.rotation = v.into();
+        match s {
+            Setting::MapRotation => self.rotation = v.into(),
+            Setting::MapRotationRandom => self.rotation_random = v.into(),
+            _ => {}
         }
     }
     fn bot_settings(&self) -> Vec<BotSlot> {
@@ -336,6 +341,74 @@ fn rotation_order_and_wrap() {
     assert_eq!(s.rotation_setting(&mut h, C), vec![C.to_string()]);
     s.set_rotation(&mut h, vec![C.into(), A.into()]);
     assert_eq!(h.rotation, "tt3_1\ttt1_1");
+}
+
+/// A random order: never the current map again, every other one comes, the
+/// same for the same seed; a passed vote's map still comes; one map comes
+/// again. In turn the RNG is never drawn.
+#[test]
+fn rotation_random_order() {
+    const D: &str = "missions/tt3_2.ron";
+    let mut s = Server::new();
+    s.setup.rotation = vec![A.into(), B.into(), C.into(), D.into()];
+    s.session.mission_file = A.into();
+    let seed = s.rng.seed();
+    for _ in 0..8 {
+        let m = s.next_in_rotation();
+        s.session.mission_file = m;
+    }
+    assert_eq!(s.rng.seed(), seed, "in turn: no draw");
+    assert_eq!(s.session.mission_file, A);
+    let rounds = |s: &mut Server, n: usize| -> Vec<String> {
+        s.rng.set_seed(1234);
+        s.session.mission_file = A.into();
+        (0..n)
+            .map(|_| {
+                let m = s.next_in_rotation();
+                s.session.mission_file = m.clone();
+                m
+            })
+            .collect()
+    };
+    s.setup.rotation_random = true;
+    let seen = rounds(&mut s, 200);
+    let mut prev = A.to_string();
+    for m in &seen {
+        assert_ne!(*m, prev, "never the current map again");
+        prev = m.clone();
+    }
+    for f in [A, B, C, D] {
+        assert!(seen.iter().filter(|m| *m == f).count() > 20, "{f} comes: {seen:?}");
+    }
+    assert_ne!(seen[..8], [B, C, D, A, B, C, D, A].map(String::from), "not in turn");
+    assert_eq!(rounds(&mut s, 200), seen, "the same for the same seed");
+    // A passed vote's map comes; then a random one again.
+    s.session.mission_file = A.into();
+    s.session.voted_mission = Some(C.into());
+    assert_eq!(s.next_in_rotation(), C);
+    assert!(s.session.voted_mission.is_none());
+    s.session.mission_file = C.into();
+    assert_ne!(s.next_in_rotation(), C);
+    // One map: it again; a map outside the rotation: one of the rotation.
+    s.setup.rotation = vec![B.into()];
+    s.session.mission_file = B.into();
+    assert_eq!(s.next_in_rotation(), B);
+    s.setup.rotation = vec![A.into(), B.into()];
+    s.session.mission_file = C.into();
+    assert!([A, B].contains(&s.next_in_rotation().as_str()));
+    // The setting: read at launch, kept by set_rotation_random.
+    let mut h = Host::new();
+    s.set_rotation_random(&mut h, false);
+    assert_eq!((h.rotation_random.as_str(), s.setup.rotation_random), ("0", false));
+    s.set_rotation_random(&mut h, true);
+    assert_eq!(h.rotation_random, "1");
+    let mut t = Server::new();
+    t.launch_dedicated(&mut h, A);
+    assert!(t.setup.rotation_random);
+    h.rotation_random.clear();
+    let mut t = Server::new();
+    t.launch_dedicated(&mut h, A);
+    assert!(!t.setup.rotation_random, "off by default");
 }
 
 /// The last vote line player `c` was told.

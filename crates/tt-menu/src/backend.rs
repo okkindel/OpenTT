@@ -484,6 +484,9 @@ pub struct HostGame {
     /// The maps played in turn ([`MissionInfo::file`]s): the first is
     /// [`CustomGame::mission`], the one the game starts on.
     pub rotation: Vec<String>,
+    /// The next map is a random other one of the rotation, not the one
+    /// after the current one.
+    pub rotation_random: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

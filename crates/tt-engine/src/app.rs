@@ -24,6 +24,7 @@ use winit::window::{Fullscreen, Window, WindowId};
 
 struct Gfx {
     window: Arc<Window>,
+    instance: wgpu::Instance,
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -33,6 +34,16 @@ struct Gfx {
     egui: Option<egui_winit::State>,
     /// Mouse events for the new menus, in menu points.
     pointer: crate::menu::PointerInput,
+}
+
+impl Gfx {
+    /// Releases the GPU state ([`crate::gfx::release_gpu`]'s order, with
+    /// `repeat_frame`, the FPS limit's kept frame) and returns the window.
+    fn release(self, repeat_frame: Option<wgpu::Texture>) -> Arc<Window> {
+        let Gfx { window, instance, surface, device, queue, fe, egui, .. } = self;
+        crate::gfx::release_gpu(surface, (fe, egui, repeat_frame), device, queue, instance);
+        window
+    }
 }
 
 pub struct App {
@@ -132,8 +143,7 @@ impl App {
         let _ = g.window.set_cursor_grab(winit::window::CursorGrabMode::None);
         g.window.set_cursor_visible(true);
         self.capture = None;
-        let Gfx { window, .. } = g;
-        Some(window)
+        Some(g.release(self.repeat_frame.take()))
     }
 
     fn apply_video(&mut self) {
@@ -477,7 +487,7 @@ impl ApplicationHandler for App {
         }
         // A window handed over from the import screen has had its first redraw.
         window.request_redraw();
-        self.gfx = Some(Gfx { window, surface, device, queue, config, fe, egui, pointer: Default::default() });
+        self.gfx = Some(Gfx { window, instance, surface, device, queue, config, fe, egui, pointer: Default::default() });
         self.engine.host.video.changed = false;
         self.last = Instant::now();
     }
@@ -596,6 +606,19 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => self.frame(el),
             _ => {}
         }
+    }
+
+    /// The event loop ends: the GPU state goes while the window and the
+    /// window system's connection are still there (the loop's connection is
+    /// closed when [`run_handler`] returns; a GL surface released after that
+    /// would crash in the driver). A quit has saved the settings already
+    /// (`frame`), so what is left of the exit is no game crash
+    /// ([`crate::crash::exit_started`]).
+    fn exiting(&mut self, _: &ActiveEventLoop) {
+        if self.engine.host.quit_requested {
+            crate::crash::exit_started();
+        }
+        drop(self.take_window());
     }
 
     fn device_event(&mut self, _: &ActiveEventLoop, _: winit::event::DeviceId, event: DeviceEvent) {

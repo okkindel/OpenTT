@@ -340,7 +340,8 @@ fn layout_previews() {
         ("74_join_full", Box::new(|| { let mut s = MenuState::at(Screen::Online); s.join_sel = Some("IP:203.0.113.77:28000".into()); s })),
         ("75_join_players", Box::new(|| { let mut s = MenuState::at(Screen::Online); s.join_sel = Some("IP:203.0.113.77:28000".into()); s.show_players = true; s })),
         ("76_custom_game", Box::new({ let game = game.clone(); move || { let mut s = MenuState::at(Screen::CustomGame); s.custom = Some(game.clone()); s } })),
-        ("77_host", Box::new({ let game = game.clone(); move || { let mut s = MenuState::at(Screen::Online); s.online_tab = OnlineTab::Host; s.host = Some(HostGame { game: game.clone(), name: "Alice's game".into(), max_players: 16, password: String::new(), port: 28000, port_mapping: false, public: true, rotation: vec![game.mission.clone()] }); s } })),
+        ("77_host", Box::new({ let game = game.clone(); move || { let mut s = MenuState::at(Screen::Online); s.online_tab = OnlineTab::Host; s.host = Some(HostGame { game: game.clone(), name: "Alice's game".into(), max_players: 16, password: String::new(), port: 28000, port_mapping: false, public: true, rotation: vec![game.mission.clone(), tt_assets::layout::mission("tt2_3"), tt_assets::layout::mission("X1")], rotation_random: true }); s } })),
+        ("77b_host_bots", Box::new({ let game = game.clone(); move || { let mut s = MenuState::at(Screen::Online); s.online_tab = OnlineTab::Host; s.host_bots = true; s.host = Some(HostGame { game: game.clone(), name: "Alice's game".into(), max_players: 16, password: String::new(), port: 28000, port_mapping: false, public: true, rotation: vec![game.mission.clone(), tt_assets::layout::mission("tt2_3"), tt_assets::layout::mission("X1")], rotation_random: true }); s } })),
         ("78_help", Box::new(|| MenuState::at(Screen::Help))),
         ("79_credits", Box::new(|| MenuState::at(Screen::Credits))),
     ];

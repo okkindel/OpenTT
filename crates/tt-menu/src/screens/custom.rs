@@ -95,7 +95,7 @@ pub(super) fn custom_game(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBacke
         label(g, 4, "Team");
         team_selector(g, "pteam", row(4), &mut cg.player_team);
     }
-    bot_table(g, &mut cg, BotPool { tanks: &bot_tanks, names: &names, max: max_bots }, teams, false, g.r(860.0, 134.0, 380.0, 470.0));
+    bot_table(g, &mut cg, BotPool { tanks: &bot_tanks, names: &names, max: max_bots }, teams, g.r(860.0, 134.0, 380.0, 470.0));
     let back = g.button("back", g.action_left(0.0, 200.0), "Back", false, false, true).clicked();
     let start = g.button("launch", g.action(0.0, 220.0), "Launch", true, false, true).clicked() || (pressed(&ctx, Key::Enter) && ctx.input(|i| i.modifiers.ctrl));
     let out = (start && !g.blocked).then(|| MenuAction::StartCustom(cg.clone()));

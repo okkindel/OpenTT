@@ -47,6 +47,7 @@ them) or in `settings.ron`; they are saved when the server quits
 | `server.ban_time` | 1800 | seconds of a ban |
 | `server.connection_error` | (text) | shown to a player whose game does not match |
 | `server.map_rotation` | empty | the maps played in turn, as mission ids (`["tt1_1", "tt2_3"]` in `settings.ron`); empty: the `--mission` map only |
+| `server.map_rotation_random` | 0 | 1: the rotation's maps come in a random order (`true` in `settings.ron`) |
 
 ## Master server
 
@@ -85,17 +86,23 @@ opentt-master --port 28100 --stats-port 8080 --stats-user admin
 `set KEY VALUE`, `get KEY` (`get server.*`), `help`, `quit`, and for the
 map rotation:
 
-* `rotation`: the maps in turn, the one being played marked;
+* `rotation`: the maps in turn, the one being played marked, and whether
+  they come in turn or in a random order;
 * `rotation set tt1_1 tt2_3 ...`, `rotation add ID`, `rotation remove ID`:
   change it (kept in `server.map_rotation`, saved when the server quits);
+* `rotation random on|off`: a random order, or in turn again (kept in
+  `server.map_rotation_random`);
 * `next`: the round ends now (scores shown) and the next map comes.
 
 ## Map rotation and votes
 
 When a round ends, the next map of the rotation starts (after the last,
-the first again). A hosted game picks its rotation on the Host screen: a
-click on a map adds it, a click on a chosen one takes it out, a double
-click keeps that map only; the first one starts the game.
+the first again). In a random order (`server.map_rotation_random`), a
+random map of the rotation other than the one just played starts instead
+(with one map, it again). A hosted game picks its rotation on the Host
+screen: a click on a map adds it, a click on a chosen one takes it out, a
+double click keeps that map only; the first one starts the game. "Random
+order" below the list plays the maps in a random order.
 
 Players can vote for a map of the rotation: F10 lists them (or type
 `/vote NAME` in the chat, a map's name or id), F12 votes yes, F11 no

@@ -29,6 +29,21 @@ pub fn clear(device: &wgpu::Device, queue: &wgpu::Queue, view: &wgpu::TextureVie
     queue.submit([enc.finish()]);
 }
 
+/// Releases a window's GPU state in a fixed order: waits for the GPU, then
+/// the window's surface (while the device is there to unconfigure it),
+/// `resources` (renderers and their buffers and textures), the queue, the
+/// device and last the instance (with the GL backend it owns the EGL
+/// display, which is bound to the window system's connection). Call it
+/// while the window and the event loop are still there.
+pub fn release_gpu<R>(surface: wgpu::Surface<'static>, resources: R, device: wgpu::Device, queue: wgpu::Queue, instance: wgpu::Instance) {
+    device.poll(wgpu::Maintain::Wait);
+    drop(surface);
+    drop(resources);
+    drop(queue);
+    drop(device);
+    drop(instance);
+}
+
 /// The game view: camera, horizontal FOV (degrees) and moving shapes.
 pub struct GameView {
     pub camera: Camera,

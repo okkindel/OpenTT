@@ -37,6 +37,8 @@ pub enum Setting {
     ConnectionError,
     /// The maps a multiplayer server plays in turn (mission ids).
     MapRotation,
+    /// The rotation's maps come in a random order.
+    MapRotationRandom,
     /// The local player.
     PlayerName,
     PlayerTeam,

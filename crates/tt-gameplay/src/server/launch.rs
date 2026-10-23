@@ -31,6 +31,7 @@ impl Server {
         self.setup.team_game = teams;
         self.setup.target_range = Some(false);
         self.setup.rotation = self.rotation_setting(h, mission);
+        self.setup.rotation_random = self.setting_on(h, super::Setting::MapRotationRandom);
         self.create_server(h, ServerType::MultiPlayer, mission);
         Some(self.player_args(h, None))
     }
@@ -132,6 +133,7 @@ impl Server {
             }
             None => self.setup.rotation = self.rotation_setting(h, &mission),
         }
+        self.setup.rotation_random = self.setting_on(h, super::Setting::MapRotationRandom);
         self.setup.target_range = Some(false);
         self.create_server(h, ServerType::MultiPlayer, &mission);
     }

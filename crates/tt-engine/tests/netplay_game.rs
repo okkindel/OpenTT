@@ -907,3 +907,92 @@ fn team_chat_reaches_only_the_team() {
         }
     });
 }
+
+/// What client `c` draws of the tank of server id `net`: (corpse, brain
+/// ejected, death sequence, tilt of the drawn transform from the hull's up).
+fn drawn_corpse(c: &Engine, root: &Path, net: u32) -> Option<(bool, bool, Option<usize>, f32)> {
+    let rep = c.host.netgame.client_rep()?;
+    let tid = rep.tanks.get(&net)?.1;
+    let g = c.host.game.as_ref()?;
+    let t = g.world.tank(tid)?;
+    let shape = tt_render::pose::shape(&root.join(&t.data.shape_file))?;
+    let mut inst = tt_render::DynamicInstance { transform: glam::Mat4::from_mat3(t.rot), ..Default::default() };
+    tt_engine::game::pose_tank(g, t, 1.0, &shape, &mut inst);
+    let tilt = inst.transform.transform_vector3(Vec3::Z).angle_between(t.rot.z_axis);
+    Some((t.is_corpse, t.brain_ejected, t.death_sequence.map(|d| d.0), tilt))
+}
+
+/// The own tank's death on a network client plays like any other tank's:
+/// it shakes, the brain jar pops out and the tank flips over (as the
+/// other client draws the same tank); the chase camera frames it like a
+/// local game's; after the respawn the new tank is whole and upright.
+#[test]
+fn own_tank_death_animation_on_a_client() {
+    tt_assets::require_game_data!();
+    let root = assets();
+    big_stack(move || {
+        let mut g = Game::new(&root, "own-death", LinkConditions::lan(), &[], 2, 0);
+        play_until_in(&mut g);
+        for _ in 0..60 {
+            g.step();
+        }
+        let conns = remote_conns(&g);
+        let tank_of = |g: &Game, conn: u32| {
+            let o = g.server.host.net.control.get(&conn).copied().unwrap();
+            g.server.host.game.as_ref().unwrap().tank_of(o).unwrap()
+        };
+        let (t0, t1) = (tank_of(&g, conns[0]), tank_of(&g, conns[1]));
+        let net = t1.0;
+        assert_eq!(own_tank(&g.clients[1]).map(|o| o.0), Some(net), "client 1 drives tank {net}");
+        g.server.host.game.as_mut().unwrap().world.apply_damage(t1, 1000.0, Some(t0));
+        // The chase camera a local game would show of the server's corpse.
+        let mut local_cam = tt_engine::game::ChaseCam::default();
+        let (mut own_tilt, mut other_tilt, mut cam_err) = (0f32, 0f32, 0f32);
+        for i in 0..150 {
+            g.step();
+            let own = drawn_corpse(&g.clients[1], &root, net).unwrap();
+            let other = drawn_corpse(&g.clients[0], &root, net).unwrap();
+            own_tilt = own_tilt.max(own.3);
+            other_tilt = other_tilt.max(other.3);
+            let eye = g.clients[1].view_camera().unwrap().pos;
+            let sg = g.server.host.game.as_ref().unwrap();
+            let st = sg.world.tank(t1).unwrap();
+            let terrain = sg.world.terrain.clone();
+            let want: Vec3 = local_cam.update(g.t as f64, st.pos, st.rot, &sg.camera_data(t1), |x, y| terrain.as_ref().map(|h| h.height(x, y))).translation.into();
+            if i > 10 {
+                cam_err = cam_err.max((eye - want).length());
+            }
+        }
+        println!("own-death: drawn tilt {own_tilt:.2} (other client {other_tilt:.2}); camera within {cam_err:.2} m of the local one");
+        // The camera frames the corpse like a local game's (the client's pose is a tick or two behind).
+        assert!(cam_err < 0.5, "camera off by {cam_err} m");
+        let st = g.server.host.game.as_ref().unwrap().world.tank(t1).unwrap();
+        let seq = st.death_sequence.map(|d| d.0);
+        assert!(st.is_corpse && st.brain_ejected && seq.is_some(), "the server played the death");
+        let own = drawn_corpse(&g.clients[1], &root, net).unwrap();
+        let other = drawn_corpse(&g.clients[0], &root, net).unwrap();
+        assert_eq!((other.0, other.1, other.2), (true, true, seq), "the other client's view of it");
+        assert_eq!((own.0, own.1, own.2), (true, true, seq), "the own corpse: brain out, the server's death sequence");
+        assert!(other_tilt > 1.5, "the other client sees it flip: {other_tilt}");
+        assert!(own_tilt > 1.5, "the own tank flips over: {own_tilt}");
+        // SPACE: a new tank, whole and upright.
+        tt_engine::net::send_cmd(&mut g.clients[1].host, tt_gameplay::ClientCmd::SpawnPlayer);
+        let mut ticks = 0;
+        while own_tank(&g.clients[1]).is_none_or(|(n, _)| n == net) || g.clients[1].host.netgame.client_rep().unwrap().pred.tank.is_none() {
+            g.step();
+            ticks += 1;
+            assert!(ticks < 300, "no respawn");
+        }
+        for _ in 0..10 {
+            g.step();
+        }
+        let (new_net, _) = own_tank(&g.clients[1]).unwrap();
+        let fresh = drawn_corpse(&g.clients[1], &root, new_net).unwrap();
+        assert_eq!((fresh.0, fresh.1, fresh.2), (false, false, None), "the respawned tank");
+        assert!(fresh.3 < 0.01, "upright: {}", fresh.3);
+        // The old corpse, no longer predicted, still shows its death.
+        if let Some(old) = drawn_corpse(&g.clients[1], &root, net) {
+            assert_eq!((old.0, old.1, old.2), (true, true, seq), "the old corpse after the respawn");
+        }
+    });
+}

@@ -91,6 +91,15 @@ impl Prefs {
         self.set("server.map_rotation", &ids.join("\t"));
     }
 
+    /// The rotation's maps come in a random order (default off: in turn).
+    pub fn map_rotation_random(&self) -> bool {
+        self.num_pref("server.map_rotation_random", 0.0) != 0.0
+    }
+
+    pub fn set_map_rotation_random(&mut self, on: bool) {
+        self.set("server.map_rotation_random", if on { "1" } else { "0" });
+    }
+
     /// Some host settings were saved.
     pub fn has_host_settings(&self) -> bool {
         !self.host_mission().trim().is_empty()
@@ -225,6 +234,22 @@ mod tests {
         assert_eq!(Prefs::with_settings(&s).map_rotation(), ids);
         p.set("server.map_rotation", "tt1_1, tt2_3  moon_1");
         assert_eq!(p.map_rotation(), ids);
+    }
+
+    /// `server.map_rotation_random`: off by default, a bool in settings.ron.
+    #[test]
+    fn map_rotation_random_round_trip() {
+        let mut p = Prefs::defaults();
+        assert!(!p.map_rotation_random());
+        assert!(!p.settings().to_ron().contains("map_rotation_random"), "not written while unset");
+        p.set_map_rotation_random(true);
+        let ron = p.settings().to_ron();
+        assert!(ron.contains("map_rotation_random: true"), "{ron}");
+        let s = crate::Settings::from_ron(&ron).unwrap();
+        assert_eq!(s.server.map_rotation_random, Some(true));
+        assert!(Prefs::with_settings(&s).map_rotation_random());
+        p.set_map_rotation_random(false);
+        assert!(!Prefs::with_settings(&crate::Settings::from_ron(&p.settings().to_ron()).unwrap()).map_rotation_random());
     }
 
     /// Each default master is offered once per install: added to the list

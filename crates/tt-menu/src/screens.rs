@@ -13,6 +13,7 @@ mod custom;
 mod garage;
 mod gfx;
 mod help;
+mod host;
 mod in_game;
 mod online;
 mod options;

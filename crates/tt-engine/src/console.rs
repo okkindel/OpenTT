@@ -9,7 +9,9 @@
 //!   file or a name like `tt2_3`);
 //! * `rotation` (the maps played in turn), `rotation set MISSION...`,
 //!   `rotation add MISSION`, `rotation remove MISSION` (kept in
-//!   `server.map_rotation`), `next` (the round ends, the next map comes);
+//!   `server.map_rotation`), `rotation random on|off` (a random order, kept
+//!   in `server.map_rotation_random`), `next` (the round ends, the next map
+//!   comes);
 //! * `set KEY VALUE` / `get KEY` for the settings, by their keys
 //!   (`set server.max_players 12`; `get` with a trailing `*` lists a
 //!   group, `get server.*`), and the assignment `server.max_players = 12`
@@ -35,7 +37,7 @@ pub struct Console {
 }
 
 const HELP: &str = "commands: status | say TEXT | kick PLAYER | ban PLAYER | map MISSION | quit | help\n\
-                    map rotation: rotation | rotation set MISSION... | rotation add MISSION | rotation remove MISSION | next\n\
+                    map rotation: rotation | rotation set MISSION... | rotation add MISSION | rotation remove MISSION | rotation random on|off | next\n\
                     settings: set KEY VALUE | get KEY (e.g. set server.max_players 12; get server.*) | KEY = VALUE\n\
                     network tests: simLag LOSS% LAGMS | echo TEXT";
 
@@ -51,6 +53,8 @@ pub enum Command {
     Map(Option<String>),
     /// `rotation` (None), `rotation set|add|remove MISSION...`.
     Rotation(Option<(String, Vec<String>)>),
+    /// `rotation random on|off`.
+    RotationRandom(bool),
     /// `next`: the round ends, the next map of the rotation comes.
     Next,
     /// `set KEY VALUE` / `KEY = VALUE`.
@@ -130,8 +134,13 @@ impl Command {
                 let w = split_words(rest);
                 match w.split_first() {
                     None => Command::Rotation(None),
+                    Some((op, on)) if op.eq_ignore_ascii_case("random") => match on {
+                        [w] if w.eq_ignore_ascii_case("on") || w == "1" => Command::RotationRandom(true),
+                        [w] if w.eq_ignore_ascii_case("off") || w == "0" => Command::RotationRandom(false),
+                        _ => Command::Invalid("usage: rotation random on|off".into()),
+                    },
                     Some((op, ids)) if ["set", "add", "remove"].contains(&op.to_ascii_lowercase().as_str()) && !ids.is_empty() => Command::Rotation(Some((op.to_ascii_lowercase(), ids.to_vec()))),
-                    _ => Command::Invalid("usage: rotation | rotation set MISSION... | rotation add MISSION | rotation remove MISSION".into()),
+                    _ => Command::Invalid("usage: rotation | rotation set MISSION... | rotation add MISSION | rotation remove MISSION | rotation random on|off".into()),
                 }
             }
             "next" if rest.is_empty() => Command::Next,
@@ -274,10 +283,12 @@ pub fn mission_path(e: &Engine, name: &str) -> Option<String> {
     crate::mission::mission_exists(&e.host, &file).then_some(file)
 }
 
-/// The rotation, one map a line (the one being played marked).
+/// The rotation, one map a line (the one being played marked), and its
+/// order.
 fn rotation_lines(e: &mut Engine) -> Vec<String> {
     let (rot, cur) = (e.server().setup.rotation.clone(), e.server().session.mission_file.clone());
-    let mut out = vec![format!("rotation ({} map{}):", rot.len(), if rot.len() == 1 { "" } else { "s" })];
+    let order = if e.server().setup.rotation_random { "random order" } else { "in turn" };
+    let mut out = vec![format!("rotation ({} map{}, {order}):", rot.len(), if rot.len() == 1 { "" } else { "s" })];
     for (i, f) in rot.iter().enumerate() {
         let name = crate::mission::mission_info_name(&mut e.host, f);
         let now = if f.eq_ignore_ascii_case(&cur) { "  <- now" } else { "" };
@@ -354,6 +365,10 @@ pub fn execute(e: &mut Engine, line: &str) -> Vec<String> {
             None => vec![format!("no mission {m:?}")],
         },
         Command::Rotation(None) => rotation_lines(e),
+        Command::RotationRandom(on) => {
+            server(e, |s, b| s.set_rotation_random(b, on));
+            rotation_lines(e)
+        }
         Command::Rotation(Some((op, names))) => {
             let mut files = Vec::new();
             for n in &names {
@@ -380,7 +395,8 @@ pub fn execute(e: &mut Engine, line: &str) -> Vec<String> {
             if !e.server().round.running() {
                 return vec!["no round is running".into()];
             }
-            let next = e.server().next_mission();
+            let s = e.server();
+            let next = if s.setup.rotation_random && s.setup.rotation.len() > 1 && s.session.voted_mission.is_none() { "a random map of the rotation".to_string() } else { s.next_mission() };
             server(e, |s, b| s.cycle_round(b));
             vec![format!("round over, next {next}")]
         }
@@ -462,6 +478,10 @@ mod tests {
         assert_eq!(Command::parse("rotation remove tt1_1"), Some(Command::Rotation(Some(("remove".into(), vec!["tt1_1".into()])))));
         assert!(matches!(Command::parse("rotation add"), Some(Command::Invalid(_))));
         assert!(matches!(Command::parse("rotation shuffle x"), Some(Command::Invalid(_))));
+        assert_eq!(Command::parse("rotation random ON"), Some(Command::RotationRandom(true)));
+        assert_eq!(Command::parse("rotation Random off"), Some(Command::RotationRandom(false)));
+        assert!(matches!(Command::parse("rotation random"), Some(Command::Invalid(_))));
+        assert!(matches!(Command::parse("rotation random maybe"), Some(Command::Invalid(_))));
         assert_eq!(Command::parse("next"), Some(Command::Next));
         assert!(matches!(Command::parse("echo(\"x\");"), Some(Command::Invalid(_))));
         assert_eq!(Command::parse("  "), None);

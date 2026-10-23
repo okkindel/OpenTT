@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.1
+
+* Random map rotation: "Random order" in the Host dialog (dedicated
+  servers: `server.map_rotation_random`, the console's `rotation random
+  on|off`) plays the rotation's maps in a random order, never the same
+  map twice in a row. A passed map vote still picks the next map.
+* A new Host dialog: the server and the rules on a riveted plate, the map
+  rotation and the bots under two tabs (the bots as plates, three to a
+  row), your tank and team below.
+* Online, your own tank's death plays as in a local game: the brain jar
+  flies out and the tank flips over.
+* Mods: "Restart now" applies the new mod set to the models too.
+* Linux (Wayland): quitting no longer ends with a crash report.
+
 ## 0.4.0
 
 * Map rotation: a server plays a list of maps, one after the other. Pick

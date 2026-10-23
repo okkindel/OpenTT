@@ -174,7 +174,7 @@ fn map_vote() {
         new_player(&mut e, "Alice");
         let game = custom("tt1_1", 0);
         let rotation = ["tt1_1", "tt1_4", "tt2_1", "tt2_3", "tt3_1"].map(tt_assets::layout::mission).to_vec();
-        let host = tt_menu::HostGame { game, name: "Alice's game".into(), max_players: 16, password: String::new(), port: 28000, port_mapping: false, public: false, rotation };
+        let host = tt_menu::HostGame { game, name: "Alice's game".into(), max_players: 16, password: String::new(), port: 28000, port_mapping: false, public: false, rotation, rotation_random: false };
         apply(&mut e, MenuAction::Host(host));
         until_play(&mut e);
         ticks(&mut e, 4000);

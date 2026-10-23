@@ -373,6 +373,7 @@ fn start_host(host: &mut EngineHost, g: &HostGame) {
         p.set_host_mission(&g.game.mission);
         let ids: Vec<String> = g.rotation.iter().map(|f| tt_assets::layout::mission_id(f)).collect();
         p.set_map_rotation(&ids);
+        p.set_map_rotation_random(g.rotation_random);
         p.set_host_mode(g.game.mode);
         p.set_host_minutes(g.game.minutes);
         p.set_port_mapping(g.port_mapping);
@@ -975,6 +976,7 @@ impl MenuBackend for Backend<'_> {
             port_mapping: p.port_mapping(),
             public: p.display_on_master(),
             rotation: host_rotation(&p.host_mission(), &p.map_rotation()),
+            rotation_random: p.map_rotation_random(),
         })
     }
 

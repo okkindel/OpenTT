@@ -239,10 +239,14 @@ impl<'a> Gfx<'a> {
     }
 
     /// Run `f` with drawing clipped to `clip`.
+    /// (Clicks outside `clip` miss the controls drawn in it.)
     pub(super) fn clipped<R>(&mut self, clip: Rect, f: impl FnOnce(&mut Self) -> R) -> R {
         let old = self.painter.clone();
+        let old_ui = self.ui.clip_rect();
         self.painter = old.with_clip_rect(clip.intersect(old.clip_rect()));
+        self.ui.set_clip_rect(clip.intersect(old_ui));
         let out = f(self);
+        self.ui.set_clip_rect(old_ui);
         self.painter = old;
         out
     }

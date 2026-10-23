@@ -57,6 +57,10 @@ egui-winit = { version = "0.31", default-features = false, features = ["clipboar
 # SIGINT/SIGTERM (Ctrl+C, `docker stop`) quit like the console `quit`.
 ctrlc = { version = "3", features = ["termination"] }
 
+# The quiet end of a fault during the exit (src/crash.rs).
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
 # The application icon and version information of the Windows executable
 # (build.rs, `icon/`); used only when the target is Windows (also in a
 # cross build from Linux, with mingw-w64's windres).

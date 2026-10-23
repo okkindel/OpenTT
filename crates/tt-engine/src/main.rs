@@ -253,6 +253,8 @@ fn run(a: Args) -> Result<(), String> {
         if !app.engine.host.quit_requested {
             app.engine.shutdown();
         }
+        // The settings are saved: the rest is the process's teardown.
+        tt_engine::crash::exit_started();
     }
     Ok(())
 }

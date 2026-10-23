@@ -293,6 +293,8 @@ section! {
         min_health_packs: u32 = "server.min_health_packs",
         /// The maps played in turn (mission ids; the first starts a hosted game).
         map_rotation: Vec<String> = "server.map_rotation",
+        /// The rotation's maps come in a random order (off: in turn).
+        map_rotation_random: bool = "server.map_rotation_random",
     }
 }
 

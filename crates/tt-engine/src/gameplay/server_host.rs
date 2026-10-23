@@ -228,6 +228,7 @@ pub fn setting_key(s: Setting) -> &'static str {
         Setting::KickBanTime => "server.kick_ban_time",
         Setting::BanTime => "server.ban_time",
         Setting::ConnectionError => "server.connection_error",
+        Setting::MapRotation => "server.map_rotation",
         Setting::PlayerName => "player.name",
         Setting::PlayerTeam => "player.team",
         Setting::PlayerTank => "player.tank",

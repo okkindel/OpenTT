@@ -139,7 +139,7 @@ fn tab_of(s: Screen) -> Option<Tab> {
         Screen::PlayerSelect | Screen::TutorialPrompt | Screen::Tutorial => Tab::Players,
         Screen::Settings => Tab::Options,
         Screen::Help | Screen::Credits => Tab::Help,
-        Screen::Loading | Screen::QuitConfirm | Screen::Pause | Screen::Results => return None,
+        Screen::Loading | Screen::QuitConfirm | Screen::Pause | Screen::Results | Screen::VoteMap => return None,
     })
 }
 
@@ -265,7 +265,7 @@ pub(crate) fn ui(st: &mut MenuState, ctx: &egui::Context, b: &mut dyn MenuBacken
         None
     };
     let action = frame(ctx, st, egui::Order::Background, modal, |g, st| {
-        if !matches!(screen, Screen::Pause | Screen::Results) {
+        if !matches!(screen, Screen::Pause | Screen::Results | Screen::VoteMap) {
             match chrome(g, shown, b, backdrop.as_ref()) {
                 Some(Ok(tab)) => {
                     let target = match tab {
@@ -355,7 +355,7 @@ pub(crate) fn ui(st: &mut MenuState, ctx: &egui::Context, b: &mut dyn MenuBacken
     }
     if action.is_none() && st.screen() == screen && pressed(ctx, Key::Escape) {
         match screen {
-            Screen::Pause => return Some(MenuAction::Resume),
+            Screen::Pause | Screen::VoteMap => return Some(MenuAction::Resume),
             Screen::Loading | Screen::Results => {}
             Screen::MainMenu => st.open(Screen::QuitConfirm),
             Screen::PlayerSelect if b.current_player().is_none() => st.open(Screen::QuitConfirm),
@@ -391,8 +391,9 @@ fn draw_screen(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, screen:
         Screen::Help => help::help(g, st, b),
         Screen::Credits => help::credits(g, st, b),
         Screen::QuitConfirm => None,
-        Screen::Pause => in_game::pause(g, st),
+        Screen::Pause => in_game::pause(g, st, b),
         Screen::Results => in_game::results(g, b),
+        Screen::VoteMap => in_game::vote_map(g, st, b),
     }
 }
 

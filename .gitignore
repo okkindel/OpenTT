@@ -4,7 +4,8 @@
 /gamedata/
 /gamedata.tmp/
 /gamedata.old/
-# Your own mods (the example mods that ship with the game are tracked).
+# Your own mods (the mods that ship with the game are tracked).
 /mods/*
 !/mods/carpet-bombing/
 !/mods/desert-camo/
+!/mods/readable-pads/

@@ -145,7 +145,7 @@ pub fn render_game_view_taking(renderer: &mut Renderer, scene: &Scene, target: T
     let (w, h) = size;
     let aspect = w.max(1) as f32 / h.max(1) as f32;
     let camera = Camera { pos: gv.camera.pos, yaw: gv.camera.yaw, pitch: gv.camera.pitch };
-    let view = tt_render::View { camera, fov_deg: tt_render::vertical_fov(gv.hfov, aspect), viewport: Some([0, 0, w, h]), clear: true };
+    let view = tt_render::View { camera, fov_deg: crate::game::game_vfov(gv.hfov, aspect), viewport: Some([0, 0, w, h]), clear: true };
     renderer.render_view(target, &view, time);
 }
 

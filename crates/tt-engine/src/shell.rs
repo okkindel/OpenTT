@@ -82,6 +82,8 @@ pub struct Shell {
     pub pause_request: bool,
     /// F1 in the menus: open the help.
     pub help_request: bool,
+    /// The vote menu (the rotation's maps) was asked for in game.
+    pub vote_menu_request: bool,
     /// The menu's screens exist ([`init_menu`]; none on a dedicated server).
     pub screens: bool,
     pub rng: tt_game::rng::Rng,
@@ -108,6 +110,7 @@ impl Shell {
             loading: LoadingInfo::default(),
             pause_request: false,
             help_request: false,
+            vote_menu_request: false,
             screens: false,
             rng: tt_game::rng::Rng::new(seed | 1),
             names: Default::default(),
@@ -482,7 +485,7 @@ pub fn launch_local(h: &mut EngineHost, mission: &str) {
     let s = setup(h);
     s.target_range = Some(false);
     s.single_player = Some(false);
-    s.stay_on_mission = true;
+    s.rotation.clear();
     h.cl.disconnect_gui = Some(Ctrl::TankSelectionGui);
     show(h, Ctrl::LoadingGui, "");
     crate::gameplay::server_host::with_server(h, |s, b| s.create_server(b, ServerType::SinglePlayer, mission));
@@ -689,6 +692,16 @@ pub fn quit_show(h: &mut EngineHost) {
         h.cl.time_scale = Some(Val::s("0.00001"));
     }
     h.shell.pause_request = true;
+}
+
+/// The vote menu over the game (the game's keys pause while it is open,
+/// like the pause menu's; [`resume`] closes it).
+pub fn vote_menu_show(h: &mut EngineHost) {
+    if !h.shell.screens {
+        return;
+    }
+    h.input.pop_map(crate::input::MOVE_MAP);
+    h.shell.vote_menu_request = true;
 }
 
 /// `quitDlg.hide()`: back to the game.

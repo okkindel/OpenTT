@@ -7,6 +7,9 @@
 //! * `help`, `status`, `say TEXT`, `kick PLAYER`, `ban PLAYER`,
 //!   `map MISSION`, `quit` (PLAYER is a connection id or a name, MISSION a
 //!   file or a name like `tt2_3`);
+//! * `rotation` (the maps played in turn), `rotation set MISSION...`,
+//!   `rotation add MISSION`, `rotation remove MISSION` (kept in
+//!   `server.map_rotation`), `next` (the round ends, the next map comes);
 //! * `set KEY VALUE` / `get KEY` for the settings, by their keys
 //!   (`set server.max_players 12`; `get` with a trailing `*` lists a
 //!   group, `get server.*`), and the assignment `server.max_players = 12`
@@ -32,6 +35,7 @@ pub struct Console {
 }
 
 const HELP: &str = "commands: status | say TEXT | kick PLAYER | ban PLAYER | map MISSION | quit | help\n\
+                    map rotation: rotation | rotation set MISSION... | rotation add MISSION | rotation remove MISSION | next\n\
                     settings: set KEY VALUE | get KEY (e.g. set server.max_players 12; get server.*) | KEY = VALUE\n\
                     network tests: simLag LOSS% LAGMS | echo TEXT";
 
@@ -45,6 +49,10 @@ pub enum Command {
     Kick(String),
     Ban(String),
     Map(Option<String>),
+    /// `rotation` (None), `rotation set|add|remove MISSION...`.
+    Rotation(Option<(String, Vec<String>)>),
+    /// `next`: the round ends, the next map of the rotation comes.
+    Next,
     /// `set KEY VALUE` / `KEY = VALUE`.
     Set { name: String, value: tt_shell::VarValue },
     /// `get NAME` (a trailing `*` matches a group).
@@ -118,6 +126,15 @@ impl Command {
             "kick" => need("kick PLAYER", Command::Kick),
             "ban" => need("ban PLAYER", Command::Ban),
             "map" => Command::Map((!rest.is_empty()).then(|| rest.to_string())),
+            "rotation" => {
+                let w = split_words(rest);
+                match w.split_first() {
+                    None => Command::Rotation(None),
+                    Some((op, ids)) if ["set", "add", "remove"].contains(&op.to_ascii_lowercase().as_str()) && !ids.is_empty() => Command::Rotation(Some((op.to_ascii_lowercase(), ids.to_vec()))),
+                    _ => Command::Invalid("usage: rotation | rotation set MISSION... | rotation add MISSION | rotation remove MISSION".into()),
+                }
+            }
+            "next" if rest.is_empty() => Command::Next,
             "echo" => Command::Echo(rest.to_string()),
             "set" => {
                 let w = split_words(rest);
@@ -257,6 +274,18 @@ pub fn mission_path(e: &Engine, name: &str) -> Option<String> {
     crate::mission::mission_exists(&e.host, &file).then_some(file)
 }
 
+/// The rotation, one map a line (the one being played marked).
+fn rotation_lines(e: &mut Engine) -> Vec<String> {
+    let (rot, cur) = (e.server().setup.rotation.clone(), e.server().session.mission_file.clone());
+    let mut out = vec![format!("rotation ({} map{}):", rot.len(), if rot.len() == 1 { "" } else { "s" })];
+    for (i, f) in rot.iter().enumerate() {
+        let name = crate::mission::mission_info_name(&mut e.host, f);
+        let now = if f.eq_ignore_ascii_case(&cur) { "  <- now" } else { "" };
+        out.push(format!("{:>3}. {:<10} {name}{now}", i + 1, tt_assets::layout::mission_id(f)));
+    }
+    out
+}
+
 fn status(e: &mut Engine) -> Vec<String> {
     let mut out = Vec::new();
     let addr = crate::netgame::server_addr(&e.host).map(|a| a.to_string()).unwrap_or_else(|| "not listening".into());
@@ -324,6 +353,37 @@ pub fn execute(e: &mut Engine, line: &str) -> Vec<String> {
             }
             None => vec![format!("no mission {m:?}")],
         },
+        Command::Rotation(None) => rotation_lines(e),
+        Command::Rotation(Some((op, names))) => {
+            let mut files = Vec::new();
+            for n in &names {
+                match mission_path(e, n) {
+                    Some(f) => files.push(f),
+                    None => return vec![format!("no mission {n:?}")],
+                }
+            }
+            let mut rot = e.server().setup.rotation.clone();
+            match op.as_str() {
+                "set" => rot = files,
+                "add" => rot.extend(files),
+                _ => rot.retain(|f| !files.contains(f)),
+            }
+            let mut seen = std::collections::HashSet::new();
+            rot.retain(|f| seen.insert(f.clone()));
+            if rot.is_empty() {
+                return vec!["the rotation needs a map".into()];
+            }
+            server(e, |s, b| s.set_rotation(b, rot));
+            rotation_lines(e)
+        }
+        Command::Next => {
+            if !e.server().round.running() {
+                return vec!["no round is running".into()];
+            }
+            let next = e.server().next_mission();
+            server(e, |s, b| s.cycle_round(b));
+            vec![format!("round over, next {next}")]
+        }
         Command::Set { name, value } => {
             let shown = value.as_string();
             e.host.shell.prefs.set_value(&name, value);
@@ -397,6 +457,12 @@ mod tests {
         assert_eq!(Command::parse("simLag(10, 200);"), Some(Command::SimLag { loss: "10".into(), lag: "200".into() }));
         assert_eq!(Command::parse("simlag 5 100"), Some(Command::SimLag { loss: "5".into(), lag: "100".into() }));
         assert_eq!(Command::parse("kick  Tester "), Some(Command::Kick("Tester".into())));
+        assert_eq!(Command::parse("rotation"), Some(Command::Rotation(None)));
+        assert_eq!(Command::parse("rotation SET tt1_1 tt2_3"), Some(Command::Rotation(Some(("set".into(), vec!["tt1_1".into(), "tt2_3".into()])))));
+        assert_eq!(Command::parse("rotation remove tt1_1"), Some(Command::Rotation(Some(("remove".into(), vec!["tt1_1".into()])))));
+        assert!(matches!(Command::parse("rotation add"), Some(Command::Invalid(_))));
+        assert!(matches!(Command::parse("rotation shuffle x"), Some(Command::Invalid(_))));
+        assert_eq!(Command::parse("next"), Some(Command::Next));
         assert!(matches!(Command::parse("echo(\"x\");"), Some(Command::Invalid(_))));
         assert_eq!(Command::parse("  "), None);
     }

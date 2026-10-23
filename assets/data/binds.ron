@@ -46,6 +46,9 @@
                 (device: Keyboard, key: "F8", action: DropCameraAtPlayer, when: Debug),
                 (device: Keyboard, key: "F7", action: DropPlayerAtCamera, when: Debug),
                 (device: Keyboard, key: "space", action: Spawn),
+                (device: Keyboard, key: "F10", action: VoteMenu),
+                (device: Keyboard, key: "F11", action: VoteNo),
+                (device: Keyboard, key: "F12", action: VoteYes),
             ],
         ),
         (

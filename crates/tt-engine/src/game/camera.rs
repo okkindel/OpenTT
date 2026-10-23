@@ -21,6 +21,14 @@ pub const FREE_TANK_MARGIN: f32 = 0.03;
 /// (90° horizontal at 16:9).
 pub const DEFAULT_HALF_VFOV: f32 = 0.513;
 
+/// Vertical field of view (degrees) of the game view for the horizontal
+/// `hfov` (degrees) on a window of `aspect`. Up to 16:9 the horizontal one
+/// is kept; wider windows keep the 16:9 vertical one and show more at the
+/// sides, so the tank's place on screen and the aim limits stay the same.
+pub fn game_vfov(hfov: f32, aspect: f32) -> f32 {
+    tt_render::vertical_fov(hfov, aspect.min(16.0 / 9.0))
+}
+
 /// Clearance of the free camera's eye over the terrain, metres.
 pub const FREE_CAM_CLEARANCE: f32 = 1.0;
 
@@ -336,6 +344,23 @@ mod tests {
                 assert!((eye - q).length() < 0.8, "{p}: {q} -> {eye}");
             }
             prev = Some(eye);
+        }
+    }
+
+    #[test]
+    fn wide_windows_keep_the_16_9_view_height() {
+        // 4:3 and 16:9 keep the horizontal field of view; 21:9 and 32:9 see
+        // more at the sides with the 16:9 view height, so the tank stays in
+        // place and looking up turns as far as on 16:9.
+        assert!((game_vfov(90.0, 4.0 / 3.0) - tt_render::vertical_fov(90.0, 4.0 / 3.0)).abs() < 1e-4);
+        let v169 = game_vfov(90.0, 16.0 / 9.0);
+        assert!((v169.to_radians() * 0.5 - DEFAULT_HALF_VFOV).abs() < 2e-3, "{v169}");
+        let cd = CameraParams::default();
+        let flat = |_: f32, _: f32| Some(0.0);
+        let up = |aspect: f32| free_view(Vec3::ZERO, 0.0, FREE_PITCH_RANGE.1, cd.float_height, game_vfov(90.0, aspect).to_radians() * 0.5, &cd, flat).1;
+        for (w, h) in [(2560.0, 1080.0), (3440.0, 1440.0), (5120.0, 1440.0)] {
+            assert!((game_vfov(90.0, w / h) - v169).abs() < 1e-4, "{w}x{h}: {}", game_vfov(90.0, w / h));
+            assert!((up(w / h) - up(16.0 / 9.0)).abs() < 1e-4, "{w}x{h}: looks up {} vs {}", up(w / h), up(16.0 / 9.0));
         }
     }
 }

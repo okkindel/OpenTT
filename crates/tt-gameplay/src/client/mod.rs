@@ -60,6 +60,28 @@ pub enum ChatKey {
     Close,
 }
 
+/// A running map vote as the server last described it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VoteView {
+    /// The map's name.
+    pub map: String,
+    pub yes: u32,
+    pub no: u32,
+    /// The players who vote.
+    pub players: u32,
+    /// When it times out (sim ms).
+    pub ends_ms: u64,
+    /// This player's vote.
+    pub mine: Option<bool>,
+}
+
+impl VoteView {
+    /// The seconds left at `now`.
+    pub fn secs_left(&self, now: u64) -> u64 {
+        self.ends_ms.saturating_sub(now).div_ceil(1000)
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct ClientState {
     pub messages: MessageHud,
@@ -79,6 +101,10 @@ pub struct ClientState {
     pub chat_sound: Option<String>,
     /// A `MsgConnectionError`'s text.
     pub conn_error: String,
+    /// The server's map vote running.
+    pub vote: Option<VoteView>,
+    /// The maps the server's rotation offers for a vote: (id, name).
+    pub vote_maps: Vec<(String, String)>,
     timers: BTreeMap<(u64, u64), Timer>,
     seq: u64,
 }
@@ -209,6 +235,11 @@ impl ClientState {
         self.end_game.copy_from(&self.players);
     }
 
+    /// The server's vote status at `now` (an empty map: no vote).
+    pub fn vote_status(&mut self, map: &str, yes: u32, no: u32, players: u32, secs: u32, mine: Option<bool>, now: u64) {
+        self.vote = (!map.is_empty()).then(|| VoteView { map: map.to_string(), yes, no, players, ends_ms: now + secs as u64 * 1000, mine });
+    }
+
     /// Lag icon and brain counter off.
     pub fn connection_accepted(&mut self) {
         self.lag = false;
@@ -219,6 +250,8 @@ impl ClientState {
     pub fn disconnected(&mut self) {
         self.lag = false;
         self.players.clear();
+        self.vote = None;
+        self.vote_maps.clear();
         self.clear_bottom();
         self.clear_center();
     }

@@ -6,7 +6,8 @@
 opentt --dedicated --mission tt2_3 --port 28000 -- -game TS
 ```
 
-* `--mission`: a map id (`tt2_3`), or a rotation: `GREEN`, `BLUE`, `RED`,
+* `--mission`: a map id (`tt2_3`), then the maps of `server.map_rotation`
+  (below) or that map alone; or a whole rotation: `GREEN`, `BLUE`, `RED`,
   `MOON` (one world's maps) or `ALL` (the green, blue and red worlds'),
   starting on a random map.
 * `-game`: `B` battle (default), `TB` team battle, `S` scrum, `TS` team scrum.
@@ -45,6 +46,7 @@ them) or in `settings.ron`; they are saved when the server quits
 | `server.kick_ban_time` | 300 | seconds a kicked player stays out |
 | `server.ban_time` | 1800 | seconds of a ban |
 | `server.connection_error` | (text) | shown to a player whose game does not match |
+| `server.map_rotation` | empty | the maps played in turn, as mission ids (`["tt1_1", "tt2_3"]` in `settings.ron`); empty: the `--mission` map only |
 
 ## Master server
 
@@ -80,12 +82,42 @@ opentt-master --port 28100 --stats-port 8080 --stats-user admin
 ## Console
 
 `status`, `say TEXT`, `kick PLAYER`, `ban PLAYER`, `map MISSION`,
-`set KEY VALUE`, `get KEY` (`get server.*`), `help`, `quit`.
+`set KEY VALUE`, `get KEY` (`get server.*`), `help`, `quit`, and for the
+map rotation:
+
+* `rotation`: the maps in turn, the one being played marked;
+* `rotation set tt1_1 tt2_3 ...`, `rotation add ID`, `rotation remove ID`:
+  change it (kept in `server.map_rotation`, saved when the server quits);
+* `next`: the round ends now (scores shown) and the next map comes.
+
+## Map rotation and votes
+
+When a round ends, the next map of the rotation starts (after the last,
+the first again). A hosted game picks its rotation on the Host screen: a
+click on a map adds it, a click on a chosen one takes it out, a double
+click keeps that map only; the first one starts the game.
+
+Players can vote for a map of the rotation: F10 lists them (or type
+`/vote NAME` in the chat, a map's name or id), F12 votes yes, F11 no
+(Options > Controls lists the keys; `binds.ron` changes them). The player
+who calls the vote votes yes. It passes as soon as more than half of the
+players on the server vote yes: the round ends and that map starts, the
+rotation goes on after it. It fails when that can no longer happen, after
+30 seconds, or when the round ends first. Bots neither vote nor count. A
+player calls a vote at most once every 3 minutes, and not in his first 3
+minutes on the server; one vote runs at a time.
 
 ## Versions
 
-Players can join only with the same version of OpenTT as the server: both
-sides must run exactly the same game simulation. The server tells the
-browser its version, and the browser shows a server of another version
-greyed out ("0.1.2: cannot join"). Update the server together with the
-players.
+Versions are `major.minor.patch`. Players and servers play together when
+the first two numbers match: 0.4.0 joins a 0.4.1 server, 0.5.0 does not.
+A patch release (the last number) only changes one side's things (menus,
+graphics, input, the master server, packages), never the game simulation,
+the network protocol, the game data or the maps; anything that changes the
+game itself comes in a new minor version. The server tells the browser its
+version, and the browser shows a server of another minor version greyed out
+("0.3.1: cannot join"). Update the server and the players to the same minor
+version; patch updates can come at any time.
+
+The rule holds from 0.4.0: earlier versions need exactly the same
+version.

@@ -189,11 +189,16 @@ fn the_packages_ship_the_examples() {
     let manifest = std::fs::read_to_string(repo().join("crates/tt-engine/Cargo.toml")).unwrap();
     let common = std::fs::read_to_string(repo().join("packaging/common.sh")).unwrap();
     let listed = common.lines().find_map(|l| l.strip_prefix("EXAMPLE_MODS=")).expect("EXAMPLE_MODS in packaging/common.sh").trim_matches('"').to_string();
-    let all = examples();
-    assert_eq!(listed.split_whitespace().collect::<Vec<_>>(), all.iter().map(|m| m.id.as_str()).collect::<Vec<_>>());
-    for m in &all {
-        for (rel, _) in tt_assets::layout::files(&m.dir) {
-            let row = format!("[\"../../mods/{0}/{rel}\", \"usr/share/opentt/mods/{0}/{rel}\", \"644\"],", m.id);
+    // Every example mod ships, and the finished mods listed beside them.
+    let listed: Vec<&str> = listed.split_whitespace().collect();
+    for m in examples() {
+        assert!(listed.contains(&m.id.as_str()), "EXAMPLE_MODS in packaging/common.sh: add {}", m.id);
+    }
+    for id in listed {
+        let dir = repo().join("mods").join(id);
+        assert!(dir.join("mod.ron").is_file(), "packaging/common.sh lists mods/{id}, which has no mod.ron");
+        for (rel, _) in tt_assets::layout::files(&dir) {
+            let row = format!("[\"../../mods/{id}/{rel}\", \"usr/share/opentt/mods/{id}/{rel}\", \"644\"],");
             assert!(manifest.contains(&row), "crates/tt-engine/Cargo.toml [package.metadata.deb] assets: add {row}");
         }
     }

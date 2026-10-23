@@ -6,16 +6,18 @@ use super::{list_keys, pal, Gfx};
 use crate::backend::*;
 use crate::{MenuAction, MenuState, Screen};
 
-const PAUSE_ITEMS: [&str; 5] = ["Return to game", "Options", "Help", "Leave game", "Quit"];
+const PAUSE_ITEMS: [&str; 6] = ["Return to game", "Vote for a map", "Options", "Help", "Leave game", "Quit"];
 
-pub(super) fn pause(g: &mut Gfx, st: &mut MenuState) -> Option<MenuAction> {
+pub(super) fn pause(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend) -> Option<MenuAction> {
     let ctx = g.ctx();
-    let mut chosen = list_keys(&ctx, &mut st.focus, PAUSE_ITEMS.len());
+    // "Vote for a map" only in a multiplayer game.
+    let items: Vec<(usize, &str)> = PAUSE_ITEMS.iter().copied().enumerate().filter(|&(i, _)| i != 1 || b.can_vote()).collect();
+    let mut chosen = list_keys(&ctx, &mut st.focus, items.len());
     g.painter.rect_filled(g.screen, 0.0, Color32::from_black_alpha(150));
-    let r = Rect::from_center_size(g.stage.center(), Vec2::new(460.0, 470.0));
+    let r = Rect::from_center_size(g.stage.center(), Vec2::new(460.0, 120.0 + items.len() as f32 * 70.0));
     g.steel_panel(r, 0.0);
     g.label(r.left_top() + Vec2::new(30.0, 26.0), "Paused", 34.0, pal::SAND, Align2::LEFT_TOP);
-    for (i, l) in PAUSE_ITEMS.iter().enumerate() {
+    for (i, (_, l)) in items.iter().enumerate() {
         let br = Rect::from_min_size(r.left_top() + Vec2::new(30.0, 90.0 + i as f32 * 70.0), Vec2::new(r.width() - 60.0, 54.0));
         let resp = g.button(("pause", i), br, l, i == 0, st.focus == i, true);
         if resp.hovered() {
@@ -25,19 +27,59 @@ pub(super) fn pause(g: &mut Gfx, st: &mut MenuState) -> Option<MenuAction> {
             chosen = Some(i);
         }
     }
-    match chosen? {
+    match items[chosen?].0 {
         0 => Some(MenuAction::Resume),
-        1 => {
+        1 => Some(MenuAction::VoteMenu),
+        2 => {
             st.open(Screen::Settings);
             None
         }
-        2 => {
+        3 => {
             st.open(Screen::Help);
             None
         }
-        3 => Some(MenuAction::LeaveGame),
+        4 => Some(MenuAction::LeaveGame),
         _ => Some(MenuAction::Quit),
     }
+}
+
+/// The rotation's maps over the game (F10, `/vote`): pick one (click,
+/// arrows, a digit; Enter or a double click) to call a vote for it.
+pub(super) fn vote_map(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend) -> Option<MenuAction> {
+    let ctx = g.ctx();
+    let maps = b.vote_maps();
+    let mut chosen = list_keys(&ctx, &mut st.focus, maps.len());
+    let digits = [egui::Key::Num1, egui::Key::Num2, egui::Key::Num3, egui::Key::Num4, egui::Key::Num5, egui::Key::Num6, egui::Key::Num7, egui::Key::Num8, egui::Key::Num9];
+    if let Some(i) = digits.iter().position(|k| super::pressed(&ctx, *k)).filter(|i| *i < maps.len()) {
+        chosen = Some(i);
+    }
+    g.painter.rect_filled(g.screen, 0.0, Color32::from_black_alpha(130));
+    let row_h = 40.0;
+    let rows = maps.len().clamp(1, 9) as f32;
+    let r = Rect::from_center_size(g.stage.center(), Vec2::new(620.0, rows * row_h + 226.0));
+    g.steel_panel(r, 0.0);
+    let inner = r.shrink2(Vec2::new(30.0, 24.0));
+    g.label(inner.left_top(), "Vote for a map", 34.0, pal::SAND, Align2::LEFT_TOP);
+    g.text(inner.left_top() + Vec2::new(0.0, 50.0), "If most players vote yes, the round ends and this map starts.", 20.0, pal::SAND_MUTED, Align2::LEFT_TOP);
+    let well = g.well(Rect::from_min_size(inner.left_top() + Vec2::new(0.0, 92.0), Vec2::new(inner.width(), rows * row_h + 16.0)));
+    let body = well.shrink(4.0);
+    let table: Vec<Vec<(f32, String, Color32)>> = maps.iter().enumerate().map(|(i, (id, name))| vec![(14.0, (i + 1).to_string(), pal::BRASS), (52.0, name.clone(), pal::SAND), (body.width() - 110.0, id.clone(), pal::SAND_MUTED)]).collect();
+    let (clicked, double) = g.table("votemaps", body, &table, Some(st.focus.min(maps.len().saturating_sub(1))), row_h);
+    if let Some(i) = clicked {
+        st.focus = i;
+        if double {
+            chosen = Some(i);
+        }
+    }
+    let y = inner.bottom() - 25.0;
+    let cancel = g.button("vote-cancel", Rect::from_min_size(Pos2::new(inner.right() - 400.0, y - 25.0), Vec2::new(170.0, 50.0)), "Cancel", false, false, true).clicked();
+    if g.button("vote-call", Rect::from_min_size(Pos2::new(inner.right() - 210.0, y - 25.0), Vec2::new(210.0, 50.0)), "Call vote", true, false, !maps.is_empty()).clicked() {
+        chosen = Some(st.focus);
+    }
+    if cancel {
+        return Some(MenuAction::Resume);
+    }
+    maps.get(chosen?).map(|(id, _)| MenuAction::CallVote(id.clone()))
 }
 
 fn team_colour(t: Option<Team>) -> Color32 {

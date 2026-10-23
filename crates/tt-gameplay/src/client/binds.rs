@@ -73,6 +73,11 @@ pub enum BindAction {
     TogglePlayerAi,
     Quit,
     Screenshot,
+    /// A yes / no in the server's map vote.
+    VoteYes,
+    VoteNo,
+    /// The list of the rotation's maps to call a vote for.
+    VoteMenu,
     /// An action of an older `binds.ron` (`AltFire`): does nothing.
     #[serde(other)]
     Unknown,
@@ -120,6 +125,9 @@ impl BindAction {
         BindAction::TogglePlayerAi,
         BindAction::Quit,
         BindAction::Screenshot,
+        BindAction::VoteYes,
+        BindAction::VoteNo,
+        BindAction::VoteMenu,
     ];
 
     /// The console function the action map calls (the scripts' name).
@@ -165,6 +173,9 @@ impl BindAction {
             TogglePlayerAi => "clientTogglePlayerAI",
             Quit => "ttQuit2",
             Screenshot => "doScreenShot",
+            VoteYes => "voteYes",
+            VoteNo => "voteNo",
+            VoteMenu => "voteMenu",
             Unknown => "",
         }
     }
@@ -602,6 +613,20 @@ impl MoveState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The default keys of the map vote: F10 the map list, F11 no, F12
+    /// yes, each key bound once in the game's map.
+    #[test]
+    fn vote_keys_in_the_defaults() {
+        let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets/data/binds.ron")).unwrap();
+        let b = Binds::parse(&text).unwrap();
+        let m = b.map("MoveMap").unwrap();
+        for (key, action) in [("f10", BindAction::VoteMenu), ("f11", BindAction::VoteNo), ("f12", BindAction::VoteYes)] {
+            let on: Vec<&Binding> = b.maps.iter().flat_map(|m| &m.binds).filter(|x| normal_key(&x.key) == key).collect();
+            assert_eq!(on.len(), 1, "{key} bound once");
+            assert!(m.binds.contains(on[0]) && on[0].action == action, "{key}: {:?}", on[0]);
+        }
+    }
 
     #[test]
     fn function_names_round_trip() {

@@ -227,7 +227,7 @@ fn backend_reads_the_game() {
         assert_eq!(b.missions()[17].world, "Special");
         b.mission_preview("missions/tt2_3.ron", [400, 225]);
         assert_eq!(b.missions()[7].name, "Greymatter Gorge");
-        assert_eq!(b.bot_names().len(), 6);
+        assert_eq!(b.bot_names().len(), tt_gameplay::server::state::DEFAULT_BOTS.len());
         assert!(!b.credits().is_empty());
         let keys = b.key_bindings();
         println!("bindings: {keys:?}");

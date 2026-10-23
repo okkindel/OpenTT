@@ -157,6 +157,38 @@ fn solo_brains() {
     });
 }
 
+/// A hosted game with a map rotation: the vote menu (F10) and a running
+/// vote's prompt (its count as a full server would show it).
+#[test]
+#[ignore]
+fn map_vote() {
+    let root = assets();
+    big_stack(move || {
+        let net = MemNet::new(3);
+        let mut e = engine(&root, "map-vote", &[]);
+        e.host.netgame.factory = Some(mem_factory(&net, [10, 0, 0, 1]));
+        assert!(e.boot());
+        // This version's default keys (the game data may be an older import).
+        let binds = tt_gameplay::client::Binds::parse(include_str!("../../../assets/data/binds.ron")).unwrap();
+        tt_engine::gameplay::client::game::apply_binds(&mut e.host, &binds);
+        new_player(&mut e, "Alice");
+        let game = custom("tt1_1", 0);
+        let rotation = ["tt1_1", "tt1_4", "tt2_1", "tt2_3", "tt3_1"].map(tt_assets::layout::mission).to_vec();
+        let host = tt_menu::HostGame { game, name: "Alice's game".into(), max_players: 16, password: String::new(), port: 28000, port_mapping: false, public: false, rotation };
+        apply(&mut e, MenuAction::Host(host));
+        until_play(&mut e);
+        ticks(&mut e, 4000);
+        tt_engine::gameplay::client::hud::ask_vote_maps(&mut e.host);
+        ticks(&mut e, 200);
+        shot(&mut e, "map_vote_menu", &[(1280, 720)]);
+        apply(&mut e, MenuAction::Resume);
+        let now = e.host.sim_time() as u64;
+        e.host.client.vote_status("Greymatter Gorge", 2, 1, 6, 23, None, now);
+        ticks(&mut e, 300);
+        shot(&mut e, "map_vote_prompt", SIZES);
+    });
+}
+
 #[test]
 #[ignore]
 fn team() {

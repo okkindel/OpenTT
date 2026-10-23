@@ -17,7 +17,7 @@
 //! K/D/A), [`campaign`] (the solo campaign, target practice), [`pickups`]
 //! and [`health_floor`], [`chat`] (messages, chat, prints, sounds),
 //! [`commands`] (client commands), [`launch`] (the ways a game starts),
-//! [`timers`], [`state`], [`records`].
+//! [`vote`] (the map rotation's votes), [`timers`], [`state`], [`records`].
 
 pub mod bots;
 pub mod campaign;
@@ -34,6 +34,7 @@ pub mod records;
 pub mod respawn;
 pub mod state;
 pub mod timers;
+pub mod vote;
 
 use std::collections::BTreeMap;
 
@@ -176,9 +177,22 @@ pub struct Client {
     pub flood: Flood,
     /// Bots: their tank.
     pub bot_tank: Option<Ref<TankDef>>,
+    /// When the client joined (sim ms).
+    pub joined_ms: u32,
+    /// When the player last called a map vote (sim ms).
+    pub vote_called_ms: Option<u32>,
+    /// When this client last changed its vote (changes are throttled).
+    pub vote_cast_ms: Option<u32>,
+    /// When this client last asked for the map list (at most once a second).
+    pub map_list_ms: Option<u32>,
 }
 
 impl Client {
+    /// A player (not a bot or a test client): one who votes.
+    pub fn human(&self) -> bool {
+        matches!(self.kind, ClientKind::Local | ClientKind::Remote)
+    }
+
     fn new(id: ClientId, kind: ClientKind) -> Client {
         Client {
             id,
@@ -196,6 +210,10 @@ impl Client {
             phase: None,
             flood: Flood::default(),
             bot_tank: None,
+            joined_ms: 0,
+            vote_called_ms: None,
+            vote_cast_ms: None,
+            map_list_ms: None,
         }
     }
 }
@@ -257,6 +275,8 @@ pub struct Server {
     pub bot_tanks: Option<Vec<EntityId>>,
     /// The name of the mission loading.
     pub mission_name: String,
+    /// The map vote running.
+    pub vote: Option<vote::Vote>,
     next_id: u32,
 }
 
@@ -289,6 +309,7 @@ impl Server {
             cleanup: None,
             bot_tanks: None,
             mission_name: String::new(),
+            vote: None,
             next_id: FIRST_ID,
         }
     }
@@ -340,7 +361,9 @@ impl Server {
     /// Adds a client of `kind` (a connection, test or fake client).
     pub fn add_client(&mut self, h: &mut dyn ServerHost, kind: ClientKind) -> ClientId {
         let id = ClientId(self.alloc_id());
-        self.clients.insert(id, Client::new(id, kind));
+        let mut c = Client::new(id, kind);
+        c.joined_ms = h.sim_time();
+        self.clients.insert(id, c);
         if matches!(kind, ClientKind::Local | ClientKind::Remote | ClientKind::Fake) {
             self.group.push(id);
         }
@@ -370,6 +393,9 @@ impl Server {
         self.kda.forget(c);
         self.timers.cancel_where(h, |t| t.client() == Some(c));
         self.sync_groups(h);
+        if self.vote.is_some() {
+            self.vote_count(h);
+        }
     }
 
     /// The existing team a name or id text names, if any.
@@ -478,6 +504,7 @@ impl Server {
             }
             Timer::Unmute(c) => self.unmute(c),
             Timer::ForgetMessage(c) => self.forget_message(c),
+            Timer::VoteEnd => self.vote_failed(h, "time is up"),
         }
     }
 

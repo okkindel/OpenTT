@@ -11,6 +11,8 @@ use wgpu::util::DeviceExt;
 pub(super) struct ShapePipelines {
     pub(super) opaque: wgpu::RenderPipeline,
     pub(super) translucent: wgpu::RenderPipeline,
+    /// Translucent, front faces only (`Blend::Glass`).
+    pub(super) glass: wgpu::RenderPipeline,
     pub(super) additive: wgpu::RenderPipeline,
     pub(super) layout: wgpu::BindGroupLayout,
     pub(super) sampler: wgpu::Sampler,
@@ -139,7 +141,7 @@ impl ShapePipelines {
             bind_group_layouts: &[layout, &shape_layout, pose_layout, behind_layout],
             push_constant_ranges: &[],
         });
-        let make_full = |vs: &str, fs: &str, blend: Option<wgpu::BlendState>, depth_stencil: wgpu::DepthStencilState| {
+        let make_full = |vs: &str, fs: &str, blend: Option<wgpu::BlendState>, depth_stencil: wgpu::DepthStencilState, cull_mode: Option<wgpu::Face>| {
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some(fs),
                 layout: Some(&layout),
@@ -155,15 +157,16 @@ impl ShapePipelines {
                     compilation_options: Default::default(),
                     targets: &[Some(wgpu::ColorTargetState { format: scene_format, blend, write_mask: wgpu::ColorWrites::ALL })],
                 }),
-                // DTS front faces are clockwise; leaves are double-sided, so draw both.
-                primitive: wgpu::PrimitiveState { cull_mode: None, ..Default::default() },
+                // DTS front faces are clockwise; leaves are double-sided, so
+                // draw both (all but `Blend::Glass`).
+                primitive: wgpu::PrimitiveState { front_face: wgpu::FrontFace::Cw, cull_mode, ..Default::default() },
                 depth_stencil: Some(depth_stencil),
                 multisample: Default::default(),
                 multiview: None,
                 cache: None,
             })
         };
-        let make = |fs: &str, blend: Option<wgpu::BlendState>, depth_write: bool| {
+        let make = |fs: &str, blend: Option<wgpu::BlendState>, depth_write: bool, cull_mode: Option<wgpu::Face>| {
             make_full(
                 "vs_shape",
                 fs,
@@ -175,6 +178,7 @@ impl ShapePipelines {
                     stencil: Default::default(),
                     bias: Default::default(),
                 },
+                cull_mode,
             )
         };
         let additive = wgpu::BlendState {
@@ -186,9 +190,10 @@ impl ShapePipelines {
             alpha: wgpu::BlendComponent::OVER,
         };
         ShapePipelines {
-            opaque: make("fs_shape", None, true),
-            translucent: make("fs_shape_blend", Some(wgpu::BlendState::ALPHA_BLENDING), false),
-            additive: make("fs_shape_add", Some(additive), false),
+            opaque: make("fs_shape", None, true, None),
+            translucent: make("fs_shape_blend", Some(wgpu::BlendState::ALPHA_BLENDING), false, None),
+            glass: make("fs_shape_blend", Some(wgpu::BlendState::ALPHA_BLENDING), false, Some(wgpu::Face::Back)),
+            additive: make("fs_shape_add", Some(additive), false, None),
             layout: shape_layout,
             sampler: shape_sampler,
             normal_sampler: repeat_sampler(device, 1, settings.detail.mip_reduction),

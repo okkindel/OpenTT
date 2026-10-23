@@ -92,6 +92,7 @@ fn host_game(name: &str, password: &str, max_players: u32) -> HostGame {
         port: 28000,
         port_mapping: false,
         public: false,
+        rotation: vec!["missions/tt1_1.ron".into(), "missions/tt2_3.ron".into()],
     }
 }
 
@@ -110,6 +111,9 @@ fn host_and_join_through_the_menus() {
         assert_eq!(screen(&host), Screen::Loading);
         w.run_until(&mut [&mut host], 600, "the host plays", |e| in_game(e[0]));
         assert_eq!(tt_engine::netgame::server_addr(&host.host), Some(SocketAddr::from(([10, 0, 0, 1], 28000))));
+        // The Host screen's rotation is the server's (kept in the settings).
+        assert_eq!(host.server().setup.rotation, vec!["missions/tt1_1.ron".to_string(), "missions/tt2_3.ron".to_string()]);
+        assert_eq!(host.host.shell.prefs.map_rotation(), vec!["tt1_1".to_string(), "tt2_3".to_string()]);
         // The client opens Online/Join: the LAN query finds the server.
         backend_do(&mut client, |b| {
             b.set_server_source(tt_menu::ServerSource::Lan);
@@ -143,6 +147,7 @@ fn host_and_join_through_the_menus() {
         // Remembered: the host settings and the address joined.
         let hs = backend_do(&mut host, |b| b.host_settings()).unwrap();
         assert_eq!((hs.name.as_str(), hs.max_players, hs.port, hs.game.bots.len()), ("Hoster's arena", 16, 28000, 1));
+        assert_eq!(hs.rotation, host_game("", "", 16).rotation);
         assert_eq!(backend_do(&mut client, |b| b.recent_addresses()).first().map(String::as_str), Some("10.0.0.1:28000"));
         // The host leaves: the server closes.
         apply(&mut host, MenuAction::LeaveGame);

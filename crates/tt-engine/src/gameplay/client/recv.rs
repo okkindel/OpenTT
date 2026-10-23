@@ -45,6 +45,11 @@ pub fn apply(h: &mut EngineHost, msg: &ServerMsg) {
         ServerMsg::GameStart => super::game::game_start(h),
         ServerMsg::GameEnd { .. } => super::game::game_end(h, &t(0)),
         ServerMsg::Hud(m) => hud(h, m),
+        ServerMsg::VoteStatus { map, yes, no, players, secs, mine } => {
+            let now = h.sim_time() as u64;
+            h.client.vote_status(map, *yes, *no, *players, *secs, *mine, now);
+        }
+        ServerMsg::MapList { maps } => super::hud::vote_maps(h, maps),
     }
 }
 

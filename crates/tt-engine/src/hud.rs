@@ -91,6 +91,24 @@ pub fn chat_key(h: &mut EngineHost, key: &str, pressed: bool, typed: Option<&str
     }
 }
 
+/// The first key bound to `a` in the game's map, as the controls list
+/// names it ("F12"; "?" when none).
+fn bound_key(h: &EngineHost, a: tt_gameplay::client::BindAction) -> String {
+    h.input.bindings(crate::input::MOVE_MAP).iter().find(|b| b.command.action() == a).map_or("?".into(), |b| crate::menu::key_label(&b.action))
+}
+
+/// The map vote's prompt: the question, the keys (or the player's vote),
+/// the count and the seconds left.
+fn vote_prompt(h: &EngineHost, v: &tt_gameplay::client::VoteView, now: u64) -> tt_menu::hud::VotePrompt {
+    use tt_gameplay::client::BindAction;
+    let keys = match v.mine {
+        Some(true) => "You voted yes".to_string(),
+        Some(false) => "You voted no".to_string(),
+        None => format!("{} yes / {} no", bound_key(h, BindAction::VoteYes), bound_key(h, BindAction::VoteNo)),
+    };
+    tt_menu::hud::VotePrompt { question: format!("Vote: switch to {}?", v.map), detail: format!("{keys} \u{2014} yes {} / no {} / {} player{} \u{2014} {} s", v.yes, v.no, v.players, if v.players == 1 { "" } else { "s" }, v.secs_left(now)) }
+}
+
 impl Engine {
     /// The HUD for a frame: `None` unless the game (`PlayGui`) is on the
     /// canvas. `target` is the window size in pixels (the 3D view fills
@@ -133,6 +151,7 @@ impl Engine {
             v.brains = Some(clean(&c.solo.brains_text));
         }
         v.lag = c.lag;
+        v.vote = c.vote.as_ref().map(|vote| vote_prompt(&self.host, vote, now));
         let player_obj = self.control_object();
         v.radar = self.radar(player_obj, time_ms);
         if let Some((cam, hfov)) = camera {
@@ -212,7 +231,7 @@ impl Engine {
         let visible = sky.and_then(|s| s.get("visible_distance")).filter(|v| !v.is_empty()).map(|v| tt_game::fmt::atof(v) as f32).unwrap_or(500.0);
         let (min_off, max_off, fade) = name_hud_params();
         let aspect = target.0.max(1) as f32 / target.1.max(1) as f32;
-        let vp = camera.view_proj_fov(aspect, visible.max(10.0), tt_render::vertical_fov(hfov, aspect));
+        let vp = camera.view_proj_fov(aspect, visible.max(10.0), crate::game::game_vfov(hfov, aspect));
         let mut out = Vec::new();
         for t in &g.world.tanks {
             if Some(t.id) == me || t.deleted || t.is_corpse || t.name.is_empty() {

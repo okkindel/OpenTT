@@ -481,6 +481,9 @@ pub struct HostGame {
     pub port_mapping: bool,
     /// List the server on the master server.
     pub public: bool,
+    /// The maps played in turn ([`MissionInfo::file`]s): the first is
+    /// [`CustomGame::mission`], the one the game starts on.
+    pub rotation: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -754,6 +757,14 @@ pub trait MenuBackend {
     fn round_results(&self) -> Option<RoundResults> {
         None
     }
+    /// The maps of the server's rotation to call a vote for: (id, name).
+    fn vote_maps(&self) -> Vec<(String, String)> {
+        Vec::new()
+    }
+    /// In a multiplayer game, where map votes can be called.
+    fn can_vote(&self) -> bool {
+        false
+    }
 
     // ---- custom game (createGameGui, local only)
     fn missions(&self) -> Vec<MissionInfo>;
@@ -868,6 +879,7 @@ pub struct MockBackend {
     pub solo: Option<SoloStatus>,
     /// What `round_results` returns.
     pub results: Option<RoundResults>,
+    pub vote_maps: Vec<(String, String)>,
     pub scores: Vec<HighScore>,
     pub rank: Option<usize>,
     pub settings: Settings,
@@ -970,6 +982,7 @@ impl MockBackend {
             log: Vec::new(),
             sounds: Vec::new(),
             results: None,
+            vote_maps: Vec::new(),
             servers: MockBackend::example_servers(),
             recent: vec!["192.168.1.20:28000".into(), "tanks.example.org".into()],
             password_request: None,
@@ -1099,6 +1112,12 @@ impl MenuBackend for MockBackend {
     fn round_results(&self) -> Option<RoundResults> {
         self.results.clone()
     }
+    fn vote_maps(&self) -> Vec<(String, String)> {
+        self.vote_maps.clone()
+    }
+    fn can_vote(&self) -> bool {
+        !self.vote_maps.is_empty()
+    }
     fn missions(&self) -> Vec<MissionInfo> {
         MAPS.iter()
             .map(|&(id, name)| MissionInfo {
@@ -1120,13 +1139,13 @@ impl MenuBackend for MockBackend {
         vec![g(0, "Battlemode", false), g(1, "Team Battlemode", true), g(2, "Scrum", false), g(3, "Team Scrum", true)]
     }
     fn max_bots(&self) -> usize {
-        6
+        10
     }
     fn bot_names(&self) -> Vec<String> {
         if !self.bot_names.is_empty() {
             return self.bot_names.clone();
         }
-        ["Hum", "Tom", "Mal", "Ri", "Gul", "Gum"].iter().map(|s| s.to_string()).collect()
+        ["Hum", "Tom", "Mal", "Ri", "Gul", "Gum", "Zed", "Pip", "Bix", "Nub"].iter().map(|s| s.to_string()).collect()
     }
     fn mission_preview(&mut self, _mission: &str, _size: [u32; 2]) -> Option<egui::TextureId> {
         None
@@ -1169,6 +1188,9 @@ impl MenuBackend for MockBackend {
             k("Respawn", &["Space"]),
             k("Chat", &["U", "/", "\\"]),
             k("Player list", &["Tab"]),
+            k("Vote for a map", &["F10"]),
+            k("Vote yes", &["F12"]),
+            k("Vote no", &["F11"]),
             k("Menu / pause", &["Escape"]),
         ]
     }

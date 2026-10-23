@@ -1,0 +1,7 @@
+// Licence: GPL-3.0-only, like the game's code (SOURCES.md lists each file).
+(
+  name: "Readable Pads",
+  version: "1.0",
+  author: "OpenTT",
+  description: "Boost and jump pads easy to read from a distance: a semi-transparent cyan arrow stands over each boost pad, pointing where it launches you; rings rising off each jump pad mark it. Cosmetic only: the pads work as before, and players without the mod can join your games.",
+)

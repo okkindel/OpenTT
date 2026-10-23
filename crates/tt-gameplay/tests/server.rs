@@ -21,6 +21,11 @@ struct Host {
     corpses: Vec<u32>,
     mission: bool,
     log: Vec<String>,
+    /// `server.max_players` (empty: 10) and `server.replace_bots`.
+    max_players: String,
+    replace_bots: bool,
+    /// `server.map_rotation`.
+    rotation: String,
 }
 
 impl Host {
@@ -53,11 +58,18 @@ impl Host {
 impl ServerHost for Host {
     fn setting(&self, s: Setting) -> String {
         match s {
-            Setting::MaxPlayers => "10".into(),
+            Setting::MaxPlayers if self.max_players.is_empty() => "10".into(),
+            Setting::MaxPlayers => self.max_players.clone(),
+            Setting::ReplaceBots => (self.replace_bots as u8).to_string(),
+            Setting::MapRotation => self.rotation.clone(),
             _ => String::new(),
         }
     }
-    fn set_setting(&mut self, _: Setting, _: &str) {}
+    fn set_setting(&mut self, s: Setting, v: &str) {
+        if s == Setting::MapRotation {
+            self.rotation = v.into();
+        }
+    }
     fn bot_settings(&self) -> Vec<BotSlot> {
         Vec::new()
     }
@@ -105,14 +117,18 @@ impl ServerHost for Host {
     fn start_heartbeat(&mut self) {}
     fn stop_heartbeat(&mut self) {}
     fn set_net_port(&mut self, _: &str) {}
-    fn is_file(&self, _: &str) -> bool {
-        true
+    fn is_file(&self, f: &str) -> bool {
+        !f.contains("nope")
     }
     fn maps(&mut self, _: Option<u8>) -> Vec<String> {
         vec!["missions/tt1_1.ron".into()]
     }
-    fn load_info(&mut self, _: &str) -> String {
-        "Medulla Mesa".into()
+    fn load_info(&mut self, f: &str) -> String {
+        match tt_assets::layout::mission_id(f).as_str() {
+            "tt2_3" => "Snowblind".into(),
+            "tt3_1" => "Hot Rocks".into(),
+            _ => "Medulla Mesa".into(),
+        }
     }
     fn new_server_group(&mut self) {}
     fn delete_server_group(&mut self) -> bool {
@@ -268,4 +284,190 @@ fn free_for_all_round() {
     // Leaving: the drop message, the record goes.
     s.drop_client(&mut h, me);
     assert!(s.client(me).is_none());
+}
+
+#[test]
+fn full_server_lets_the_host_in_and_bots_make_room() {
+    // A "1vs1" server (2 players) with three bots.
+    let mut h = Host { max_players: "2".into(), ..Host::new() };
+    let mut s = Server::new();
+    s.setup.mission_type = MissionType::Deathmatch;
+    s.bot_slots = vec![BotSlot::new("GoldHeavyTank", "Hum [Bot]", ""), BotSlot::new("BronzeLightTank", "Mal [Bot]", ""), BotSlot::new("GoldHeavyTank", "Tom [Bot]", "")];
+    s.create_server(&mut h, ServerType::SinglePlayer, "missions/tt1_1.ron");
+    assert_eq!(s.bots().len(), 3);
+    // The host itself always gets in; others not while the bots fill it.
+    assert_eq!(s.connect_request(&mut h, "local"), "");
+    assert_eq!(s.connect_request(&mut h, "IP:203.0.113.5:28000"), "CR_SERVERFULL");
+    // With bot replacement a human takes a bot's place: only humans count.
+    h.replace_bots = true;
+    assert_eq!(s.connect_request(&mut h, "IP:203.0.113.5:28000"), "");
+}
+
+const A: &str = "missions/tt1_1.ron";
+const B: &str = "missions/tt2_3.ron";
+const C: &str = "missions/tt3_1.ron";
+
+#[test]
+fn rotation_order_and_wrap() {
+    let mut s = Server::new();
+    s.setup.rotation = vec![A.into(), B.into(), C.into()];
+    let next = |s: &mut Server, cur: &str| {
+        s.session.mission_file = cur.into();
+        s.next_in_rotation()
+    };
+    assert_eq!(next(&mut s, A), B);
+    assert_eq!(next(&mut s, B), C);
+    assert_eq!(next(&mut s, C), A, "wraps");
+    assert_eq!(next(&mut s, "missions/tt1_2.ron"), A, "not in it: the first");
+    // A passed vote's map comes once, then the rotation goes on after it.
+    s.session.voted_mission = Some(C.into());
+    assert_eq!(next(&mut s, A), C);
+    assert_eq!(next(&mut s, C), A);
+    // No rotation: the mission again.
+    s.setup.rotation.clear();
+    assert_eq!(next(&mut s, B), B);
+    // The settings' rotation (unknown ids left out, duplicates once), else
+    // the mission alone.
+    let mut h = Host::new();
+    h.rotation = "tt2_3, TT1_1 nope\ttt2_3".into();
+    assert_eq!(s.rotation_setting(&mut h, C), vec![B.to_string(), A.to_string()]);
+    assert!(h.log.iter().any(|l| l.contains("no mission nope")));
+    h.rotation.clear();
+    assert_eq!(s.rotation_setting(&mut h, C), vec![C.to_string()]);
+    s.set_rotation(&mut h, vec![C.into(), A.into()]);
+    assert_eq!(h.rotation, "tt3_1\ttt1_1");
+}
+
+/// The last vote line player `c` was told.
+fn vote_line(h: &Host, c: ClientId) -> String {
+    h.sent
+        .iter()
+        .rev()
+        .find_map(|(to, m)| match m {
+            ServerMsg::Message { kind: MsgKind::Other { kind, .. }, text } if *to == Some(c) && kind.text() == "MsgVote" => Some(text.text().trim_start_matches('\u{3}').to_string()),
+            _ => None,
+        })
+        .unwrap_or_default()
+}
+
+/// The last vote status player `c` got: (map, yes, no, players).
+fn vote_status(h: &Host, c: ClientId) -> Option<(String, u32, u32, u32)> {
+    h.sent.iter().rev().find_map(|(to, m)| match m {
+        ServerMsg::VoteStatus { map, yes, no, players, .. } if *to == Some(c) => Some((map.clone(), *yes, *no, *players)),
+        _ => None,
+    })
+}
+
+fn wait(s: &mut Server, h: &mut Host, ms: u32) {
+    let end = h.time + ms;
+    while h.time < end {
+        h.time += 100;
+        run_timers(s, h);
+    }
+}
+
+#[test]
+fn map_votes() {
+    let mut h = Host::new();
+    h.rotation = "tt1_1 tt2_3 tt3_1".into();
+    let mut s = Server::new();
+    s.launch_dedicated(&mut h, A);
+    s.bot_slots = vec![BotSlot::new("GoldHeavyTank", "Hum [Bot]", ""), BotSlot::new("BronzeLightTank", "Mal [Bot]", "")];
+    for i in 0..2 {
+        s.add_bot(&mut h, i);
+    }
+    assert_eq!(s.setup.rotation, vec![A.to_string(), B.to_string(), C.to_string()]);
+    let p: Vec<ClientId> = (0..3)
+        .map(|i| {
+            let c = s.add_client(&mut h, ClientKind::Remote);
+            s.connected(&mut h, c, &format!("P{i}"), "", "1");
+            c
+        })
+        .collect();
+    // A fake client (no player) and the bots do not count.
+    s.add_fake_client(&mut h, "");
+    assert_eq!(s.bots().len(), 2);
+    assert_eq!(s.humans(), p);
+    // Not in the first 3 minutes on the server.
+    s.call_vote(&mut h, p[0], "tt2_3");
+    assert_eq!(vote_line(&h, p[0]), "Wait 3:00 before calling a vote.");
+    wait(&mut s, &mut h, 50_000);
+    s.call_vote(&mut h, p[0], "tt2_3");
+    assert_eq!(vote_line(&h, p[0]), "Wait 2:10 before calling a vote.");
+    wait(&mut s, &mut h, 130_000);
+    // Not a map of the rotation; the map being played.
+    s.call_vote(&mut h, p[0], "tt1_2");
+    assert_eq!(vote_line(&h, p[0]), "\"tt1_2\" is not in the rotation.");
+    s.call_vote(&mut h, p[0], "medulla");
+    assert_eq!(vote_line(&h, p[0]), "Medulla Mesa is being played already.");
+    assert!(s.vote.is_none());
+    // A vote by name: the caller votes yes; one at a time.
+    s.call_vote(&mut h, p[0], "snowblind");
+    assert_eq!(vote_line(&h, p[2]), "P0 called a vote: switch to Snowblind?");
+    assert_eq!(vote_status(&h, p[1]), Some(("Snowblind".into(), 1, 0, 3)));
+    s.call_vote(&mut h, p[1], "hot rocks");
+    assert_eq!(vote_line(&h, p[1]), "A vote is already running.");
+    // Bots never vote.
+    s.cast_vote(&mut h, s.bots()[0], true);
+    assert_eq!(s.vote.as_ref().unwrap().yes.len(), 1);
+    // A second yes is more than half of 3: passed, the round ends, the map
+    // loads, the rotation goes on after it.
+    s.cast_vote(&mut h, p[1], true);
+    assert!(s.vote.is_none());
+    assert_eq!(vote_line(&h, p[2]), "Vote passed: switching to Snowblind.");
+    assert_eq!(vote_status(&h, p[2]).unwrap().0, "", "the prompt goes");
+    wait(&mut s, &mut h, 10_000);
+    assert!(h.sent.iter().any(|(_, m)| matches!(m, ServerMsg::GameEnd { .. })), "the usual round end");
+    assert_eq!(s.session.mission_file, B);
+    assert!(s.round.running());
+    assert_eq!(s.next_in_rotation(), C);
+    // The caller waits 3 minutes for his next vote; two noes out of three
+    // make a yes majority impossible.
+    s.call_vote(&mut h, p[0], "tt3_1");
+    assert!(vote_line(&h, p[0]).starts_with("Wait 2:"), "{}", vote_line(&h, p[0]));
+    s.call_vote(&mut h, p[1], "tt3_1");
+    s.cast_vote(&mut h, p[0], false);
+    assert_eq!(vote_status(&h, p[0]), Some(("Hot Rocks".into(), 1, 1, 3)));
+    // The same vote again sends nothing; a change within a second is ignored.
+    let sent = h.sent.len();
+    s.cast_vote(&mut h, p[0], false);
+    s.cast_vote(&mut h, p[0], true);
+    assert_eq!((h.sent.len(), vote_status(&h, p[0])), (sent, Some(("Hot Rocks".into(), 1, 1, 3))));
+    wait(&mut s, &mut h, 1_000);
+    s.cast_vote(&mut h, p[2], false);
+    assert_eq!(vote_line(&h, p[0]), "Vote for Hot Rocks failed: too many players voted no.");
+    // Nobody else votes: it fails after 30 s.
+    s.call_vote(&mut h, p[2], "tt1_1");
+    wait(&mut s, &mut h, 29_000);
+    assert!(s.vote.is_some());
+    wait(&mut s, &mut h, 1_000);
+    assert!(s.vote.is_none());
+    assert_eq!(vote_line(&h, p[1]), "Vote for Medulla Mesa failed: time is up.");
+    s.cast_vote(&mut h, p[1], true);
+    assert_eq!(vote_line(&h, p[1]), "No vote is running.");
+    // A player leaving: the votes of those present count.
+    wait(&mut s, &mut h, 180_000);
+    s.call_vote(&mut h, p[0], "tt1_1");
+    s.cast_vote(&mut h, p[1], false);
+    s.drop_client(&mut h, p[2]);
+    assert_eq!(vote_line(&h, p[0]), "Vote for Medulla Mesa failed: too many players voted no.");
+    // Alone on the server: one yes is a majority.
+    s.drop_client(&mut h, p[1]);
+    wait(&mut s, &mut h, 180_000);
+    s.call_vote(&mut h, p[0], "tt3_1");
+    assert_eq!(vote_line(&h, p[0]), "Vote passed: switching to Hot Rocks.");
+}
+
+#[test]
+fn no_votes_in_a_local_game() {
+    let mut h = Host::new();
+    let mut s = Server::new();
+    s.create_server(&mut h, ServerType::SinglePlayer, A);
+    let me = s.add_client(&mut h, ClientKind::Local);
+    s.connected(&mut h, me, "Tester", "", "1");
+    h.time = 400_000;
+    s.call_vote(&mut h, me, "tt1_1");
+    assert_eq!(vote_line(&h, me), "There is no voting in this game.");
+    s.send_map_list(&mut h, me);
+    assert!(!h.sent.iter().any(|(_, m)| matches!(m, ServerMsg::MapList { .. })));
 }

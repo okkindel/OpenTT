@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.0
+
+* Map rotation: a server plays a list of maps, one after the other. Pick
+  it in the Host dialog; dedicated servers set `server.map_rotation` and
+  have the console commands `rotation` and `next` (`docs/server.md`).
+* Map votes: in a multiplayer game, F10 (or "Vote for a map" in the pause
+  menu, or `/vote <map>`) proposes a map of the rotation; F12 votes yes,
+  F11 no. When most players agree, the round ends and that map starts.
+  A player can call a vote every 3 minutes.
+* Readable Pads, a cosmetic mod that comes with the game (off): a glowing
+  arrow over each boost pad points where it launches you, rings rise off
+  jump pads. Mods can draw their own models over power-ups and pads
+  (`docs/modding.md`).
+* Up to 10 bots in a game; the server list shows how many of the players
+  are human.
+* Wide screens (21:9, 32:9) show more at the sides instead of cutting off
+  the tank and the view upwards.
+* Alt+Tab no longer leaves the controls stuck.
+* Quick and Custom games no longer say "This server is full" after
+  hosting a small server; with "Replace bots" on, bots make room for
+  joining players.
+* Players and servers of the same minor version (0.4.x) play together:
+  patch releases need no update of the server.
+
 ## 0.3.1
 
 * A default master server: the Internet list works out of the box, and

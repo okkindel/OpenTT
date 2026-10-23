@@ -1,5 +1,5 @@
 //! Client commands: the mission download's acknowledgements, respawn, the
-//! AI toggle, chat and the admin login.
+//! AI toggle, chat, the admin login and the map votes ([`super::vote`]).
 
 use super::{ClientId, Server, ServerHost, Setting};
 use crate::msg::{ClientCmd, DebugCmd, HudMsg, MsgKind, Value};
@@ -20,6 +20,9 @@ impl Server {
             }
             ClientCmd::Debug { cmd: DebugCmd::TogglePlayerAI, .. } => self.toggle_player_ai(h, c),
             ClientCmd::Debug { .. } => {}
+            ClientCmd::CallVote { map } => self.call_vote(h, c, map),
+            ClientCmd::CastVote { yes } => self.cast_vote(h, c, *yes),
+            ClientCmd::MapList => self.send_map_list(h, c),
         }
     }
 

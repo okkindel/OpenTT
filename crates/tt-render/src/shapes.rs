@@ -53,7 +53,22 @@ pub const MAX_IFL_SLOTS: usize = 16;
 pub enum Blend {
     Opaque,
     Translucent,
+    /// Translucent, front faces only (`Material::SINGLE_SIDED`).
+    Glass,
     Additive,
+}
+
+impl Blend {
+    /// The blend mode of a material with `flags`.
+    pub fn of(flags: u32) -> Blend {
+        if flags & Material::ADDITIVE != 0 {
+            Blend::Additive
+        } else if flags & (Material::TRANSLUCENT | Material::SUBTRACTIVE) != 0 {
+            if flags & Material::SINGLE_SIDED != 0 { Blend::Glass } else { Blend::Translucent }
+        } else {
+            Blend::Opaque
+        }
+    }
 }
 
 /// Draw call: index range of one shape's triangles at one detail level with
@@ -265,13 +280,7 @@ impl Loader {
                 self.set.timeline.push(layer);
             }
         }
-        let blend = if m.flags & Material::ADDITIVE != 0 {
-            Blend::Additive
-        } else if m.flags & (Material::TRANSLUCENT | Material::SUBTRACTIVE) != 0 {
-            Blend::Translucent
-        } else {
-            Blend::Opaque
-        };
+        let blend = Blend::of(m.flags);
         MaterialInfo {
             timeline_start,
             timeline_len: self.set.timeline.len() as u32 - timeline_start,
@@ -433,7 +442,7 @@ impl ShapeSet {
                 buckets.entry(mat.blend).or_default().extend(rm.triangles.iter().flatten().map(|&i| base + i));
             }
             let mut ranges = Vec::new();
-            for blend in [Blend::Opaque, Blend::Translucent, Blend::Additive] {
+            for blend in [Blend::Opaque, Blend::Translucent, Blend::Glass, Blend::Additive] {
                 if let Some(idx) = buckets.remove(&blend) {
                     let start = ld.set.indices.len() as u32;
                     ld.set.indices.extend(idx);
@@ -493,5 +502,21 @@ impl ShapeSet {
             }
         }
         ld.set
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A translucent material is drawn from both sides, unless it is
+    /// single-sided; additive wins over both.
+    #[test]
+    fn blend_modes_of_material_flags() {
+        assert_eq!(Blend::of(0), Blend::Opaque);
+        assert_eq!(Blend::of(Material::SINGLE_SIDED), Blend::Opaque);
+        assert_eq!(Blend::of(Material::TRANSLUCENT), Blend::Translucent);
+        assert_eq!(Blend::of(Material::TRANSLUCENT | Material::SINGLE_SIDED), Blend::Glass);
+        assert_eq!(Blend::of(Material::ADDITIVE | Material::TRANSLUCENT | Material::SINGLE_SIDED), Blend::Additive);
     }
 }

@@ -114,13 +114,39 @@ fn toggle_chat(h: &mut EngineHost) {
 }
 
 /// `MessageHud_Edit::eval`: the typed line to the server, then closed.
+/// `/vote MAP` calls a map vote instead, `/vote` alone opens the map list.
 pub fn send_chat(h: &mut EngineHost, text: &str) {
+    let vote = text.strip_prefix("/vote").filter(|r| r.is_empty() || r.starts_with(char::is_whitespace)).map(str::trim);
+    if let Some(map) = vote {
+        close_chat(h);
+        match map {
+            "" => ask_vote_maps(h),
+            m => crate::net::send_cmd(h, ClientCmd::CallVote { map: m.to_string() }),
+        }
+        return;
+    }
     if !text.is_empty() {
         let text = text.to_string();
         let cmd = if h.client.chat.team { ClientCmd::TeamMessageSent { text } } else { ClientCmd::MessageSent { text } };
         crate::net::send_cmd(h, cmd);
     }
     close_chat(h);
+}
+
+/// Asks the server for its rotation; the vote menu opens when it comes
+/// ([`vote_maps`]).
+pub fn ask_vote_maps(h: &mut EngineHost) {
+    h.cl.vote_menu_wanted = true;
+    crate::net::send_cmd(h, ClientCmd::MapList);
+}
+
+/// The server's rotation: the vote menu, if asked for and the game is on
+/// screen.
+pub fn vote_maps(h: &mut EngineHost, maps: &[(String, String)]) {
+    h.client.vote_maps = maps.to_vec();
+    if std::mem::take(&mut h.cl.vote_menu_wanted) && !maps.is_empty() && in_play(h) {
+        crate::shell::vote_menu_show(h);
+    }
 }
 
 /// `toggleMessageHud(val)` / `teamMessageHud(val)`.

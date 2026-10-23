@@ -153,6 +153,7 @@ impl Engine {
                 let p = tt_assets::resolve(self.host.fs.root(), &dir, v);
                 let lower = v.to_ascii_lowercase();
                 if lower.ends_with(".dts") {
+                    shapes.extend(overlay_path(&p));
                     shapes.push(p);
                 } else if lower.ends_with(".png") || lower.ends_with(".jpg") {
                     textures.push(p);
@@ -200,6 +201,14 @@ impl Engine {
             return;
         }
         dispatch_input(&mut self.host, &ev, false, true);
+    }
+
+    /// The window lost focus: every held key and button is released (their
+    /// releases go to the other window) and the modifiers are cleared.
+    pub fn release_input(&mut self) {
+        for (a, v) in self.host.input.release_all() {
+            crate::gameplay::client::game::bind_action(&mut self.host, a, &v);
+        }
     }
 
     /// Mouse button: nothing while the cursor is on (the menus have their
@@ -439,7 +448,8 @@ impl Engine {
     /// `health.ifl`: dark, a flash, dark) and the `Flash` object's
     /// visibility, all at one time. Boost/jump pads take the pose of their
     /// current state's sequence (`stateName<N>`, else `ambient`) and their
-    /// arrow IFL from `ambient`. Switched-off power-ups are not drawn.
+    /// arrow IFL from `ambient`. Switched-off power-ups are not drawn. A
+    /// model's overlay follows it as one more instance ([`trigger_overlay`]).
     pub fn trigger_shapes(&self) -> Vec<tt_render::DynamicInstance> {
         self.trigger_shapes_with_anim().0
     }
@@ -487,8 +497,14 @@ impl Engine {
             threads.extend(activate.map(|a| ("activate", a)));
             threads.extend(tr.thread.as_ref().map(|th| (th.seq.as_str(), th.time_at(t))));
             let (nodes, hidden, shown, ifl) = trigger_pose(&path, &seq, t, &threads);
-            out.push(tt_render::DynamicInstance { shape: path, transform: glam::Mat4::from(tr.transform), nodes, hidden, shown, ..Default::default() });
+            let model = tt_render::DynamicInstance { shape: path, transform: glam::Mat4::from(tr.transform), nodes, hidden, shown, ..Default::default() };
+            let overlay = trigger_overlay(&model, t);
+            out.push(model);
             anims.push(crate::gfx::TriggerAnim { ifl, lamp });
+            if let Some((o, ifl)) = overlay {
+                out.push(o);
+                anims.push(crate::gfx::TriggerAnim { ifl, lamp: crate::gfx::Lamp::None });
+            }
         }
         (out, anims)
     }
@@ -842,6 +858,28 @@ pub fn trigger_pose(path: &std::path::Path, seq: &str, t: f32, threads: &[(&str,
         }
     }
     (nodes, hidden, shown, ifl)
+}
+
+/// The overlay of a power-up's or pad's model `model`: the shape
+/// `<name>.overlay.dts` next to it, when there is one (a mod adds it).
+pub fn overlay_path(model: &std::path::Path) -> Option<PathBuf> {
+    let path = model.with_file_name(format!("{}.overlay.dts", model.file_stem()?.to_string_lossy()));
+    tt_render::pose::shape(&path).map(|_| path)
+}
+
+/// A power-up or pad drawn as `model` with its overlay ([`overlay_path`])
+/// on top, at sim time `t`: the overlay has the model's transform; its
+/// nodes named like the model's take the model's pose (a boost pad's
+/// `direction` turning with its state), its other nodes, its objects'
+/// visibility and its IFLs play its own `ambient` sequence. Returns the
+/// overlay instance and its IFL times. Drawn only: the model alone decides
+/// the trigger box, the launch direction and the collision.
+pub fn trigger_overlay(model: &tt_render::DynamicInstance, t: f32) -> Option<(tt_render::DynamicInstance, Vec<(String, f32)>)> {
+    let path = overlay_path(&model.shape)?;
+    let (own, hidden, shown, ifl) = trigger_pose(&path, "ambient", t, &[]);
+    let mut nodes: Vec<(String, glam::Mat4)> = model.nodes.iter().filter(|(n, _)| !own.iter().any(|(m, _)| m.eq_ignore_ascii_case(n))).cloned().collect();
+    nodes.extend(own);
+    Some((tt_render::DynamicInstance { shape: path, transform: model.transform, nodes, hidden, shown, ..Default::default() }, ifl))
 }
 
 /// Advances the simulation clock by `ms`, running the timed events due on

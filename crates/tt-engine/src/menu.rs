@@ -140,9 +140,14 @@ impl MenuBridge {
         }
         let pause = std::mem::take(&mut host.shell.pause_request);
         let help = std::mem::take(&mut host.shell.help_request);
+        let vote = std::mem::take(&mut host.shell.vote_menu_request);
         if pause && self.data.mode == Mode::InGame && self.pause.is_none() {
             self.pause = Some(MenuState::pause());
             self.data.log.push("pause".into());
+        }
+        if vote && self.data.mode == Mode::InGame && self.pause.is_none() {
+            self.pause = Some(MenuState::at(Screen::VoteMap));
+            self.data.log.push("vote menu".into());
         }
         if help && self.data.mode == Mode::Shell && self.state.screen() != Screen::Help {
             self.state.open(Screen::Help);
@@ -315,6 +320,16 @@ impl MenuBridge {
                 self.pause = None;
                 shell::resume(host);
             }
+            MenuAction::VoteMenu => {
+                self.pause = None;
+                shell::resume(host);
+                crate::gameplay::client::hud::ask_vote_maps(host);
+            }
+            MenuAction::CallVote(map) => {
+                self.pause = None;
+                shell::resume(host);
+                crate::net::send_cmd(host, tt_gameplay::ClientCmd::CallVote { map });
+            }
             MenuAction::LeaveGame => {
                 self.pause = None;
                 host.shell.run = None;
@@ -356,12 +371,25 @@ fn start_host(host: &mut EngineHost, g: &HostGame) {
         p.set_server_max_players(g.max_players);
         p.set_server_password(&g.password);
         p.set_host_mission(&g.game.mission);
+        let ids: Vec<String> = g.rotation.iter().map(|f| tt_assets::layout::mission_id(f)).collect();
+        p.set_map_rotation(&ids);
         p.set_host_mode(g.game.mode);
         p.set_host_minutes(g.game.minutes);
         p.set_port_mapping(g.port_mapping);
         p.set_display_on_master(g.public);
     }
     shell::host_game(host, &g.game.mission);
+}
+
+/// The Host screen's rotation from the settings: the saved one when it
+/// starts with the hosted mission, else that mission alone.
+fn host_rotation(mission: &str, ids: &[String]) -> Vec<String> {
+    let files: Vec<String> = ids.iter().map(|id| tt_assets::layout::mission(id)).collect();
+    if files.first().map(String::as_str) == Some(mission) {
+        files
+    } else {
+        vec![mission.to_string()]
+    }
 }
 
 /// Join a server: what `joinGameGui::onJoin` did, with the loading
@@ -762,6 +790,15 @@ impl MenuBackend for Backend<'_> {
         self.sh(|s| s.last_rank)
     }
 
+    fn vote_maps(&self) -> Vec<(String, String)> {
+        self.host.borrow().client.vote_maps.clone()
+    }
+
+    fn can_vote(&self) -> bool {
+        let h = self.host.borrow();
+        crate::netgame::is_remote_client(&h) || h.srv.get().is_some_and(|s| s.session.server_type == Some(tt_gameplay::server::ServerType::MultiPlayer))
+    }
+
     fn round_results(&self) -> Option<tt_menu::RoundResults> {
         let t0 = self.d.results_t0?;
         let host = self.host.borrow();
@@ -827,7 +864,7 @@ impl MenuBackend for Backend<'_> {
     }
 
     fn max_bots(&self) -> usize {
-        6
+        tt_gameplay::server::state::MAX_BOTS
     }
 
     fn bot_names(&self) -> Vec<String> {
@@ -908,7 +945,7 @@ impl MenuBackend for Backend<'_> {
         if !p.has_host_settings() {
             return None;
         }
-        let n = atoi(&p.get("server.max_bots")).clamp(0, 6) as usize;
+        let n = atoi(&p.get("server.max_bots")).clamp(0, tt_gameplay::server::state::MAX_BOTS as i32) as usize;
         let bots = (0..n)
             .map(|i| {
                 let (skill, tank) = bot_of(&p.get(&format!("server.bot.{i}")));
@@ -937,6 +974,7 @@ impl MenuBackend for Backend<'_> {
             port: p.server_port(),
             port_mapping: p.port_mapping(),
             public: p.display_on_master(),
+            rotation: host_rotation(&p.host_mission(), &p.map_rotation()),
         })
     }
 
@@ -1076,7 +1114,7 @@ impl MenuBackend for Backend<'_> {
         let host = self.host.borrow();
         let binds = host.input.bindings(crate::input::MOVE_MAP);
         // (function, label) in display order.
-        const ACTIONS: [(&str, &str); 13] = [
+        const ACTIONS: [(&str, &str); 16] = [
             ("moveforward", "Forward"),
             ("movebackward", "Backward"),
             ("moveleft", "Turn left"),
@@ -1089,6 +1127,9 @@ impl MenuBackend for Backend<'_> {
             ("teammessagehud", "Team chat"),
             ("pagemessagehudup", "Chat page up"),
             ("pagemessagehuddown", "Chat page down"),
+            ("votemenu", "Vote for a map"),
+            ("voteyes", "Vote yes"),
+            ("voteno", "Vote no"),
             ("escapefromgame", "Menu"),
         ];
         let mut out: Vec<KeyBinding> = ACTIONS.iter().map(|(_, l)| KeyBinding { action: l.to_string(), keys: Vec::new() }).collect();
@@ -1176,7 +1217,7 @@ impl MenuBackend for Backend<'_> {
 }
 
 /// Human-readable key name ("w" → "W", "button0" → "Mouse 1").
-fn key_label(action: &str) -> String {
+pub(crate) fn key_label(action: &str) -> String {
     let words: Vec<String> = action
         .split_whitespace()
         .map(|w| match w.to_ascii_lowercase().as_str() {

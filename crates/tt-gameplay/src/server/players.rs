@@ -34,7 +34,11 @@ impl Server {
     /// A connection asks to join: a reason to refuse, or "".
     pub fn connect_request(&mut self, h: &mut dyn ServerHost, address: &str) -> String {
         h.echo(&format!("Connect request from: {address}"));
-        if self.session.player_count as f64 >= self.setting_num(h, Setting::MaxPlayers) {
+        // The local player (the host itself) always gets in; with bot
+        // replacement on (and bots of the server's own to replace), a
+        // joining human takes a bot's place, so only the humans count.
+        let bots = if self.setting_on(h, Setting::ReplaceBots) && self.bot_group.is_some() { self.clients.values().filter(|c| c.kind == ClientKind::Bot).count() as i32 } else { 0 };
+        if address != "local" && (self.session.player_count - bots) as f64 >= self.setting_num(h, Setting::MaxPlayers) {
             return "CR_SERVERFULL".into();
         }
         String::new()

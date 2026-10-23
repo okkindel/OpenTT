@@ -46,6 +46,8 @@ impl Server {
 
     /// The server goes: its clients, its mission, its data.
     pub fn destroy_server(&mut self, h: &mut dyn ServerHost) {
+        self.cancel_vote(h);
+        self.session.voted_mission = None;
         self.session.server_type = None;
         self.session.mission_running = false;
         h.allow_connections(false);
@@ -93,6 +95,9 @@ impl Server {
     /// Loads mission `name`: the first of a server, a solo level and a
     /// local game at once, a multiplayer server's next one after a pause.
     pub fn load_mission(&mut self, h: &mut dyn ServerHost, name: &str, first: bool) {
+        if self.vote.is_some() {
+            self.vote_failed(h, "the map changed");
+        }
         self.end_mission(h);
         h.echo(&format!("*** LOADING MISSION: {name}"));
         h.echo("*** Stage 1 load");
@@ -297,6 +302,9 @@ impl Server {
             return;
         }
         self.cancel_round_timers(h);
+        if self.vote.is_some() {
+            self.vote_failed(h, "the round is over");
+        }
         // A free-for-all battle counts for the players' records.
         let counted = !self.setup.team_game && self.setup.mission_type == MissionType::Deathmatch && !self.setup.single_player();
         for cl in self.group.clone() {
@@ -338,31 +346,42 @@ impl Server {
 
     pub fn next_round(&mut self, h: &mut dyn ServerHost) {
         self.round.cycling = Some(false);
-        let mut file = self.session.mission_file.clone();
-        if self.setup.demo() {
+        let file = if self.setup.demo() {
             self.setup.demo_tank = self.demo_tank();
             if let Some(l) = self.local() {
                 let tank = h.data().tanks.find(&self.setup.demo_tank);
                 self.clients.get_mut(&l).unwrap().starting_tank = tank;
             }
-            file = self.demo_mission(h);
+            self.demo_mission(h)
         } else if self.setup.single_player() {
-            file = self.next_solo_level(h);
-        } else if !self.setup.stay_on_mission {
-            file = self.next_in_rotation(h);
-        }
+            self.next_solo_level(h)
+        } else {
+            self.next_in_rotation()
+        };
         self.load_mission(h, &file, false);
     }
 
-    /// The mission after the current one in the rotation (the first
-    /// after the last; "" if the current one is not in it).
-    pub(crate) fn next_in_rotation(&mut self, h: &mut dyn ServerHost) -> String {
-        let files = h.maps(self.setup.rotation.world());
-        let cur = &self.session.mission_file;
-        match files.iter().position(|f| f.eq_ignore_ascii_case(cur)) {
-            Some(i) => files.get(i + 1).or(files.first()).cloned().unwrap_or_default(),
-            None => String::new(),
+    /// The next round's mission: the one a map vote chose, else the one
+    /// after the current one in the rotation (the first after the last, or
+    /// when the current one is not in it), else the current one again.
+    pub fn next_in_rotation(&mut self) -> String {
+        let m = self.next_mission();
+        self.session.voted_mission = None;
+        m
+    }
+
+    /// The mission [`Server::next_in_rotation`] gives (the vote's stays).
+    pub fn next_mission(&self) -> String {
+        if let Some(m) = &self.session.voted_mission {
+            return m.clone();
         }
+        let files = &self.setup.rotation;
+        let cur = &self.session.mission_file;
+        let next = match files.iter().position(|f| f.eq_ignore_ascii_case(cur)) {
+            Some(i) => files.get(i + 1).or(files.first()),
+            None => files.first(),
+        };
+        next.unwrap_or(cur).clone()
     }
 
     /// The round's timer from its start: the 35 s warning, or the end of a

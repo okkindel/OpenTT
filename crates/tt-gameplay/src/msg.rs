@@ -102,6 +102,12 @@ pub enum ServerMsg {
     GameEnd { stats: String },
     /// A client-side effect of the single-player code (`'TTClient'`).
     Hud(HudMsg),
+    /// The running map vote as one player sees it: the map's name (empty:
+    /// no vote any more), the votes, the human players, the seconds left
+    /// and the player's own vote.
+    VoteStatus { map: String, yes: u32, no: u32, players: u32, secs: u32, mine: Option<bool> },
+    /// The maps a player can vote for: (mission id, name), in rotation order.
+    MapList { maps: Vec<(String, String)> },
 }
 
 /// A client-side effect of the gameplay code (formerly a direct poke at the
@@ -298,6 +304,11 @@ impl ServerMsg {
                 v.extend(a.iter().map(|x| s(x)));
                 ("TTClient", v)
             }
+            VoteStatus { map, yes, no, players, secs, mine } => {
+                let mine = mine.map_or("", |y| if y { "1" } else { "0" });
+                ("VoteStatus", vec![s(map), s(&yes.to_string()), s(&no.to_string()), s(&players.to_string()), s(&secs.to_string()), s(mine)])
+            }
+            MapList { maps } => ("MapList", maps.iter().flat_map(|(id, name)| [s(id), s(name)]).collect()),
         };
         Command { name, args }
     }
@@ -350,6 +361,16 @@ impl ServerMsg {
                 let a: Vec<String> = args.get(1..).unwrap_or(&[]).iter().map(|x| x.text().to_string()).collect();
                 Hud(HudMsg::decode(&t(0), &a)?)
             }
+            "votestatus" => {
+                let n = |i: usize| t(i).parse().unwrap_or(0);
+                let mine = match t(5).as_str() {
+                    "1" => Some(true),
+                    "0" => Some(false),
+                    _ => None,
+                };
+                VoteStatus { map: t(0), yes: n(1), no: n(2), players: n(3), secs: n(4), mine }
+            }
+            "maplist" => MapList { maps: args.chunks(2).map(|p| (p[0].text().to_string(), p.get(1).map(|v| v.text().to_string()).unwrap_or_default())).collect() },
             _ => return None,
         };
         (trim(&m.lower().args) == trim(args)).then_some(m)
@@ -419,6 +440,12 @@ pub enum ClientCmd {
     SadSetPassword { password: String },
     /// A development command and its arguments (without trailing empty ones).
     Debug { cmd: DebugCmd, args: Vec<String> },
+    /// Calls a vote for a map of the rotation (its id or name).
+    CallVote { map: String },
+    /// A vote in the running map vote.
+    CastVote { yes: bool },
+    /// Asks for the maps to vote for ([`ServerMsg::MapList`]).
+    MapList,
 }
 
 impl ClientCmd {
@@ -434,6 +461,9 @@ impl ClientCmd {
             Sad { password } => ("SAD", vec![password.clone()]),
             SadSetPassword { password } => ("SADSetPassword", vec![password.clone()]),
             Debug { cmd, args } => (DEBUG_CMDS.iter().find(|(c, _)| c == cmd).map(|(_, n)| *n).unwrap_or(""), args.clone()),
+            CallVote { map } => ("callVote", vec![map.clone()]),
+            CastVote { yes } => ("castVote", vec![(*yes as u8).to_string()]),
+            MapList => ("mapList", vec![]),
         }
     }
 
@@ -447,7 +477,8 @@ impl ClientCmd {
         use ClientCmd::*;
         match self {
             PhaseAck { seq, .. } => vec![seq],
-            SpawnPlayer => vec![],
+            SpawnPlayer | CastVote { .. } | MapList => vec![],
+            CallVote { map } => vec![map],
             MessageSent { text } | TeamMessageSent { text } => vec![text],
             Sad { password } | SadSetPassword { password } => vec![password],
             Debug { args, .. } => args.iter_mut().collect(),
@@ -504,6 +535,9 @@ mod tests {
             GameEnd { stats: "\u{7}abc 1".into() },
             Hud(HudMsg::Lives("2".into())),
             Hud(HudMsg::SoloGameOver),
+            VoteStatus { map: "Medulla Mesa".into(), yes: 2, no: 1, players: 6, secs: 23, mine: Some(false) },
+            VoteStatus { map: "".into(), yes: 0, no: 0, players: 0, secs: 0, mine: None },
+            MapList { maps: vec![("tt1_1".into(), "Medulla Mesa".into()), ("tt2_3".into(), "Snowblind".into())] },
         ]
     }
 
@@ -569,6 +603,9 @@ mod tests {
             ClientCmd::Debug { cmd: DebugCmd::CycleTank, args: vec![] },
             ClientCmd::Debug { cmd: DebugCmd::SelectObject, args: vec!["1".into(), "2".into()] },
             ClientCmd::Debug { cmd: DebugCmd::TogglePlayerAI, args: vec![] },
+            ClientCmd::CallVote { map: "tt2_3".into() },
+            ClientCmd::CastVote { yes: true },
+            ClientCmd::MapList,
         ];
         for c in all {
             assert!(!c.lower().0.is_empty(), "{c:?} has a name");

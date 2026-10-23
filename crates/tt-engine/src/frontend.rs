@@ -355,7 +355,7 @@ impl Frontend {
         }
         let tv = Instant::now();
         // Camera aim limits looking up by the view's vertical field of view.
-        let half_vfov = tt_render::vertical_fov(engine.camera_fov(), size.0.max(1) as f32 / size.1.max(1) as f32).to_radians() * 0.5;
+        let half_vfov = crate::game::game_vfov(engine.camera_fov(), size.0.max(1) as f32 / size.1.max(1) as f32).to_radians() * 0.5;
         if let Some(g) = engine.host.game.as_mut() {
             g.free_aim.half_vfov = half_vfov;
         }

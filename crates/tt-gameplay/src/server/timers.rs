@@ -51,6 +51,8 @@ pub enum Timer {
     Unmute(ClientId),
     /// A chat message no longer counts for the flood protection.
     ForgetMessage(ClientId),
+    /// The map vote's time is up.
+    VoteEnd,
 }
 
 impl Timer {

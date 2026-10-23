@@ -48,6 +48,8 @@ pub enum Screen {
     Pause,
     /// Round results over the game (replaces `EndGameGui`).
     Results,
+    /// The server rotation's maps over the game: pick one to call a vote.
+    VoteMap,
 }
 
 /// A flow change for the engine to perform.
@@ -72,6 +74,10 @@ pub enum MenuAction {
     Join { address: String, password: String, team: Team },
     /// Close the in-game menu and continue playing.
     Resume,
+    /// Call a vote for this map of the rotation (its id), then play on.
+    CallVote(String),
+    /// Open the rotation's map list to call a vote (as F10 does).
+    VoteMenu,
     /// Leave the running game and return to the menus.
     LeaveGame,
     /// Quit the program.
@@ -589,6 +595,87 @@ mod tests {
             a = frame_at(ctx, s, b, 1.0, Vec::new());
         }
         a
+    }
+
+    /// The Host screen's rotation: clicked maps join it in order, a click
+    /// on one of them takes it out (not the last), the first starts.
+    #[test]
+    fn host_rotation_picker() {
+        let ctx = egui::Context::default();
+        let mut b = MockBackend::new();
+        let mut s = MenuState::at(Screen::Online);
+        s.online_tab = OnlineTab::Host;
+        frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
+        frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
+        assert_eq!(s.screen(), Screen::Online);
+        let row = |k: usize| egui::pos2(150.0, 22.0 + 146.0 + 16.0 + 32.0 + 2.0 + 40.0 + k as f32 * 35.0 + 17.0);
+        // A click a second after the last (two quick ones are a double click).
+        let mut t = 1.0;
+        let mut click = |s: &mut MenuState, b: &mut MockBackend, _: &egui::Context, pos: egui::Pos2| {
+            t += 1.0;
+            let btn = |pressed| egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() };
+            let mut a = None;
+            for (dt, e) in [(0.0, egui::Event::PointerMoved(pos)), (0.05, btn(true)), (0.1, btn(false))] {
+                a = a.or(frame_at(&ctx, s, b, t + dt, vec![e]));
+            }
+            a.or(frame_at(&ctx, s, b, t + 0.15, Vec::new()))
+        };
+        let rotation = |s: &MenuState| s.host.as_ref().unwrap().rotation.clone();
+        let file = |k: usize| tt_assets::layout::mission(MAPS[k].0);
+        assert_eq!(rotation(&s), vec![file(0)], "the first map alone");
+        click(&mut s, &mut b, &ctx, row(2));
+        click(&mut s, &mut b, &ctx, row(1));
+        assert_eq!(rotation(&s), vec![file(0), file(2), file(1)]);
+        click(&mut s, &mut b, &ctx, row(0));
+        assert_eq!(rotation(&s), vec![file(2), file(1)], "out: the next one starts");
+        assert_eq!(s.host.as_ref().unwrap().game.mission, file(2));
+        click(&mut s, &mut b, &ctx, row(2));
+        click(&mut s, &mut b, &ctx, row(1));
+        assert_eq!(rotation(&s), vec![file(1)], "the last one stays");
+        click(&mut s, &mut b, &ctx, row(3));
+        let a = click(&mut s, &mut b, &ctx, egui::pos2(1130.0, 671.0));
+        match a {
+            Some(MenuAction::Host(g)) => {
+                assert_eq!(g.rotation, vec![file(1), file(3)]);
+                assert_eq!(g.game.mission, file(1));
+            }
+            other => panic!("expected Host, got {other:?}"),
+        }
+    }
+
+    /// The in-game vote menu: a digit or Enter calls the vote, Escape
+    /// closes it.
+    #[test]
+    fn vote_menu_keys() {
+        let ctx = egui::Context::default();
+        let mut b = MockBackend::new();
+        b.vote_maps = vec![("tt1_1".into(), "Medulla Mesa".into()), ("tt2_3".into(), "Snowblind".into())];
+        let mut s = MenuState::at(Screen::VoteMap);
+        frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
+        assert_eq!(frame_at(&ctx, &mut s, &mut b, 0.1, vec![key(egui::Key::Num2)]), Some(MenuAction::CallVote("tt2_3".into())));
+        frame_at(&ctx, &mut s, &mut b, 0.2, vec![key(egui::Key::ArrowDown)]);
+        frame_at(&ctx, &mut s, &mut b, 0.3, vec![key(egui::Key::ArrowDown)]);
+        assert_eq!(frame_at(&ctx, &mut s, &mut b, 0.4, vec![key(egui::Key::Enter)]), Some(MenuAction::CallVote("tt1_1".into())));
+        assert_eq!(frame_at(&ctx, &mut s, &mut b, 0.5, vec![key(egui::Key::Escape)]), Some(MenuAction::Resume));
+        assert_eq!(frame_at(&ctx, &mut s, &mut b, 0.6, vec![key(egui::Key::Num9)]), None, "no ninth map");
+    }
+
+    #[test]
+    fn pause_menu_votes_only_in_multiplayer() {
+        let ctx = egui::Context::default();
+        let mut b = MockBackend::new();
+        // A local game: the second item is Options.
+        let mut s = MenuState::pause();
+        frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
+        frame_at(&ctx, &mut s, &mut b, 0.1, vec![key(egui::Key::ArrowDown)]);
+        frame_at(&ctx, &mut s, &mut b, 0.2, vec![key(egui::Key::Enter)]);
+        assert_eq!(s.screen(), Screen::Settings);
+        // A multiplayer game: "Vote for a map" comes second.
+        b.vote_maps = vec![("tt1_1".into(), "Medulla Mesa".into())];
+        let mut s = MenuState::pause();
+        frame_at(&ctx, &mut s, &mut b, 0.3, Vec::new());
+        frame_at(&ctx, &mut s, &mut b, 0.4, vec![key(egui::Key::ArrowDown)]);
+        assert_eq!(frame_at(&ctx, &mut s, &mut b, 0.5, vec![key(egui::Key::Enter)]), Some(MenuAction::VoteMenu));
     }
 
     #[test]

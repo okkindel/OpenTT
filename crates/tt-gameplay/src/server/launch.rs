@@ -23,13 +23,14 @@ impl Server {
         LocalConnect { name: h.setting(super::Setting::PlayerName), team, tank: h.setting(super::Setting::PlayerTank) }
     }
 
-    /// A listen server with the settings' bots; then the local connection.
+    /// A listen server with the settings' bots and map rotation; then the
+    /// local connection.
     pub fn launch_listen(&mut self, h: &mut dyn ServerHost, mission: &str, mission_type: MissionType, teams: bool) -> Option<LocalConnect> {
         self.bots_from_settings(h);
         self.setup.mission_type = mission_type;
         self.setup.team_game = teams;
         self.setup.target_range = Some(false);
-        self.setup.stay_on_mission = true;
+        self.setup.rotation = self.rotation_setting(h, mission);
         self.create_server(h, ServerType::MultiPlayer, mission);
         Some(self.player_args(h, None))
     }
@@ -61,7 +62,7 @@ impl Server {
         self.setup.mission_type = MissionType::Deathmatch;
         self.setup.team_game = false;
         self.setup.target_range = Some(false);
-        self.setup.stay_on_mission = true;
+        self.setup.rotation.clear();
         let file = self.random_mission(&files);
         self.create_server(h, ServerType::SinglePlayer, &file);
         Some(self.player_args(h, None))
@@ -90,14 +91,14 @@ impl Server {
         self.setup.target_range = Some(false);
         self.campaign.mission_seq = Some(0);
         self.campaign.mission_seq_total = Some(0);
-        self.setup.stay_on_mission = true;
+        self.setup.rotation.clear();
         let file = self.next_solo_level(h);
         self.create_server(h, ServerType::SinglePlayer, &file);
         Some(self.player_args(h, Some("")))
     }
 
     pub fn launch_target_practice(&mut self, h: &mut dyn ServerHost) -> Option<LocalConnect> {
-        self.setup.stay_on_mission = true;
+        self.setup.rotation.clear();
         self.bot_slots.clear();
         self.setup.target_range = Some(true);
         self.setup.team_game = false;
@@ -112,31 +113,45 @@ impl Server {
         Some(self.player_args(h, Some("")))
     }
 
-    /// A dedicated server on `mission`: a mission file, or a rotation of
-    /// the map list (`GREEN`, `BLUE`, `RED`, `MOON`: a world's maps; `ALL`: the
-    /// green, blue and red worlds') starting on a random one of them.
+    /// A dedicated server on `mission`: a mission file (then the
+    /// rotation of the settings, or that mission alone), or every map of
+    /// the map list's world (`GREEN`, `BLUE`, `RED`, `MOON`) or of the green,
+    /// blue and red worlds (`ALL`) as the rotation, starting on a random one.
     pub fn launch_dedicated(&mut self, h: &mut dyn ServerHost, mission: &str) {
         let mut mission = mission.to_string();
         self.bots_from_settings(h);
         let mode = self.setup.dedicated_mode;
         self.setup.mission_type = mode.mission_type();
         self.setup.team_game = mode.teams();
-        let world = [("GREEN", 1), ("BLUE", 2), ("RED", 3), ("MOON", 4)].iter().find(|(k, _)| mission.eq_ignore_ascii_case(k)).map(|(_, w)| *w);
-        let rotation = match world {
-            Some(w) => Some(Rotation::World(w)),
-            None if mission.eq_ignore_ascii_case("ALL") => Some(Rotation::All),
-            None => None,
-        };
-        match rotation {
-            Some(r) => {
-                let maps = h.maps(r.world());
+        let world = [("GREEN", Some(1)), ("BLUE", Some(2)), ("RED", Some(3)), ("MOON", Some(4)), ("ALL", None)].iter().find(|(k, _)| mission.eq_ignore_ascii_case(k)).map(|(_, w)| *w);
+        match world {
+            Some(w) => {
+                let maps = h.maps(w);
                 mission = self.random_mission(&maps);
-                self.setup.stay_on_mission = false;
-                self.setup.rotation = r;
+                self.setup.rotation = maps;
             }
-            None => self.setup.stay_on_mission = true,
+            None => self.setup.rotation = self.rotation_setting(h, &mission),
         }
         self.setup.target_range = Some(false);
         self.create_server(h, ServerType::MultiPlayer, &mission);
+    }
+
+    /// The rotation of the settings (`server.map_rotation`: mission ids,
+    /// separated by spaces, commas or tabs; ids without a mission file are
+    /// left out), or `mission` alone when it names none.
+    pub fn rotation_setting(&mut self, h: &mut dyn ServerHost, mission: &str) -> Vec<String> {
+        let mut files = Vec::new();
+        for id in h.setting(super::Setting::MapRotation).split(|c: char| c == ',' || c.is_whitespace()).filter(|s| !s.is_empty()) {
+            let file = tt_assets::layout::mission(id);
+            if !h.is_file(&file) {
+                h.error(&format!("server.map_rotation: no mission {id}"));
+            } else if !files.contains(&file) {
+                files.push(file);
+            }
+        }
+        if files.is_empty() {
+            files.push(mission.to_string());
+        }
+        files
     }
 }

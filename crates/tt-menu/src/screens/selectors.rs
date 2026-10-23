@@ -30,6 +30,38 @@ pub(crate) fn map_table(g: &mut Gfx, id: &str, rect: Rect, missions: &[MissionIn
     g.table(id, body, &rows, sel, 35.0).0
 }
 
+/// The Host screen's map list as the rotation: a click adds a map at the
+/// end or takes it out (never the last one), a double click makes it the
+/// only one; the # column is the order, the first map (highlighted) starts
+/// the game.
+pub(crate) fn rotation_table(g: &mut Gfx, id: &str, rect: Rect, missions: &[MissionInfo], rotation: &mut Vec<String>) {
+    let well = g.well(rect);
+    let order = |f: &str| rotation.iter().position(|r| r == f);
+    let nums: Vec<String> = missions.iter().map(|m| order(&m.file).map(|i| (i + 1).to_string()).unwrap_or_default()).collect();
+    let xs = g.columns(well.width(), 16.0, 1, &[("#", vec!["99".into()]), ("Name", missions.iter().map(|m| m.name.clone()).collect()), ("World", missions.iter().map(|m| m.world.clone()).collect())], CELL);
+    let body = g.header(well, &[(xs[0], "#"), (xs[1], "Name"), (xs[2], "World")]);
+    let rows: Vec<Vec<(f32, String, Color32)>> = missions
+        .iter()
+        .zip(nums)
+        .map(|(m, n)| {
+            let on = !n.is_empty();
+            vec![(xs[0], n, pal::BRASS), (xs[1], m.name.clone(), if on { pal::SAND } else { pal::SAND_MUTED }), (xs[2], m.world.clone(), if on { world_color(&m.world) } else { pal::SAND_MUTED })]
+        })
+        .collect();
+    let sel = rotation.first().and_then(|f| missions.iter().position(|m| &m.file == f));
+    match g.table(id, body, &rows, sel, 35.0) {
+        (Some(i), true) => *rotation = vec![missions[i].file.clone()],
+        (Some(i), false) => match order(&missions[i].file) {
+            Some(k) if rotation.len() > 1 => {
+                rotation.remove(k);
+            }
+            Some(_) => {}
+            None => rotation.push(missions[i].file.clone()),
+        },
+        _ => {}
+    }
+}
+
 /// The Auto / Green / Blue team choice.
 pub(crate) fn team_selector(g: &mut Gfx, id: &str, rect: Rect, team: &mut Team) {
     let i = Team::ALL.iter().position(|t| t == team).unwrap_or(0);
@@ -88,7 +120,6 @@ fn bot_rows(g: &mut Gfx, cg: &mut CustomGame, pool: BotPool, teams: bool, bw: Re
     // Columns as wide as their widest value (every skill, tank and team,
     // not just the ones shown, so they don't move when a cell cycles); the
     // name gets the rest, up to the remove buttons' column on the right.
-    const RH: f32 = 44.0;
     const LEAD: f32 = 14.0;
     const GAP: f32 = 12.0;
     const X_COL: f32 = 36.0;
@@ -110,9 +141,11 @@ fn bot_rows(g: &mut Gfx, cg: &mut CustomGame, pool: BotPool, teams: bool, bw: Re
         x += w;
     }
     let body = g.header(bw, &cols);
+    // Rows 44 high, lower when the most bots and the add button would not fit.
+    let rh = (body.height() / (max_bots as f32 + 1.0)).min(44.0);
     let mut remove = None;
     for (i, bot) in cg.bots.iter_mut().enumerate() {
-        let r = Rect::from_min_size(Pos2::new(body.left(), body.top() + i as f32 * RH), Vec2::new(body.width(), RH));
+        let r = Rect::from_min_size(Pos2::new(body.left(), body.top() + i as f32 * rh), Vec2::new(body.width(), rh));
         g.row_fill(r, false, false, i % 2 == 1);
         g.text_fit(Pos2::new(r.left() + LEAD, r.center().y), bot_label(&bot.name), 22.0, pal::SAND, name_w - 8.0);
         let mut cells = vec![bot.skill.label().to_string(), bot_tanks.get(bot.tank).map(|t| t.name.clone()).unwrap_or_default()];
@@ -147,7 +180,7 @@ fn bot_rows(g: &mut Gfx, cg: &mut CustomGame, pool: BotPool, teams: bool, bw: Re
         cg.bots.remove(i);
     }
     if cg.bots.len() < max_bots {
-        let r = Rect::from_min_size(Pos2::new(body.left() + 10.0, body.top() + cg.bots.len() as f32 * RH + 8.0), Vec2::new(150.0, 34.0));
+        let r = Rect::from_min_size(Pos2::new(body.left() + 10.0, body.top() + cg.bots.len() as f32 * rh + 8.0), Vec2::new(150.0, 34.0));
         if g.button("botadd", r, "+ Add bot", false, false, true).clicked() {
             let used: Vec<String> = cg.bots.iter().map(|b| b.name.clone()).collect();
             let name = names.iter().find(|n| !used.contains(n)).cloned().unwrap_or_else(|| format!("Bot {}", cg.bots.len() + 1));

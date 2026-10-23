@@ -169,6 +169,6 @@ impl Server {
 
     /// The default bots: three green, three blue.
     pub fn default_bots(&mut self) {
-        self.bot_slots = DEFAULT_BOTS.iter().enumerate().map(|(i, (tank, name))| BotSlot::new(tank, name, if i < 3 { "GreenTeam" } else { "BlueTeam" })).collect();
+        self.bot_slots = DEFAULT_BOTS.iter().take(6).enumerate().map(|(i, (tank, name))| BotSlot::new(tank, name, if i < 3 { "GreenTeam" } else { "BlueTeam" })).collect();
     }
 }

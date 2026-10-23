@@ -176,6 +176,17 @@ impl Input {
         }
     }
 
+    /// Everything held is let go (the window lost focus: its releases may
+    /// never arrive). Returns the release actions of the held bindings;
+    /// the modifiers are cleared.
+    pub fn release_all(&mut self) -> Vec<(BindAction, String)> {
+        self.modifiers = 0;
+        self.held.drain().filter_map(|(_, b)| match b.command {
+            Command::Action { action, .. } => Some((action, "0".into())),
+            Command::Press(_) => None,
+        }).collect()
+    }
+
     /// The maps an event goes through: `GlobalActionMap` (`global`) and/or
     /// the active maps, most recent first (`active`).
     pub fn dispatch_maps(&self, global: bool, active: bool) -> Vec<String> {
@@ -425,5 +436,24 @@ mod tests {
         assert_eq!(inp.dispatch_maps(true, true), s(&["globalactionmap", "movemap", "a"]));
         inp.pop_map(MOVE_MAP);
         assert_eq!(inp.dispatch_maps(false, true), s(&["a"]));
+    }
+
+    /// Alt+Tab: Alt (and a key) were down when the window lost focus and
+    /// their releases never came. After `release_all` keys and mouse axes
+    /// match their plain bindings again.
+    #[test]
+    fn release_all_unsticks_modifiers() {
+        let mut inp = Input::default();
+        inp.bind("a", Device::Keyboard, "w", act(BindAction::MoveForward)).unwrap();
+        inp.bind("a", Device::Mouse, "xaxis", act(BindAction::Yaw)).unwrap();
+        let a = s(&["a"]);
+        let ax = InputEvent::Axis { device: Device::Mouse, axis: "xaxis".into(), delta: 1.0 };
+        assert_eq!(inp.dispatch(&a, &key("w", true)), vec![(BindAction::MoveForward, "1".into())]);
+        inp.dispatch(&a, &key("lalt", true));
+        assert!(inp.dispatch(&a, &ax).is_empty());
+        assert_eq!(inp.release_all(), vec![(BindAction::MoveForward, "0".into())]);
+        assert_eq!(inp.modifiers, 0);
+        assert_eq!(inp.dispatch(&a, &key("w", true)), vec![(BindAction::MoveForward, "1".into())]);
+        assert_eq!(inp.dispatch(&a, &ax), vec![(BindAction::Yaw, "1".into())]);
     }
 }

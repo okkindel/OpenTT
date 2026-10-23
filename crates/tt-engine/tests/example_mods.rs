@@ -165,3 +165,78 @@ fn network_games_need_carpet_bombing_on_both_sides() {
         assert_eq!(join(&mut s, &mut on), "");
     });
 }
+
+/// Readable Pads, a cosmetic mod that ships with the game: enabled, each
+/// boost and jump pad is drawn with its overlay (`boostpad.overlay.dts`,
+/// `jumppad.overlay.dts`) on top, without a lamp of its own, the boost
+/// arrow pointing where the pad launches and turning with the pad's state;
+/// not enabled, the pads are drawn alone.
+#[test]
+fn readable_pads_draw_overlays_over_the_pads() {
+    tt_assets::require_game_data!();
+    big_stack(|| {
+        let node = |i: &tt_render::DynamicInstance, n: &str| i.nodes.iter().find(|(m, _)| m.eq_ignore_ascii_case(n)).map(|x| x.1);
+        // The boost overlay's arrow (its root `direction`'s +Y) along the
+        // launch direction of the pad drawn as `model`.
+        let along_launch = |e: &Engine, model: &tt_render::DynamicInstance, overlay: &tt_render::DynamicInstance| {
+            let pos = model.transform.w_axis.truncate();
+            let pad = e.host.game.as_ref().unwrap().world.triggers.iter().find(|t| (glam::Vec3::from(t.transform.translation) - pos).length() < 0.01).expect("the pad");
+            let arrow = (overlay.transform * node(overlay, "direction").unwrap()).y_axis.truncate().normalize();
+            assert!(arrow.dot(pad.boost_direction().normalize()) > 0.999, "{arrow} {}", pad.boost_direction());
+        };
+        // (overlay file name, model, overlay) of each drawn overlay.
+        let overlays = |e: &Engine| {
+            let (shapes, anims) = e.trigger_shapes_with_anim();
+            let mut out = Vec::new();
+            for i in 1..shapes.len() {
+                let name = shapes[i].shape.file_name().unwrap().to_string_lossy().to_ascii_lowercase();
+                if name.ends_with(".overlay.dts") {
+                    assert_eq!(anims[i].lamp, tt_engine::gfx::Lamp::None);
+                    assert_eq!(shapes[i].transform, shapes[i - 1].transform);
+                    out.push((name, shapes[i - 1].clone(), shapes[i].clone()));
+                }
+            }
+            out
+        };
+        for on in [false, true] {
+            let mods: &[&str] = if on { &["readable-pads"] } else { &[] };
+            let mut e = engine_with(if on { "pads-on" } else { "pads-off" }, Some(mods), &[]);
+            assert!(e.boot());
+            assert_eq!(e.host.fs.mods().len(), mods.len());
+            assert!(!e.host.fs.mods().iter().any(|m| m.affects_gameplay));
+            new_player(&mut e, "Tester");
+            let g = CustomGame { mission: "missions/poweruptest.ron".into(), mode: 0, bots: Vec::new(), player_tank: 1, player_team: Team::Green, minutes: 10, replace_bots: true };
+            apply(&mut e, MenuAction::StartCustom(g));
+            for _ in 0..(3000 / tt_engine::TICK_MS) {
+                tick(&mut e);
+            }
+            let found = overlays(&e);
+            if !on {
+                assert!(found.is_empty(), "{:?}", found.iter().map(|o| &o.0).collect::<Vec<_>>());
+                continue;
+            }
+            let mut names: Vec<&str> = found.iter().map(|o| o.0.as_str()).collect();
+            names.sort();
+            // The Power-up Test map's two boost and two jump pads.
+            assert_eq!(names, ["boostpad.overlay.dts", "boostpad.overlay.dts", "jumppad.overlay.dts", "jumppad.overlay.dts"]);
+            for (name, model, overlay) in &found {
+                if name.starts_with("boostpad") {
+                    assert!(node(overlay, "direction").is_some() && node(overlay, "direction") == node(model, "direction"));
+                    assert!(node(overlay, "padglow_arrow").is_some(), "the arrow bobs");
+                    along_launch(&e, model, overlay);
+                }
+            }
+            // The 4-state pad in its second state: the arrow turns a quarter.
+            let g = e.host.game.as_mut().unwrap();
+            let pad = g.world.triggers.iter_mut().find(|t| matches!(&t.kind, tt_game::TriggerKind::Boost(b) if b.data.num_states == 4)).expect("the 4-state boost pad");
+            let pos = glam::Vec3::from(pad.transform.translation);
+            if let tt_game::TriggerKind::Boost(b) = &mut pad.kind {
+                b.state = 1;
+            }
+            let (_, model, turned) = overlays(&e).into_iter().find(|(_, m, _)| (m.transform.w_axis.truncate() - pos).length() < 0.01).unwrap();
+            along_launch(&e, &model, &turned);
+            let dir = node(&turned, "direction").unwrap().y_axis.truncate();
+            assert!(dir.dot(glam::Vec3::Y).abs() < 1e-3 && dir.length() > 0.99, "{dir}");
+        }
+    });
+}

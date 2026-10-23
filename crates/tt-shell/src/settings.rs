@@ -291,6 +291,8 @@ section! {
         max_bots: u32 = "server.max_bots",
         replace_bots: bool = "server.replace_bots",
         min_health_packs: u32 = "server.min_health_packs",
+        /// The maps played in turn (mission ids; the first starts a hosted game).
+        map_rotation: Vec<String> = "server.map_rotation",
     }
 }
 

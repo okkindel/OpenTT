@@ -168,6 +168,8 @@ fn menu_previews() {
         ("41_online_join_empty", MenuState::at(Screen::Online), [1280, 720]),
         ("42_online_password", { let mut s = MenuState::at(Screen::Online); s.password = Some(("IP:192.168.1.31:28000".into(), String::new())); s }, [1280, 720]),
         ("43_online_host", { let mut s = MenuState::at(Screen::Online); s.online_tab = OnlineTab::Host; s }, [1280, 720]),
+        ("43b_online_host_rotation", { let mut s = MenuState::at(Screen::Online); s.online_tab = OnlineTab::Host; s }, [1280, 720]),
+        ("37_vote_map", MenuState::at(Screen::VoteMap), [1280, 720]),
         ("44_online_connecting", MenuState::at(Screen::Loading), [1280, 720]),
         ("45_online_error", MenuState::at(Screen::Online), [1280, 720]),
         ("46_online_join_1080p", MenuState::at(Screen::Online), [1920, 1080]),
@@ -191,6 +193,20 @@ fn menu_previews() {
         if name.contains("long_name") {
             backend.current = Some("Krevitzinator the Unrelenting Destroyer".into());
             backend.update = Some("v0.2.0".into());
+        }
+        if *name == "43b_online_host_rotation" {
+            // Three maps in rotation, the game starting on the second of the list.
+            let mut st = MenuState::at(Screen::Online);
+            st.online_tab = OnlineTab::Host;
+            let _ = render(&gpu, &mut renderer, &mut st, &mut backend, *size, 0.0);
+            let mut hg = st.host.take().unwrap();
+            hg.rotation = ["tt1_2", "tt2_1", "tt1_4"].map(tt_assets::layout::mission).to_vec();
+            hg.game.mission = hg.rotation[0].clone();
+            state.host = Some(hg);
+        }
+        if *name == "37_vote_map" {
+            backend.vote_maps = [("tt1_1", "Medulla Mesa"), ("tt1_4", "Freudian Flats"), ("tt2_1", "Synaptic Slopes"), ("tt2_3", "Cerebral Cortex"), ("tt3_1", "Greymatter Gorge")].map(|(i, n)| (i.to_string(), n.to_string())).to_vec();
+            state.focus = 1;
         }
         if *name == "14_loading" {
             backend.loading = Some(tt_menu::Loading { map: "Greymatter Gorge".into(), phase: "Loading objects".into(), progress: 0.62 });
@@ -284,6 +300,15 @@ fn menu_previews() {
             tt_menu::hud::draw(ctx, &view, &mut art);
         });
         img.save(out.join("60_hud.png")).unwrap();
+        // A map vote running.
+        let mut view = example_hud();
+        view.center_print = None;
+        view.vote = Some(tt_menu::hud::VotePrompt { question: "Vote: switch to Greymatter Gorge?".into(), detail: "F12 yes / F11 no \u{2014} yes 2 / no 1 / 6 players \u{2014} 23 s".into() });
+        let img = render_with(&gpu, &mut renderer, size, ppp, 1.0, |ctx| {
+            ctx.layer_painter(egui::LayerId::background()).rect_filled(ctx.screen_rect(), 0.0, egui::Color32::from_rgb(0x4a, 0x5a, 0x6a));
+            tt_menu::hud::draw(ctx, &view, &mut art);
+        });
+        img.save(out.join("61_hud_vote.png")).unwrap();
     }
     eprintln!("previews in {}", out.display());
 }
@@ -315,7 +340,7 @@ fn layout_previews() {
         ("74_join_full", Box::new(|| { let mut s = MenuState::at(Screen::Online); s.join_sel = Some("IP:203.0.113.77:28000".into()); s })),
         ("75_join_players", Box::new(|| { let mut s = MenuState::at(Screen::Online); s.join_sel = Some("IP:203.0.113.77:28000".into()); s.show_players = true; s })),
         ("76_custom_game", Box::new({ let game = game.clone(); move || { let mut s = MenuState::at(Screen::CustomGame); s.custom = Some(game.clone()); s } })),
-        ("77_host", Box::new({ let game = game.clone(); move || { let mut s = MenuState::at(Screen::Online); s.online_tab = OnlineTab::Host; s.host = Some(HostGame { game: game.clone(), name: "Alice's game".into(), max_players: 16, password: String::new(), port: 28000, port_mapping: false, public: true }); s } })),
+        ("77_host", Box::new({ let game = game.clone(); move || { let mut s = MenuState::at(Screen::Online); s.online_tab = OnlineTab::Host; s.host = Some(HostGame { game: game.clone(), name: "Alice's game".into(), max_players: 16, password: String::new(), port: 28000, port_mapping: false, public: true, rotation: vec![game.mission.clone()] }); s } })),
         ("78_help", Box::new(|| MenuState::at(Screen::Help))),
         ("79_credits", Box::new(|| MenuState::at(Screen::Credits))),
     ];
@@ -385,6 +410,7 @@ fn example_hud() -> tt_menu::hud::HudView {
             kda: true,
             ping: false,
         }),
+        vote: None,
     }
 }
 

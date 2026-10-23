@@ -152,6 +152,22 @@ pub fn put_server_msg(w: &mut BitWriter, tx: &mut TextTx, m: &ServerMsg) {
                 t(w, a);
             }
         }
+        VoteStatus { map, yes, no, players, secs, mine } => {
+            w.write_bits(19, 8);
+            t(w, map);
+            for n in [yes, no, players, secs] {
+                w.write_varint(*n as u64);
+            }
+            w.write_bits(mine.map_or(0, |y| 1 + y as u64), 8);
+        }
+        MapList { maps } => {
+            w.write_bits(20, 8);
+            w.write_varint(maps.len() as u64);
+            for (id, name) in maps {
+                t(w, id);
+                t(w, name);
+            }
+        }
     }
 }
 
@@ -213,6 +229,22 @@ pub fn get_server_msg(r: &mut BitReader, rx: &mut TextRx) -> Result<ServerMsg, D
             let args = if matches!(k, "targetPracticeDone" | "soloGameOver") { vec![] } else { vec![rx.get_text(r)?] };
             Hud(HudMsg::decode(k, &args).ok_or(DecodeError::Invalid("hud kind"))?)
         }
+        19 => {
+            let map = rx.get_text(r)?;
+            let mut n = [0u32; 4];
+            for x in &mut n {
+                *x = r.read_varint()?.min(u32::MAX as u64) as u32;
+            }
+            let mine = match r.read_bits(8)? {
+                0 => None,
+                v => Some(v == 2),
+            };
+            VoteStatus { map, yes: n[0], no: n[1], players: n[2], secs: n[3], mine }
+        }
+        20 => {
+            let n = get_count(r)?;
+            MapList { maps: (0..n).map(|_| Ok((rx.get_text(r)?, rx.get_text(r)?))).collect::<Result<_, DecodeError>>()? }
+        }
         _ => return Err(DecodeError::Invalid("server message kind")),
     })
 }
@@ -241,6 +273,12 @@ pub fn put_client_cmd(w: &mut BitWriter, c: &ClientCmd) {
                 put_text(w, a);
             }
         }
+        CallVote { map } => {
+            w.write_bits(20, 8);
+            put_text(w, map);
+        }
+        CastVote { yes } => w.write_bits(21 + *yes as u64, 8),
+        MapList => w.write_bits(23, 8),
     }
 }
 
@@ -256,6 +294,9 @@ pub fn get_client_cmd(r: &mut BitReader) -> Result<ClientCmd, DecodeError> {
         5 => TeamMessageSent { text: rx.get_text(r)? },
         6 => Sad { password: rx.get_text(r)? },
         7 => SadSetPassword { password: rx.get_text(r)? },
+        20 => CallVote { map: rx.get_text(r)? },
+        21 | 22 => CastVote { yes: k == 22 },
+        23 => MapList,
         _ => {
             let cmd = *DEBUG_CMDS.get(k as usize - 8).ok_or(DecodeError::Invalid("client command kind"))?;
             let n = get_count(r)?;
@@ -302,6 +343,10 @@ mod tests {
             ClientCmd::Sad { password: "".into() },
             ClientCmd::SadSetPassword { password: "x".into() },
             ClientCmd::Debug { cmd: DebugCmd::TogglePlayerAI, args: vec!["1".into()] },
+            ClientCmd::CallVote { map: "Snowblind".into() },
+            ClientCmd::CastVote { yes: false },
+            ClientCmd::CastVote { yes: true },
+            ClientCmd::MapList,
         ];
         for c in all {
             let mut w = BitWriter::new();

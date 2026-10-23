@@ -79,14 +79,22 @@ pub const PRODUCT_NAME: &str = match option_env!("TT_PRODUCT_NAME") {
     None => "OpenTT",
 };
 
-/// Build id checked with the protocol (both sides must run the same sim).
-/// Derived from the crate version; the engine may pass a stronger one.
+/// Build id checked with the protocol (both sides must run the same sim):
+/// from the crate version's `major.minor`, so the patch releases of one
+/// minor version play together (a patch release changes no protocol,
+/// simulation, data or map). The engine may pass a stronger one.
 pub const BUILD_ID: u64 = {
-    // FNV-1a of the version string, at compile time.
+    // FNV-1a of the version up to its second '.', at compile time.
     let s = env!("CARGO_PKG_VERSION").as_bytes();
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-    let mut i = 0;
+    let (mut i, mut dots) = (0, 0);
     while i < s.len() {
+        if s[i] == b'.' {
+            dots += 1;
+            if dots == 2 {
+                break;
+            }
+        }
         h ^= s[i] as u64;
         h = h.wrapping_mul(0x0100_0000_01b3);
         i += 1;
@@ -94,3 +102,18 @@ pub const BUILD_ID: u64 = {
     h
 };
 pub const DEFAULT_PORT: u16 = 28000;
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn build_id_is_the_minor_version() {
+        let v = env!("CARGO_PKG_VERSION");
+        let minor = v.splitn(3, '.').take(2).collect::<Vec<_>>().join(".");
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        for b in minor.bytes() {
+            h ^= b as u64;
+            h = h.wrapping_mul(0x0100_0000_01b3);
+        }
+        assert_eq!(super::BUILD_ID, h, "{v} -> {minor}");
+    }
+}

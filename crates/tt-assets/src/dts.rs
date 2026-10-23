@@ -360,6 +360,11 @@ impl Material {
     pub const NEVER_ENV_MAP: u32 = 1 << 6;
     pub const NO_MIP_MAP: u32 = 1 << 7;
     pub const MIP_MAP_ZERO_BORDER: u32 = 1 << 8;
+    /// With `TRANSLUCENT`: drawn from its front faces only, so a
+    /// closed translucent shape shows one layer, not its back walls
+    /// through its front ones. Not set by the game's shapes (a mod's own
+    /// shapes may set it).
+    pub const SINGLE_SIDED: u32 = 1 << 9;
     pub const IFL_MATERIAL: u32 = 1 << 27;
     pub const IFL_FRAME: u32 = 1 << 28;
     pub const DETAIL_MAP_ONLY: u32 = 1 << 29;

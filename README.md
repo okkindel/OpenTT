@@ -1,8 +1,9 @@
 # OpenTT
 
-[![OpenTT trailer](https://img.youtube.com/vi/_-T6URmO40o/maxresdefault.jpg)](https://www.youtube.com/watch?v=_-T6URmO40o)
+[![OpenTT 0.4 trailer](https://img.youtube.com/vi/-OlWzodF-uA/maxresdefault.jpg)](https://youtu.be/-OlWzodF-uA)
 
-*Watch the trailer on YouTube.*
+*OpenTT 0.4: new maps, the Moon and map votes. Watch the trailer on
+YouTube ([the first trailer](https://www.youtube.com/watch?v=_-T6URmO40o)).*
 
 OpenTT is an open-source reimplementation of the engine of *ThinkTanks*,
 the 2003 tank arena game, written in Rust (wgpu, winit, egui). It plays
@@ -14,8 +15,9 @@ music and missions are read from a copy of *ThinkTanks* that
 you own: on its first start OpenTT asks for your *ThinkTanks* folder and
 builds its asset directory from it.
 This repository only holds the code and a few assets made for OpenTT
-(three new maps, a power-up test arena, the Mortar rocket model and the
-announcer lines of the new power-ups).
+(five new maps, among them a new world on the Moon, a power-up test
+arena, the Mortar rocket model, the announcer lines of the new power-ups
+and the Readable Pads mod).
 
 ## Download and install
 
@@ -130,6 +132,10 @@ opentt --dedicated --mission tt2_3 --port 28000
 * Internet: the server's UDP port (28000 by default) must be reachable:
   forward it on the router, or `--port-mapping` asks the router (UPnP /
   NAT-PMP). `--master-server HOST[:PORT]` lists it on a master server.
+* Players join a server whose version has the same first two numbers
+  (0.4.0 and 0.4.1 play together; 0.5.x does not): patch releases never
+  change the game itself, so a server needs updating only for a new minor
+  version.
 * All the options, settings and versions: [docs/server.md](docs/server.md).
 
 ## Master server (server list for internet games)

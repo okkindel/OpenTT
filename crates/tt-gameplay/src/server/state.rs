@@ -69,27 +69,6 @@ impl DedicatedMode {
     }
 }
 
-/// The maps a multiplayer server rotates through: those of the map list
-/// (the game's and the enabled mods'), in its order.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Rotation {
-    /// Every map of a world (1 green, 2 blue, 3 red, 4 the Moon).
-    World(u8),
-    /// Every map of the green, blue and red worlds (not the Moon's).
-    #[default]
-    All,
-}
-
-impl Rotation {
-    /// The world, None for all.
-    pub fn world(self) -> Option<u8> {
-        match self {
-            Rotation::World(w) => Some(w),
-            Rotation::All => None,
-        }
-    }
-}
-
 /// A single-player (local) or multiplayer server.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServerType {
@@ -146,10 +125,12 @@ pub struct GameSetup {
     pub demo_tank: String,
     /// The players' tanks drive themselves after a death (the demo).
     pub ai_control: bool,
-    /// A multiplayer server plays its mission again instead of rotating.
-    pub stay_on_mission: bool,
-    /// The maps a rotating server goes through.
-    pub rotation: Rotation,
+    /// The mission files a multiplayer server plays in turn after a round
+    /// (wrapping); empty: it plays its mission again.
+    pub rotation: Vec<String>,
+    /// How long a player waits after joining, and between two map votes
+    /// he calls (ms).
+    pub vote_wait_ms: u32,
     /// A dedicated server (no local player).
     pub dedicated: bool,
     /// What a dedicated server plays.
@@ -175,8 +156,8 @@ impl Default for GameSetup {
             end_pause_secs: 3,
             demo_tank: "GoldMediumTank".into(),
             ai_control: false,
-            stay_on_mission: true,
-            rotation: Rotation::All,
+            rotation: Vec::new(),
+            vote_wait_ms: 180_000,
             dedicated: false,
             dedicated_mode: DedicatedMode::Battle,
             skip_port: false,
@@ -218,6 +199,8 @@ pub struct Session {
     /// The mission's number on this server (from 1); clients answer with it.
     pub mission_seq: u32,
     pub mission_running: bool,
+    /// The mission a passed map vote chose: the next round plays it.
+    pub voted_mission: Option<String>,
 }
 
 impl Session {
@@ -378,15 +361,23 @@ impl BotSlot {
     }
 }
 
-/// The default bots: (tank, name).
-pub const DEFAULT_BOTS: [(&str, &str); 6] = [
+/// The bots a game can be set up with: (tank, name). A default game has
+/// the first six; the menus' bot tables offer them all.
+pub const DEFAULT_BOTS: [(&str, &str); 10] = [
     ("GoldHeavyTank", "Hum [Bot]"),
     ("SilverMediumTank", "Tom [Bot]"),
     ("BronzeLightTank", "Mal [Bot]"),
     ("GoldLightTank", "Ri [Bot]"),
     ("SilverMediumTank", "Gul [Bot]"),
     ("BronzeHeavyTank", "Gum [Bot]"),
+    ("GoldMediumTank", "Zed [Bot]"),
+    ("SilverLightTank", "Pip [Bot]"),
+    ("BronzeMediumTank", "Bix [Bot]"),
+    ("SilverHeavyTank", "Nub [Bot]"),
 ];
+
+/// The most bots a game can be set up with.
+pub const MAX_BOTS: usize = DEFAULT_BOTS.len();
 
 /// The flood protection's numbers.
 pub mod flood {

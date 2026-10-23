@@ -533,7 +533,11 @@ impl ApplicationHandler for App {
                 g.config.height = s.height.max(1);
                 g.surface.configure(&g.device, &g.config);
             }
-            WindowEvent::KeyboardInput { event, .. } => {
+            // Presses made up on focus gain for keys already down (Alt
+            // after Alt+Tab, whose release the task switcher may take) are
+            // no real presses: a stuck Alt would keep every key and the
+            // mouse from matching their bindings.
+            WindowEvent::KeyboardInput { event, is_synthetic, .. } if !(is_synthetic && event.state == ElementState::Pressed) => {
                 if let PhysicalKey::Code(k) = event.physical_key {
                     let pressed = event.state == ElementState::Pressed;
                     if pressed {
@@ -582,6 +586,11 @@ impl ApplicationHandler for App {
             }
             WindowEvent::Focused(f) => {
                 self.focused = f;
+                if !f {
+                    self.keys.clear();
+                    self.looking = false;
+                    self.engine.release_input();
+                }
                 self.update_capture();
             }
             WindowEvent::RedrawRequested => self.frame(el),

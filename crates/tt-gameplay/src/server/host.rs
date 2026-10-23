@@ -35,6 +35,8 @@ pub enum Setting {
     BanTime,
     /// The connection error a joining client is told about.
     ConnectionError,
+    /// The maps a multiplayer server plays in turn (mission ids).
+    MapRotation,
     /// The local player.
     PlayerName,
     PlayerTeam,

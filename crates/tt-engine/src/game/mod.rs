@@ -21,7 +21,7 @@ mod tick;
 mod transform;
 
 pub use aim::{aim_mode, predict_aim, AimMode, FreeAim, PlayerAim, TurretTarget};
-pub use camera::{free_eye_height, free_view, heading_of, wrap_pi, CameraParams, ChaseCam, DEFAULT_HALF_VFOV, FREE_AIM_RANGE, FREE_ARM_MIN_ELEVATION, FREE_CAM_CLEARANCE, FREE_PITCH_RANGE, FREE_TANK_MARGIN};
+pub use camera::{free_eye_height, free_view, game_vfov, heading_of, wrap_pi, CameraParams, ChaseCam, DEFAULT_HALF_VFOV, FREE_AIM_RANGE, FREE_ARM_MIN_ELEVATION, FREE_CAM_CLEARANCE, FREE_PITCH_RANGE, FREE_TANK_MARGIN};
 pub use render::pose_tank;
 pub use tick::{native_defs, tick, update_world};
 pub use transform::{fields_transform, object_transform, parse_transform, rotation_rad, set_transform_fields, tank_fields, tank_script_transform, team_index, transform_string};

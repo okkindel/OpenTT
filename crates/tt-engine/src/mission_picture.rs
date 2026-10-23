@@ -76,8 +76,14 @@ pub fn posed(triggers: &[Trigger], t: f32) -> (Vec<tt_render::DynamicInstance>, 
     let mut anims = Vec::new();
     for tr in triggers {
         let (nodes, hidden, shown, ifl) = crate::engine::trigger_pose(&tr.shape, &tr.seq, t, &[]);
-        out.push(tt_render::DynamicInstance { shape: tr.shape.clone(), transform: tr.transform, nodes, hidden, shown, ..Default::default() });
+        let model = tt_render::DynamicInstance { shape: tr.shape.clone(), transform: tr.transform, nodes, hidden, shown, ..Default::default() };
+        let overlay = crate::engine::trigger_overlay(&model, t);
+        out.push(model);
         anims.push(TriggerAnim { ifl, lamp: tr.lamp });
+        if let Some((o, ifl)) = overlay {
+            out.push(o);
+            anims.push(TriggerAnim { ifl, lamp: Lamp::None });
+        }
     }
     (out, anims)
 }

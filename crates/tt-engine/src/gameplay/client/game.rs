@@ -132,6 +132,16 @@ pub fn bind_action(h: &mut EngineHost, a: BindAction, v: &str) {
             }
         }
         Screenshot => do_screenshot(h, v),
+        VoteYes | VoteNo => {
+            if lu(v) != 0 && h.client.vote.is_some() {
+                crate::net::send_cmd(h, ClientCmd::CastVote { yes: a == VoteYes });
+            }
+        }
+        VoteMenu => {
+            if lu(v) != 0 {
+                super::hud::ask_vote_maps(h);
+            }
+        }
     }
 }
 

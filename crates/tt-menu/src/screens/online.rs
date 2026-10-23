@@ -3,7 +3,7 @@
 
 use egui::{Align2, Color32, Key, Pos2, Rect, Stroke, StrokeKind, Vec2};
 
-use super::selectors::{bot_table, health_packs_selector, map_table, team_selector, BotPool};
+use super::selectors::{bot_table, health_packs_selector, rotation_table, team_selector, BotPool};
 use super::steel::Button;
 use super::{edit_text, frame, pal, pressed, Gfx, Typed};
 use crate::backend::*;
@@ -89,9 +89,11 @@ fn default_host(b: &dyn MenuBackend) -> HostGame {
     let missions = b.missions();
     let names = b.bot_names();
     let tanks = b.tanks().len().clamp(1, 3);
+    let mission = missions.first().map(|m| m.file.clone()).unwrap_or_default();
     HostGame {
+        rotation: vec![mission.clone()],
         game: CustomGame {
-            mission: missions.first().map(|m| m.file.clone()).unwrap_or_default(),
+            mission,
             mode: 0,
             bots: names.iter().take(3).enumerate().map(|(i, n)| BotSetup { name: n.clone(), skill: BotSkill::ALL[i % 3], tank: i % tanks, team: Team::Auto }).collect(),
             player_tank: b.selected_tank(),
@@ -349,7 +351,11 @@ fn join(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, inner: Rect) -
     // details too); players, ping and the lock in columns as wide as they
     // need, the name gets the rest.
     let name_of = |s: &ServerEntry| format!("{}{}\n{}  \u{b7}  {}", s.name, if s.modded { "  [modded]" } else { "" }, s.map, s.mode);
-    let players_of = |s: &ServerEntry| format!("{}/{}", s.players, s.max_players);
+    // Players / slots, and the human players among them when bots play.
+    let players_of = |s: &ServerEntry| match s.bots {
+        0 => format!("{}/{}", s.players, s.max_players),
+        b => format!("{}/{} ({})", s.players, s.max_players, s.players.saturating_sub(b)),
+    };
     let xs = g.columns(
         well.width(),
         16.0,
@@ -627,11 +633,16 @@ fn host(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend, inner: Rect) -
     let bottom = inner.bottom();
     // The map list leaves room below it for a note on how friends join.
     let note_h = 64.0;
-    // Maps.
-    g.caption(Pos2::new(inner.left(), cap_y), "Map");
-    if let Some(i) = map_table(g, "hmaps", Rect::from_min_max(Pos2::new(inner.left(), top), Pos2::new(inner.left() + map_w, bottom - note_h - 8.0)), &missions, &hg.game.mission) {
-        hg.game.mission = missions[i].file.clone();
+    // Maps: the rotation, the first one starts.
+    if hg.rotation.is_empty() {
+        hg.rotation.push(hg.game.mission.clone());
     }
+    let n = hg.rotation.len();
+    g.caption(Pos2::new(inner.left(), cap_y), if n == 1 { "Map" } else { "Maps" });
+    let hint = if n == 1 { "click more for a rotation".to_string() } else { format!("{n} in rotation, double-click: one") };
+    g.text(Pos2::new(inner.left() + map_w, cap_y + 12.0), &hint, 18.0, pal::SAND_MUTED, Align2::RIGHT_CENTER);
+    rotation_table(g, "hmaps", Rect::from_min_max(Pos2::new(inner.left(), top), Pos2::new(inner.left() + map_w, bottom - note_h - 8.0)), &missions, &mut hg.rotation);
+    hg.game.mission = hg.rotation[0].clone();
     // Server options (rows on the panel's steel).
     let opts = Rect::from_min_max(Pos2::new(inner.left() + map_w + gap, top), Pos2::new(inner.right() - bots_w - gap, bottom));
     g.caption(Pos2::new(opts.left(), cap_y), "Server");

@@ -95,6 +95,7 @@ folder:
 | Folder | Mod | Shows |
 |---|---|---|
 | `desert-camo/` | Desert Camo (example) | a cosmetic mod: four tank textures (`models/tanks/tank01.png` ... `tank04.png`) and their normal maps (`tank01.normal.png` ...) replace the game's: a sand, dark earth and olive camouflage fitted to each tank model, painted for this project |
+| `readable-pads/` | Readable Pads | a finished cosmetic mod (not an example to copy): models drawn over the boost and jump pads (`*.overlay.dts`, § Drawing over a power-up or a pad), so they read from a distance |
 | `carpet-bombing/` | Carpet Bombing (example) | a gameplay mod made of data only: its `data/weapons.ron` turns the Mortar into a carpet bomb, three shots of nine shells a pull (the README lists each changed field and why) |
 
 They live in the repository's `mods/` and in each package where the game
@@ -150,6 +151,22 @@ extension:
 Look up the exact paths in the game data folder (`docs/layout.md` §
 Imported game data says where it is) or in the `SOURCES.md` tables of the
 repository's `assets/`.
+
+### Drawing over a power-up or a pad
+
+A power-up's or a pad's model `NAME.dts` can have an overlay: a model
+`NAME.overlay.dts` next to it, which a mod adds without replacing the
+model. It is drawn over the model with its position, turn and tilt, and
+only drawn: the model alone decides the trigger area, where a pad
+launches and what it collides with, so the mod stays cosmetic. The
+overlay plays its own `ambient` sequence (its nodes, objects and `.ifl`
+textures); a node named like one of the model's takes that node's pose
+instead (a boost pad's `direction`, which turns with the pad's state).
+Its textures are looked up next to it. A translucent material of a
+mod's own shape that also has the flag bit 9 (`SINGLE_SIDED`) is drawn
+from its front faces only, so a closed see-through shape shows one
+layer. The mod `mods/readable-pads/` of
+the repository adds overlays to the boost and jump pads.
 
 ## Data files
 

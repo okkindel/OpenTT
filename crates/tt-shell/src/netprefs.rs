@@ -80,6 +80,17 @@ impl Prefs {
         self.set("host.minutes", &v.to_string());
     }
 
+    /// The maps a server plays in turn (mission ids; the console, the Host
+    /// screen and a hand-written list may separate them by tabs, spaces or
+    /// commas).
+    pub fn map_rotation(&self) -> Vec<String> {
+        self.get("server.map_rotation").split(|c: char| c == ',' || c.is_whitespace()).filter(|s| !s.is_empty()).map(String::from).collect()
+    }
+
+    pub fn set_map_rotation(&mut self, ids: &[String]) {
+        self.set("server.map_rotation", &ids.join("\t"));
+    }
+
     /// Some host settings were saved.
     pub fn has_host_settings(&self) -> bool {
         !self.host_mission().trim().is_empty()
@@ -197,6 +208,23 @@ mod tests {
         assert_eq!(r.len(), RECENT_SERVERS);
         assert_eq!(r[0], "10.0.0.5");
         assert_eq!(r[1], "10.0.0.9");
+    }
+
+    /// `server.map_rotation` in settings.ron: a list of ids, kept as it
+    /// was; a hand-typed text with spaces or commas reads the same.
+    #[test]
+    fn map_rotation_round_trip() {
+        let mut p = Prefs::defaults();
+        assert!(p.map_rotation().is_empty());
+        let ids: Vec<String> = ["tt1_1", "tt2_3", "moon_1"].map(String::from).to_vec();
+        p.set_map_rotation(&ids);
+        let ron = p.settings().to_ron();
+        assert!(ron.contains("map_rotation") && ron.contains("\"moon_1\""), "{ron}");
+        let s = crate::Settings::from_ron(&ron).unwrap();
+        assert_eq!(s.server.map_rotation.as_deref(), Some(&ids[..]));
+        assert_eq!(Prefs::with_settings(&s).map_rotation(), ids);
+        p.set("server.map_rotation", "tt1_1, tt2_3  moon_1");
+        assert_eq!(p.map_rotation(), ids);
     }
 
     /// Each default master is offered once per install: added to the list

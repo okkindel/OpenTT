@@ -52,6 +52,8 @@ pub struct ClientGlue {
     pub screenshot_number: f32,
     pub join_address: String,
     pub mission_arg: String,
+    /// The map list asked for opens the vote menu when it comes.
+    pub vote_menu_wanted: bool,
 }
 
 impl ClientGlue {

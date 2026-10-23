@@ -168,6 +168,16 @@ pub struct HudView {
     pub radar: Option<Radar>,
     pub names: Vec<NameTag>,
     pub player_list: Option<PlayerList>,
+    pub vote: Option<VotePrompt>,
+}
+
+/// The running map vote: its question and the count line under it.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct VotePrompt {
+    /// "Vote: switch to Medulla Mesa?"
+    pub question: String,
+    /// "F12 yes / F11 no — yes 2 / no 1 / 6 players — 23 s"
+    pub detail: String,
 }
 
 /// The HUD's artwork, loaded on first use from the asset directory and
@@ -579,6 +589,16 @@ fn top_centre(h: &mut Hud, view: &HudView) {
         let ir = h.image(BRAIN, Pos2::new(r.left() + 10.0, r.top() + 5.0), icon, Color32::WHITE);
         let tx = ir.map_or(r.left() + 10.0 + icon, |ir| ir.right()) + 8.0;
         h.put(Pos2::new(tx, r.center().y - g.size().y / 2.0), &g, 1.0);
+        y = r.bottom() + 8.0;
+    }
+    if let Some(v) = &view.vote {
+        let q = h.galley(&v.question, bold(20.0), pal::SAND_HI);
+        let d = h.galley(&v.detail, game(15.0), pal::SAND);
+        let w = q.size().x.max(d.size().x) + 32.0;
+        let r = Rect::from_min_size(Pos2::new(cx - w / 2.0, y), Vec2::new(w, q.size().y + d.size().y + 22.0));
+        h.panel(r, pal::BRASS);
+        h.put(Pos2::new(cx - q.size().x / 2.0, r.top() + 8.0), &q, 1.0);
+        h.put(Pos2::new(cx - d.size().x / 2.0, r.top() + 12.0 + q.size().y), &d, 1.0);
     }
 }
 

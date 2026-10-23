@@ -123,6 +123,7 @@ pub fn disconnected_cleanup(h: &mut EngineHost) {
         h.audio.music_stop();
     }
     h.client.disconnected();
+    h.cl.vote_menu_wanted = false;
     match h.cl.disconnect_gui.take() {
         Some(gui) => {
             if h.canvas.content() != Some(gui) {

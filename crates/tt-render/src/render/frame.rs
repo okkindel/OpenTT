@@ -283,6 +283,8 @@ impl Renderer {
         let blended = |pass: &mut wgpu::RenderPass| {
             pass.set_pipeline(&p.translucent);
             draw_static(pass, Blend::Translucent);
+            pass.set_pipeline(&p.glass);
+            draw_static(pass, Blend::Glass);
             pass.set_pipeline(&p.additive);
             draw_static(pass, Blend::Additive);
             let mut items: Vec<(f32, usize, &PathBuf, u32)> = Vec::new();
@@ -310,7 +312,7 @@ impl Renderer {
                 let Some(Some((mesh, _))) = self.dynamic.meshes.get(path) else { continue };
                 bind_mesh(pass, l, mesh);
                 let level = self.dynamic_detail(mesh, l, i, camera.pos, pixel_scale);
-                for (blend, pipeline) in [(Blend::Translucent, &p.translucent), (Blend::Additive, &p.additive)] {
+                for (blend, pipeline) in [(Blend::Translucent, &p.translucent), (Blend::Glass, &p.glass), (Blend::Additive, &p.additive)] {
                     let mut batches = mesh.batches.iter().filter(|b| b.blend == blend && b.detail == level).peekable();
                     if batches.peek().is_some() {
                         pass.set_pipeline(pipeline);

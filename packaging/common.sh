@@ -62,7 +62,8 @@ stage_docs() {
 # (tt_assets::layout::installed_mod_dirs): next to the binary (tar.gz,
 # zip), share/opentt/mods (AppImage; the .deb lists them in
 # [package.metadata.deb]), Contents/Resources/mods (.app).
-EXAMPLE_MODS="carpet-bombing desert-camo"
+# Readable Pads is a finished cosmetic mod shipped with the examples.
+EXAMPLE_MODS="carpet-bombing desert-camo readable-pads"
 stage_mods() {
     local out="$1" m
     mkdir -p "${out}"

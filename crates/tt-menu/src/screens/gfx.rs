@@ -48,25 +48,26 @@ impl<'a> Gfx<'a> {
     }
 
     /// The logo of the top bar (left edge 40 from the stage's) and, below
-    /// it, a [`Gfx::name_plate`] with `name` and `extra`. Returns the
-    /// logo's rectangle.
+    /// it across the bar's bottom edge, a [`Gfx::name_plate`] with `name`
+    /// and `extra`. Returns the logo's rectangle.
     pub(super) fn top_logo(&mut self, name: &str, extra: Option<&str>) -> Rect {
         let x0 = self.stage.left() + 40.0;
         let t = self.logo(Pos2::new(x0, self.stage.top() + LOGO_Y));
-        let top = self.stage.top() + TOP_H - 6.0 - PLATE_H;
+        // Over the bar's edge by 8, clear of the captions below the bar.
+        let top = self.stage.top() + TOP_H + 8.0 - PLATE_H;
         debug_assert!(top >= t.bottom() + 5.0, "the name plate overlaps the logo");
         self.name_plate(Pos2::new(t.left() + 2.0, top), (t.width() - 4.0).max(240.0), name, extra);
         t
     }
 
-    /// A small dog tag pressed into the header steel (no rivets: it is not
-    /// a button): `name` in sand, then `extra` muted after a thin divider.
+    /// A dog tag riveted across the header's edge: `name` in sand, then
+    /// `extra` muted after a thin divider.
     /// As wide as its text, at most `max_w`; a long name is cut with "...",
     /// `extra` is kept (and cut itself only when there is no room for it).
     pub(super) fn name_plate(&self, pos: Pos2, max_w: f32, name: &str, extra: Option<&str>) -> Rect {
-        let size = 18.0;
-        let pad = 10.0;
-        let gap = 9.0;
+        let size = 21.0;
+        let pad = 22.0;
+        let gap = 12.0;
         let room = max_w - 2.0 * pad;
         let fit = |t: &str, w: f32| -> String {
             if self.text_width(t, size) <= w {
@@ -83,8 +84,12 @@ impl<'a> Gfx<'a> {
         let name = fit(name, (room - ew).max(24.0));
         let nw = self.text_width(&name, size);
         let r = Rect::from_min_size(pos, Vec2::new((nw + ew + 2.0 * pad).min(max_w), PLATE_H));
-        self.inset(r, steel::shade(pal::WELL, -0.2), steel::shade(pal::WELL, 0.12), steel::shade(pal::LINE, 0.05), 4.0);
-        let cy = r.center().y + 0.5;
+        let face = self.plate(r, steel::Plate::Steel, false, false, false, 6.0);
+        let cy = face.center().y;
+        // One rivet at each end.
+        for x in [face.left() + 10.0, face.right() - 10.0] {
+            self.rivet(Pos2::new(x, cy), 2.8, steel::shade(pal::PLATE, -0.05));
+        }
         self.text(Pos2::new(r.left() + pad, cy), &name, size, pal::SAND, Align2::LEFT_CENTER);
         if let Some(e) = extra {
             let x = r.left() + pad + nw + gap;

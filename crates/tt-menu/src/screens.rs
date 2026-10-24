@@ -37,9 +37,9 @@ const TOP_H: f32 = 108.0;
 const LOGO_H: f32 = 68.0;
 /// Top of the logo below the top of the stage.
 const LOGO_Y: f32 = 6.0;
-/// Height of the name plate under the logo ([`Gfx::name_plate`]); its
-/// bottom is [`TOP_H`] - 6, level with the version line on the right.
-const PLATE_H: f32 = 22.0;
+/// Height of the name plate under the logo ([`Gfx::name_plate`]), riveted
+/// across the top bar's bottom edge.
+const PLATE_H: f32 = 32.0;
 /// Content offset below the top bar (the layouts were made for an 86-point bar).
 const SHIFT: f32 = 22.0;
 
@@ -130,6 +130,9 @@ enum Tab {
     Options,
     Help,
 }
+
+/// The community's Discord server (the main menu's button, bottom left).
+pub const DISCORD_INVITE: &str = "https://discord.gg/H7fGD6E";
 
 const TABS: [(Tab, &str); 5] = [(Tab::Play, "Play"), (Tab::Garage, "Garage"), (Tab::Players, "Players"), (Tab::Options, "Options"), (Tab::Help, "Help")];
 
@@ -290,8 +293,6 @@ pub(crate) fn ui(st: &mut MenuState, ctx: &egui::Context, b: &mut dyn MenuBacken
                 }
                 None => {}
             }
-            let v = b.version();
-            g.text(Pos2::new(g.stage.right() - 40.0, g.stage.top() + TOP_H - 6.0), &v, 14.0, pal::SAND_MUTED, Align2::RIGHT_BOTTOM);
             if screen == Screen::QuitConfirm {
                 // Draw the screen below the dialog without interaction.
                 let below = st.stack.iter().rev().nth(1).copied();

@@ -700,13 +700,25 @@ mod tests {
         let ctx = egui::Context::default();
         let mut b = MockBackend::new();
         let mut s = MenuState::at(Screen::MainMenu);
-        let button = egui::pos2(165.0, 669.0);
+        let button = egui::pos2(520.0, 669.0);
         frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
         click(&mut s, &mut b, &ctx, button);
         assert!(!b.log.iter().any(|l| l == "open releases"));
         b.update = Some("v0.2.0".into());
         click(&mut s, &mut b, &ctx, button);
         assert_eq!((s.screen(), b.log.iter().filter(|l| *l == "open releases").count()), (Screen::MainMenu, 1));
+    }
+
+    /// The main menu's Discord button (bottom left) opens the invite.
+    #[test]
+    fn discord_button_opens_the_invite() {
+        let ctx = egui::Context::default();
+        let mut b = MockBackend::new();
+        let mut s = MenuState::at(Screen::MainMenu);
+        frame_at(&ctx, &mut s, &mut b, 0.0, Vec::new());
+        click(&mut s, &mut b, &ctx, egui::pos2(140.0, 669.0));
+        assert_eq!(b.log.last().map(String::as_str), Some(format!("open {}", screens::DISCORD_INVITE).as_str()));
+        assert_eq!(s.screen(), Screen::MainMenu);
     }
 
     #[test]

@@ -1206,6 +1206,12 @@ impl MenuBackend for Backend<'_> {
         }
     }
 
+    fn open_link(&mut self, url: &str) {
+        if let Err(e) = crate::gamedata::open_folder(std::path::Path::new(url)) {
+            self.host.borrow_mut().log.warn(&format!("menu: {e}"));
+        }
+    }
+
     fn art(&mut self, ctx: &egui::Context, art: &Art) -> Option<egui::TextureHandle> {
         if let Some(t) = self.d.art.get(art) {
             return t.clone();

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.3
+
+* A Discord button in the main menu opens the community's server (also
+  linked from the README).
+* The menu's top bar: your name and tank on a riveted tag with more room,
+  the version moved beside the Discord button.
+
 ## 0.4.2
 
 * Random choices differ at every start: a server started with `--mission

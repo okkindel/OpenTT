@@ -822,6 +822,8 @@ pub trait MenuBackend {
     }
     /// Opens the releases page in the browser (the notice's button).
     fn open_releases(&mut self) {}
+    /// Opens `url` in the browser (the Discord button).
+    fn open_link(&mut self, _url: &str) {}
 
     // ---- text and art
     /// Credits text (`credits.hfl`, raw markup).
@@ -1271,6 +1273,9 @@ impl MenuBackend for MockBackend {
     }
     fn open_releases(&mut self) {
         self.log.push("open releases".into());
+    }
+    fn open_link(&mut self, url: &str) {
+        self.log.push(format!("open {url}"));
     }
     fn take_password_request(&mut self) -> Option<String> {
         self.password_request.take()

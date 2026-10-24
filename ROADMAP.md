@@ -17,6 +17,17 @@ released.
 
 * New maps with a winter theme.
 
+## Kill announcements
+
+* Multi-kills and streaks called out on screen and by an announcer, as in
+  arena shooters: "Double kill", "Triple kill", ... for kills in quick
+  succession, and streaks ("Killing spree", "Monster kill") for kills
+  without dying.
+* Worked out on each player's game from the kill messages it already
+  gets, so it needs no change to the network protocol.
+* The announcer's voice lines must be our own or freely licensed (CC0).
+* A setting to turn it off.
+
 ## Network protocol clean-up (0.5)
 
 Changes that need a new minor version, since 0.4.x clients and servers

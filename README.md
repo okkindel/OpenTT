@@ -19,6 +19,10 @@ This repository only holds the code and a few assets made for OpenTT
 arena, the Mortar rocket model, the announcer lines of the new power-ups
 and the Readable Pads mod).
 
+Talk about OpenTT, find games and report problems on the community
+[Discord server](https://discord.gg/H7fGD6E) (the Discord button in the
+main menu opens it).
+
 ## Download and install
 
 Packages for Linux, Windows and macOS are attached to each release on

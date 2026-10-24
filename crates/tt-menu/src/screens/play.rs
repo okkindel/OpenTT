@@ -54,9 +54,18 @@ pub(super) fn main_menu(g: &mut Gfx, st: &mut MenuState, b: &mut dyn MenuBackend
     if g.plate_button("play", play, "Play", Button::PRIMARY, 32.0).clicked() {
         chosen = Some(st.focus);
     }
-    // A newer release (the update check): a small steel plate under the list.
+    // The community's Discord server: a plain plate at the bottom left.
+    let discord = Rect::from_min_size(Pos2::new(g.stage.left() + 40.0, play.top()), Vec2::new(200.0, play.height()));
+    if g.plate_button("discord", discord, "", Button::PLAIN, 26.0).clicked() {
+        b.open_link(super::DISCORD_INVITE);
+    }
+    g.discord_icon(Pos2::new(discord.left() + 46.0, discord.center().y - 2.0), 34.0);
+    g.label(Pos2::new(discord.left() + 78.0, discord.center().y - 2.0), "Discord", 26.0, pal::SAND, Align2::LEFT_CENTER);
+    // The build's version beside it, then a newer release (the update
+    // check) on a small steel plate.
+    let v = g.text(Pos2::new(discord.right() + 20.0, discord.center().y), &b.version(), 18.0, pal::SAND_MUTED, Align2::LEFT_CENTER);
     if let Some(tag) = b.update_available() {
-        let r = Rect::from_min_size(Pos2::new(g.stage.left() + 40.0, play.top() + 8.0), Vec2::new(250.0, 42.0));
+        let r = Rect::from_min_size(Pos2::new(v.right() + 24.0, play.top() + 8.0), Vec2::new(250.0, 42.0));
         g.text(Pos2::new(r.right() + 16.0, r.center().y), "A new version is out", 20.0, pal::SAND_MUTED, Align2::LEFT_CENTER);
         if g.plate_button("update", r, &format!("Get {tag}"), Button::PLAIN, 22.0).clicked() {
             b.open_releases();

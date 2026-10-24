@@ -396,6 +396,20 @@ impl Gfx<'_> {
         r.shrink(pad)
     }
 
+    /// The Discord mark `w` wide at `c`: a blurple game-pad shape (body,
+    /// two feet) with two white eyes, drawn from shapes.
+    pub(crate) fn discord_icon(&self, c: Pos2, w: f32) {
+        let blurple = Color32::from_rgb(0x58, 0x65, 0xf2);
+        let h = w * 0.72;
+        let body = Rect::from_center_size(c, Vec2::new(w, h * 0.8));
+        self.painter.rect_filled(body, h * 0.34, blurple);
+        for sx in [-1.0, 1.0] {
+            self.painter.circle_filled(c + Vec2::new(sx * w * 0.36, h * 0.24), w * 0.16, blurple);
+            let eye = c + Vec2::new(sx * w * 0.18, -h * 0.02);
+            self.painter.add(Shape::ellipse_filled(eye, Vec2::new(w * 0.085, w * 0.1), Color32::WHITE));
+        }
+    }
+
     /// A small square remove button: a steel plate with a painted cross
     /// (centred geometry, not a glyph).
     pub(crate) fn remove_button(&self, r: Rect, hot: bool, down: bool) {

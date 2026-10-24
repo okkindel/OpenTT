@@ -201,8 +201,6 @@ pub enum ScenarioAction {
     RequestSpawn,
     // ---- client commands arriving at the server from the local client ----
     Chat { text: String, team: bool },
-    Admin { password: String },
-    AdminSetPassword { password: String },
     TogglePlayerAI,
     SpawnPlayer,
     // ---- bots and other clients ----
@@ -437,8 +435,6 @@ impl ScenarioAction {
                 let cmd = if *team { ClientCmd::TeamMessageSent { text: text.clone() } } else { ClientCmd::MessageSent { text: text.clone() } };
                 local_cmd(cmd)
             }
-            Admin { password } => local_cmd(ClientCmd::Sad { password: password.clone() }),
-            AdminSetPassword { password } => local_cmd(ClientCmd::SadSetPassword { password: password.clone() }),
             TogglePlayerAI => local_cmd(ClientCmd::Debug { cmd: tt_gameplay::DebugCmd::TogglePlayerAI, args: Vec::new() }),
             SpawnPlayer => local_cmd(ClientCmd::SpawnPlayer),
             DropBot { index } => {

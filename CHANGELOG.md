@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.2
+
+* Random choices differ at every start: a server started with `--mission
+  ALL` (or a random map order) began on the same map each time and
+  repeated the same order.
+* `ALL` takes every world's maps, the Moon's too, and
+  `server.map_rotation` accepts `GREEN`, `BLUE`, `RED`, `MOON` and `ALL`
+  for whole worlds. With a random order, a dedicated server starts on a
+  random map of its rotation.
+* Removed settings that did nothing: `server.admin_password` (there was
+  no way to log in as admin in the game), `server.mission_index`,
+  `server.mission_world`, `server.game_type_index`,
+  `server.password_enabled`, `server.region_mask`,
+  `player.finished_tutorial`.
+* A kicked player is told they were kicked, a banned one that they were
+  banned (the two messages were swapped).
+
 ## 0.4.1
 
 * Random map rotation: "Random order" in the Host dialog (dedicated

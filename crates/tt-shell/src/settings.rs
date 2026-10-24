@@ -191,7 +191,6 @@ section! {
         team: String = "player.team",
         unlock_baby_boss: bool = "player.unlock_baby_boss",
         play_count: u32 = "player.play_count",
-        finished_tutorial: bool = "player.finished_tutorial",
         parental_lock: String = "player.parental_lock",
     }
 }
@@ -282,12 +281,8 @@ section! {
         port: u16 = "server.port",
         max_players: u32 = "server.max_players",
         password: String = "server.password",
-        admin_password: String = "server.admin_password",
         /// "Always" or "Never".
         display_on_master: String = "server.display_on_master",
-        game_type_index: u32 = "server.game_type_index",
-        mission_index: u32 = "server.mission_index",
-        mission_world: u32 = "server.mission_world",
         max_bots: u32 = "server.max_bots",
         replace_bots: bool = "server.replace_bots",
         min_health_packs: u32 = "server.min_health_packs",

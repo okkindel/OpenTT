@@ -27,7 +27,6 @@ pub enum Setting {
     Port,
     /// `Never`: not listed on the master server.
     DisplayOnMaster,
-    AdminPassword,
     MaxChatLen,
     FloodProtection,
     /// Seconds a kicked or banned player stays out.
@@ -112,8 +111,8 @@ pub trait ServerHost {
 
     fn is_file(&self, file: &str) -> bool;
     /// The map files of the map list (the game's and the enabled mods'), in
-    /// its order: of one world (1 green, 2 blue, 3 red, 4 the Moon), or of the
-    /// green, blue and red worlds (None). The special maps (no world) are in neither.
+    /// its order: of one world (1 green, 2 blue, 3 red, 4 the Moon), or of
+    /// every world (None). The special maps (no world) are in neither.
     fn maps(&mut self, world: Option<u8>) -> Vec<String>;
     /// The mission's name ("" if none).
     fn load_info(&mut self, file: &str) -> String;

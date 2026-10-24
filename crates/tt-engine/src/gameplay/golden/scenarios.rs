@@ -86,7 +86,6 @@ fn modes_on(out: &mut Vec<Entry>, map: &str, seed: u32) {
 fn effects(name: &str, map: &str, mode: Mode, seed: u32) -> Sc {
     let sc = Sc::new(name, seed, 120_000)
         .setup(A::pref("server.replace_bots", "1"))
-        .setup(A::pref("server.admin_password", "pw"))
         .setup(A::pref("server.max_chat_len", "20"))
         .setup(custom(map, mode, ffa_bots(), 1.5, 1));
     play(sc)
@@ -94,9 +93,6 @@ fn effects(name: &str, map: &str, mode: Mode, seed: u32) -> Sc {
         .every(9_000, 5_000, A::Cheat(Cheat::KillOne))
         .at(12_000, A::Chat { text: s("hello everybody, this is long"), team: false })
         .at(12_000, A::Chat { text: s("team!"), team: true })
-        .at(12_000, A::Admin { password: s("bad") })
-        .at(12_000, A::Admin { password: s("pw") })
-        .at(12_000, A::AdminSetPassword { password: s("pw2") })
         .at(14_000, A::TogglePlayerAI)
         .at(14_000, A::SpawnPlayer)
         .at(20_000, A::Connect { conn: s("TestClient2"), name: s("Tester"), team: s(""), tank: 2 })

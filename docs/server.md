@@ -8,7 +8,7 @@ opentt --dedicated --mission tt2_3 --port 28000 -- -game TS
 
 * `--mission`: a map id (`tt2_3`), then the maps of `server.map_rotation`
   (below) or that map alone; or a whole rotation: `GREEN`, `BLUE`, `RED`,
-  `MOON` (one world's maps) or `ALL` (the green, blue and red worlds'),
+  `MOON` (one world's maps) or `ALL` (every world's),
   starting on a random map.
 * `-game`: `B` battle (default), `TB` team battle, `S` scrum, `TS` team scrum.
 * `--port N`: the UDP port, 28000 by default. When it is taken (another
@@ -36,7 +36,6 @@ them) or in `settings.ron`; they are saved when the server quits
 | `server.name` | `OpenTT Server` | the name in the server list |
 | `server.max_players` | 10 | players (bots not counted) |
 | `server.password` | empty | a password to join; empty: none |
-| `server.admin_password` | empty | lets a player become admin in the game |
 | `server.max_bots` | 6 | bots; `server.bot.N`, `server.bot_name.N`, `server.bot_team.N` set each one's tank, name and team |
 | `server.replace_bots` | 1 | a joining player takes a bot's place |
 | `server.min_health_packs` | 2 | health pick-ups kept on a map (0–3) |
@@ -46,7 +45,7 @@ them) or in `settings.ron`; they are saved when the server quits
 | `server.kick_ban_time` | 300 | seconds a kicked player stays out |
 | `server.ban_time` | 1800 | seconds of a ban |
 | `server.connection_error` | (text) | shown to a player whose game does not match |
-| `server.map_rotation` | empty | the maps played in turn, as mission ids (`["tt1_1", "tt2_3"]` in `settings.ron`); empty: the `--mission` map only |
+| `server.map_rotation` | empty | the maps played in turn, as mission ids (`["tt1_1", "tt2_3"]` in `settings.ron`) or `GREEN`, `BLUE`, `RED`, `MOON`, `ALL` for whole worlds (`["ALL"]`); empty: the `--mission` map only |
 | `server.map_rotation_random` | 0 | 1: the rotation's maps come in a random order (`true` in `settings.ron`) |
 
 ## Master server
@@ -99,7 +98,7 @@ map rotation:
 When a round ends, the next map of the rotation starts (after the last,
 the first again). In a random order (`server.map_rotation_random`), a
 random map of the rotation other than the one just played starts instead
-(with one map, it again). A hosted game picks its rotation on the Host
+(with one map, it again), and a dedicated server starts on a random one. A hosted game picks its rotation on the Host
 screen: a click on a map adds it, a click on a chosen one takes it out, a
 double click keeps that map only; the first one starts the game. "Random
 order" below the list plays the maps in a random order.

@@ -332,11 +332,11 @@ impl Server {
     }
 
     pub fn kick(&mut self, h: &mut dyn ServerHost, client: ClientId) {
-        self.remove_admin(h, client, "\u{3}The Admin has kicked %1.", Setting::KickBanTime, "You have been banned from this server");
+        self.remove_admin(h, client, "\u{3}The Admin has kicked %1.", Setting::KickBanTime, "You have been kicked from this server");
     }
 
     pub fn ban(&mut self, h: &mut dyn ServerHost, client: ClientId) {
-        self.remove_admin(h, client, "\u{3}The Admin has banned %1.", Setting::BanTime, "You have been kicked from this server");
+        self.remove_admin(h, client, "\u{3}The Admin has banned %1.", Setting::BanTime, "You have been banned from this server");
     }
 }
 

@@ -409,6 +409,10 @@ fn rotation_random_order() {
     let mut t = Server::new();
     t.launch_dedicated(&mut h, A);
     assert!(!t.setup.rotation_random, "off by default");
+    // World names in the setting stand for their maps.
+    h.rotation = "tt2_3 ALL".into();
+    let mut t = Server::new();
+    assert_eq!(t.rotation_setting(&mut h, A), ["missions/tt2_3.ron", "missions/tt1_1.ron"].map(String::from));
 }
 
 /// The last vote line player `c` was told.

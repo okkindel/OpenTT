@@ -122,13 +122,8 @@ fn server_defaults(h: &mut EngineHost) {
     let p = &mut h.shell.prefs;
     let int = |p: &mut tt_shell::Prefs, n: &str, v: i32| p.declare(n, VarValue::Int(v));
     let text = |p: &mut tt_shell::Prefs, n: &str, v: &str| p.declare(n, VarValue::Str(v.to_string()));
-    int(p, "server.region_mask", 2);
     text(p, "server.display_on_master", "Always");
     text(p, "server.name", &format!("{} Server", tt_assets::product::NAME));
-    int(p, "server.password_enabled", 0);
-    int(p, "server.game_type_index", 0);
-    int(p, "server.mission_index", 1);
-    int(p, "server.mission_world", 1);
     text(
         p,
         "server.connection_error",
@@ -136,7 +131,6 @@ fn server_defaults(h: &mut EngineHost) {
     );
     int(p, "server.port", 28000);
     text(p, "server.password", "");
-    text(p, "server.admin_password", "");
     int(p, "server.max_players", 10);
     int(p, "server.flood_protection_enabled", 1);
     int(p, "server.max_chat_len", 120);
@@ -211,8 +205,12 @@ pub fn run(h: &mut EngineHost, args: &[String]) -> bool {
     } else {
         // onStart: initCommon, then the ThinkTanks mod.
         h.log.info("--------- Initializing MOD: Common ---------");
-        // `setRandomSeed()`: from the real-time clock.
-        let seed = h.now_ms_f64() as u32 as i32;
+        // `setRandomSeed()`: from the real-time clock, so every start differs
+        // (a virtual clock: its time, so runs repeat).
+        let seed = match h.virtual_clock_ms {
+            Some(t) => t as u32 as i32,
+            None => std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u32 as i32),
+        };
         h.rng.set_seed(seed);
         h.log.info(&format!("--------- Initializing MOD: {} ---------", tt_assets::product::WINDOW_TITLE));
         init_server(h);

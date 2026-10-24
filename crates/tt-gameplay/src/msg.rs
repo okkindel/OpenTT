@@ -435,9 +435,6 @@ pub enum ClientCmd {
     MessageSent { text: String },
     /// Chat to the team (`teamMessageSent`).
     TeamMessageSent { text: String },
-    /// Admin login (`SAD`).
-    Sad { password: String },
-    SadSetPassword { password: String },
     /// A development command and its arguments (without trailing empty ones).
     Debug { cmd: DebugCmd, args: Vec<String> },
     /// Calls a vote for a map of the rotation (its id or name).
@@ -458,8 +455,6 @@ impl ClientCmd {
             SpawnPlayer => ("SpawnPlayer", vec![]),
             MessageSent { text } => ("messageSent", vec![text.clone()]),
             TeamMessageSent { text } => ("teamMessageSent", vec![text.clone()]),
-            Sad { password } => ("SAD", vec![password.clone()]),
-            SadSetPassword { password } => ("SADSetPassword", vec![password.clone()]),
             Debug { cmd, args } => (DEBUG_CMDS.iter().find(|(c, _)| c == cmd).map(|(_, n)| *n).unwrap_or(""), args.clone()),
             CallVote { map } => ("callVote", vec![map.clone()]),
             CastVote { yes } => ("castVote", vec![(*yes as u8).to_string()]),
@@ -480,7 +475,6 @@ impl ClientCmd {
             SpawnPlayer | CastVote { .. } | MapList => vec![],
             CallVote { map } => vec![map],
             MessageSent { text } | TeamMessageSent { text } => vec![text],
-            Sad { password } | SadSetPassword { password } => vec![password],
             Debug { args, .. } => args.iter_mut().collect(),
         }
     }
@@ -598,8 +592,6 @@ mod tests {
             ClientCmd::SpawnPlayer,
             ClientCmd::MessageSent { text: "hi".into() },
             ClientCmd::TeamMessageSent { text: "team".into() },
-            ClientCmd::Sad { password: "pw".into() },
-            ClientCmd::SadSetPassword { password: "new".into() },
             ClientCmd::Debug { cmd: DebugCmd::CycleTank, args: vec![] },
             ClientCmd::Debug { cmd: DebugCmd::SelectObject, args: vec!["1".into(), "2".into()] },
             ClientCmd::Debug { cmd: DebugCmd::TogglePlayerAI, args: vec![] },

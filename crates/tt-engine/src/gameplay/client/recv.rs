@@ -81,7 +81,6 @@ pub fn hud(h: &mut EngineHost, msg: &HudMsg) {
         }
         TargetPracticeDone => {
             h.cl.time_scale = Some(tt_gameplay::client::value::Val::f(0.00001));
-            crate::shell::set_pref_val(&mut h.shell.prefs, "player.finished_tutorial", tt_gameplay::client::value::Val::Int(1));
             crate::shell::message_box(h, TARGET_DONE_TEXT, crate::shell::MessageKind::YesNo(crate::shell::MsgAction::Resume, crate::shell::MsgAction::DisconnectResume));
         }
         SoloGameOver => {

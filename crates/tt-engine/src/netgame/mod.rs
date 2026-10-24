@@ -1232,7 +1232,7 @@ mod tests {
     #[test]
     fn command_whitelist() {
         use tt_gameplay::DebugCmd;
-        for c in [ClientCmd::SpawnPlayer, ClientCmd::MessageSent { text: "hi".into() }, ClientCmd::PhaseAck { phase: 2, seq: "1".into() }, ClientCmd::Sad { password: "x".into() }] {
+        for c in [ClientCmd::SpawnPlayer, ClientCmd::MessageSent { text: "hi".into() }, ClientCmd::PhaseAck { phase: 2, seq: "1".into() }, ClientCmd::MapList] {
             assert!(remote_command_allowed(&c, false, false), "{c:?}");
         }
         for d in [DebugCmd::ToggleCamera, DebugCmd::CycleTank, DebugCmd::TogglePlayerAI, DebugCmd::SelectObject, DebugCmd::DropPlayerAtCamera] {

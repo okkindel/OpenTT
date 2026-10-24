@@ -1,8 +1,8 @@
 //! Client commands: the mission download's acknowledgements, respawn, the
-//! AI toggle, chat, the admin login and the map votes ([`super::vote`]).
+//! AI toggle, chat and the map votes ([`super::vote`]).
 
 use super::{ClientId, Server, ServerHost, Setting};
-use crate::msg::{ClientCmd, DebugCmd, HudMsg, MsgKind, Value};
+use crate::msg::{ClientCmd, DebugCmd, HudMsg, Value};
 
 impl Server {
     /// A command from client `c`.
@@ -12,12 +12,6 @@ impl Server {
             ClientCmd::SpawnPlayer => self.respawn_request(h, c),
             ClientCmd::MessageSent { text } => self.message_sent(h, c, text, false),
             ClientCmd::TeamMessageSent { text } => self.message_sent(h, c, text, true),
-            ClientCmd::Sad { password } => self.admin_login(h, c, password),
-            ClientCmd::SadSetPassword { password } => {
-                if self.client(c).is_some_and(|x| x.super_admin == Some(true)) {
-                    h.set_setting(Setting::AdminPassword, password);
-                }
-            }
             ClientCmd::Debug { cmd: DebugCmd::TogglePlayerAI, .. } => self.toggle_player_ai(h, c),
             ClientCmd::Debug { .. } => {}
             ClientCmd::CallVote { map } => self.call_vote(h, c, map),
@@ -49,18 +43,6 @@ impl Server {
                 let ai = if on { h.tank_def(p).and_then(|t| h.data().tanks[t].ai) } else { None };
                 h.set_ai(p, ai);
             }
-        }
-    }
-
-    /// The admin login.
-    pub fn admin_login(&mut self, h: &mut dyn ServerHost, c: ClientId, password: &str) {
-        if !password.is_empty() && password.eq_ignore_ascii_case(&h.setting(Setting::AdminPassword)) {
-            let Some(x) = self.clients.get_mut(&c) else { return };
-            x.admin = Some(true);
-            x.super_admin = Some(true);
-            let name = self.name_text(c);
-            let text = Value::Str(format!("\u{3}{name} has become Admin by force."));
-            self.message_all(h, &MsgKind::AdminForce { who: Value::str(c.text()) }, &text);
         }
     }
 

@@ -429,7 +429,6 @@ fn custom_prefs(host: &mut EngineHost, g: &CustomGame) {
         p.set(&format!("server.bot_team.{i}"), team);
     }
     crate::gameplay::server_host::with_server(host, |s, b| s.bots_from_settings(b));
-    shell::set_pref(host, "server.game_type_index", &g.mode.to_string());
     let s = &mut host.srv.state_mut().setup;
     s.mission_type = if g.mode >= 2 { tt_gameplay::server::MissionType::Scrum } else { tt_gameplay::server::MissionType::Deathmatch };
     s.team_game = teams;

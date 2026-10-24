@@ -262,10 +262,6 @@ pub fn put_client_cmd(w: &mut BitWriter, c: &ClientCmd) {
             w.write_bits(if matches!(c, MessageSent { .. }) { 4 } else { 5 }, 8);
             put_text(w, text);
         }
-        Sad { password } | SadSetPassword { password } => {
-            w.write_bits(if matches!(c, Sad { .. }) { 6 } else { 7 }, 8);
-            put_text(w, password);
-        }
         Debug { cmd, args } => {
             w.write_bits(8 + DEBUG_CMDS.iter().position(|d| d == cmd).unwrap_or(0) as u64, 8);
             w.write_varint(args.len() as u64);
@@ -292,13 +288,11 @@ pub fn get_client_cmd(r: &mut BitReader) -> Result<ClientCmd, DecodeError> {
         3 => SpawnPlayer,
         4 => MessageSent { text: rx.get_text(r)? },
         5 => TeamMessageSent { text: rx.get_text(r)? },
-        6 => Sad { password: rx.get_text(r)? },
-        7 => SadSetPassword { password: rx.get_text(r)? },
         20 => CallVote { map: rx.get_text(r)? },
         21 | 22 => CastVote { yes: k == 22 },
         23 => MapList,
         _ => {
-            let cmd = *DEBUG_CMDS.get(k as usize - 8).ok_or(DecodeError::Invalid("client command kind"))?;
+            let cmd = *(k as usize).checked_sub(8).and_then(|i| DEBUG_CMDS.get(i)).ok_or(DecodeError::Invalid("client command kind"))?;
             let n = get_count(r)?;
             let args = (0..n).map(|_| rx.get_text(r)).collect::<Result<_, _>>()?;
             Debug { cmd, args }
@@ -340,8 +334,6 @@ mod tests {
             ClientCmd::SpawnPlayer,
             ClientCmd::MessageSent { text: "hello".into() },
             ClientCmd::TeamMessageSent { text: "t".into() },
-            ClientCmd::Sad { password: "".into() },
-            ClientCmd::SadSetPassword { password: "x".into() },
             ClientCmd::Debug { cmd: DebugCmd::TogglePlayerAI, args: vec!["1".into()] },
             ClientCmd::CallVote { map: "Snowblind".into() },
             ClientCmd::CastVote { yes: false },
@@ -355,6 +347,9 @@ mod tests {
             assert_eq!(get_client_cmd(&mut BitReader::new(&b)).unwrap(), c);
         }
         assert!(get_client_cmd(&mut BitReader::new(&[200])).is_err());
+        // The admin login's old kinds: refused (in a debug build too).
+        assert!(get_client_cmd(&mut BitReader::new(&[6])).is_err());
+        assert!(get_client_cmd(&mut BitReader::new(&[7])).is_err());
         assert!(get_client_cmd(&mut BitReader::new(&[])).is_err());
     }
 

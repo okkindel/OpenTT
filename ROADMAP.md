@@ -16,3 +16,11 @@ released.
 ## Winter maps
 
 * New maps with a winter theme.
+
+## Network protocol clean-up (0.5)
+
+Changes that need a new minor version, since 0.4.x clients and servers
+must keep understanding each other:
+
+* The player-join message still carries two admin flags, always off now
+  that the in-game admin login is gone; drop them.

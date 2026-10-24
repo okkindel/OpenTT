@@ -116,36 +116,52 @@ impl Server {
 
     /// A dedicated server on `mission`: a mission file (then the
     /// rotation of the settings, or that mission alone), or every map of
-    /// the map list's world (`GREEN`, `BLUE`, `RED`, `MOON`) or of the green,
-    /// blue and red worlds (`ALL`) as the rotation, starting on a random one.
+    /// the map list's world (`GREEN`, `BLUE`, `RED`, `MOON`) or of every
+    /// world (`ALL`) as the rotation, starting on a random one.
     pub fn launch_dedicated(&mut self, h: &mut dyn ServerHost, mission: &str) {
         let mut mission = mission.to_string();
         self.bots_from_settings(h);
         let mode = self.setup.dedicated_mode;
         self.setup.mission_type = mode.mission_type();
         self.setup.team_game = mode.teams();
-        let world = [("GREEN", Some(1)), ("BLUE", Some(2)), ("RED", Some(3)), ("MOON", Some(4)), ("ALL", None)].iter().find(|(k, _)| mission.eq_ignore_ascii_case(k)).map(|(_, w)| *w);
-        match world {
+        self.setup.rotation_random = self.setting_on(h, super::Setting::MapRotationRandom);
+        match world_of(&mission) {
             Some(w) => {
-                let maps = h.maps(w);
+                let mut maps = h.maps(w);
+                if maps.is_empty() {
+                    h.error(&format!("--mission {mission}: no maps of that world; every world's instead"));
+                    maps = h.maps(None);
+                }
                 mission = self.random_mission(&maps);
                 self.setup.rotation = maps;
             }
-            None => self.setup.rotation = self.rotation_setting(h, &mission),
+            None => {
+                self.setup.rotation = self.rotation_setting(h, &mission);
+                // A random order starts on a random map too.
+                if self.setup.rotation_random && self.setup.rotation.len() > 1 {
+                    mission = self.random_mission(&self.setup.rotation.clone());
+                }
+            }
         }
-        self.setup.rotation_random = self.setting_on(h, super::Setting::MapRotationRandom);
         self.setup.target_range = Some(false);
         self.create_server(h, ServerType::MultiPlayer, &mission);
     }
 
-    /// The rotation of the settings (`server.map_rotation`: mission ids,
-    /// separated by spaces, commas or tabs; ids without a mission file are
-    /// left out), or `mission` alone when it names none.
+    /// The rotation of the settings (`server.map_rotation`: mission ids, or
+    /// `GREEN`, `BLUE`, `RED`, `MOON`, `ALL` for a world's maps or every
+    /// world's, separated by spaces, commas or tabs; ids without a mission
+    /// file are left out), or `mission` alone when it names none.
     pub fn rotation_setting(&mut self, h: &mut dyn ServerHost, mission: &str) -> Vec<String> {
         let mut files = Vec::new();
         for id in h.setting(super::Setting::MapRotation).split(|c: char| c == ',' || c.is_whitespace()).filter(|s| !s.is_empty()) {
             let file = tt_assets::layout::mission(id);
-            if !h.is_file(&file) {
+            if let Some(w) = world_of(id) {
+                for f in h.maps(w) {
+                    if !files.contains(&f) {
+                        files.push(f);
+                    }
+                }
+            } else if !h.is_file(&file) {
                 h.error(&format!("server.map_rotation: no mission {id}"));
             } else if !files.contains(&file) {
                 files.push(file);
@@ -156,4 +172,10 @@ impl Server {
         }
         files
     }
+}
+
+/// The world a rotation name stands for: `GREEN`, `BLUE`, `RED`, `MOON`
+/// (one world), `ALL` (every world: `Some(None)`); a mission id: `None`.
+fn world_of(name: &str) -> Option<Option<u8>> {
+    [("GREEN", Some(1)), ("BLUE", Some(2)), ("RED", Some(3)), ("MOON", Some(4)), ("ALL", None)].iter().find(|(k, _)| name.eq_ignore_ascii_case(k)).map(|(_, w)| *w)
 }
